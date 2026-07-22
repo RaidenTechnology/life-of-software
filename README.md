@@ -1,7 +1,18 @@
-# GMTK Game Jam 2026 — Raiden Technology
+# GMTK 2026 Jam Game (isim TBD) — Raiden Technology
 
 Generic pre-jam skeleton (allowed by jam rules: "pre-existing generic code").
 Game-specific mechanics start after the theme reveal — **July 22, 2026, 20:00**.
+
+## Tema: Count Down
+
+itch.io duyurusu (22 Temmuz 2026, 20:04): *"The GMTK Game Jam for 2026 starts right now.
+You've got 96 hours to make a game that fits the theme. And this year's theme is... **Count Down**."*
+
+> How you interpret this theme is entirely up to you. It could be a countdown to zero.
+> Numbers going down. Time going backwards. A depressed person with a historical title
+> of nobility. Up to you!
+
+Jam bitiş: 26 Temmuz 2026, ~20:00 (96 saat). Konsept fikirleri için [NOTES.md](NOTES.md).
 
 ## Structure
 
