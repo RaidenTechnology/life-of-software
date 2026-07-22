@@ -8,8 +8,8 @@
 const HINT_COST = 20;
 const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
-const START_TIME = 60;
-const LEVELUP_TIME_BONUS = 8;
+const START_TIME = 75;
+const LEVELUP_TIME_BONUS = 10;
 const MAX_TYPED = 24;
 
 class GameScene extends Phaser.Scene {
