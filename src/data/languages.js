@@ -1,12 +1,35 @@
-// Language ladder — 18 languages, easiest to hardest. All entries lowercase;
-// input is lowercased before comparison so "True" and "forEach" both match.
-// Operators/punctuation ("==", "=>", "::") count as patterns too.
-// timeMult shrinks the per-word time bonus as languages get harder.
+// Language ladder — 25 languages ordered by learning difficulty, easiest first.
+// All entries lowercase; input is lowercased before comparison.
+// Operators/punctuation ("==", "=>", "::", "%>%") count as patterns too.
+// target/timeMult are computed from ladder position at the bottom of this file.
 // dark: true → badge abbreviation is drawn dark (for light badge colors).
 
 const LANGUAGES = [
   {
-    name: 'PYTHON', abbr: 'Py', color: '#4b8bbe', target: 650, timeMult: 1.0,
+    name: 'HTML', abbr: '<>', color: '#e34c26',
+    words: [
+      'html', 'head', 'body', 'title', 'meta', 'link', 'script', 'style',
+      'div', 'span', 'p', 'a', 'img', 'href', 'src', 'alt', 'class', 'id',
+      'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'form', 'input', 'button',
+      'label', 'select', 'option', 'textarea', 'header', 'footer', 'nav',
+      'section', 'article', 'main', 'aside', 'h1', 'h2', 'h3', 'br', 'hr',
+      'strong', 'em', 'iframe', 'canvas', 'video', 'audio', 'doctype'
+    ]
+  },
+  {
+    name: 'CSS', abbr: 'CSS', color: '#264de4',
+    words: [
+      'color', 'background', 'margin', 'padding', 'border', 'width', 'height',
+      'display', 'flex', 'grid', 'position', 'absolute', 'relative', 'fixed',
+      'sticky', 'float', 'clear', 'font', 'hover', 'focus', 'active',
+      'before', 'after', 'transform', 'transition', 'animation', 'opacity',
+      'z-index', 'overflow', 'cursor', 'align', 'justify', 'gap', 'rem',
+      'vh', 'vw', 'rgba', 'calc', 'media', 'important', 'inherit', 'initial',
+      'none', 'auto', 'block', 'inline', 'hidden', 'root', 'var'
+    ]
+  },
+  {
+    name: 'PYTHON', abbr: 'Py', color: '#4b8bbe',
     words: [
       'import', 'from', 'as', 'def', 'class', 'return', 'if', 'elif', 'else',
       'for', 'while', 'in', 'is', 'not', 'and', 'or', 'break', 'continue',
@@ -17,18 +40,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'RUBY', abbr: 'Rb', color: '#cc342d', target: 680, timeMult: 0.97,
-    words: [
-      'def', 'end', 'puts', 'gets', 'class', 'module', 'require', 'include',
-      'attr_accessor', 'initialize', 'new', 'nil', 'true', 'false', 'self',
-      'if', 'unless', 'elsif', 'else', 'then', 'case', 'when', 'while',
-      'until', 'for', 'do', 'begin', 'rescue', 'ensure', 'raise', 'yield',
-      'return', 'break', 'next', 'redo', 'retry', 'lambda', 'proc', 'each',
-      'map', 'select', 'chomp', 'to_s', 'to_i', '=>', '<=>', '<<'
-    ]
-  },
-  {
-    name: 'JAVASCRIPT', abbr: 'JS', color: '#f7df1e', dark: true, target: 710, timeMult: 0.94,
+    name: 'JAVASCRIPT', abbr: 'JS', color: '#f7df1e', dark: true,
     words: [
       'var', 'let', 'const', 'function', 'return', 'if', 'else', 'switch',
       'case', 'default', 'for', 'while', 'do', 'break', 'continue', 'new',
@@ -41,7 +53,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'LUA', abbr: 'Lua', color: '#51a0cf', target: 740, timeMult: 0.91,
+    name: 'LUA', abbr: 'Lua', color: '#51a0cf',
     words: [
       'local', 'function', 'end', 'if', 'then', 'else', 'elseif', 'for',
       'while', 'do', 'repeat', 'until', 'break', 'return', 'nil', 'true',
@@ -51,7 +63,18 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'PHP', abbr: 'php', color: '#8993be', target: 770, timeMult: 0.88,
+    name: 'RUBY', abbr: 'Rb', color: '#cc342d',
+    words: [
+      'def', 'end', 'puts', 'gets', 'class', 'module', 'require', 'include',
+      'attr_accessor', 'initialize', 'new', 'nil', 'true', 'false', 'self',
+      'if', 'unless', 'elsif', 'else', 'then', 'case', 'when', 'while',
+      'until', 'for', 'do', 'begin', 'rescue', 'ensure', 'raise', 'yield',
+      'return', 'break', 'next', 'redo', 'retry', 'lambda', 'proc', 'each',
+      'map', 'select', 'chomp', 'to_s', 'to_i', '=>', '<=>', '<<'
+    ]
+  },
+  {
+    name: 'PHP', abbr: 'php', color: '#8993be',
     words: [
       'echo', 'print', 'function', 'class', 'public', 'private', 'protected',
       'static', 'new', 'this', 'extends', 'implements', 'interface',
@@ -63,7 +86,32 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'TYPESCRIPT', abbr: 'TS', color: '#3178c6', target: 800, timeMult: 0.85,
+    name: 'SQL', abbr: 'SQL', color: '#e38c00',
+    words: [
+      'select', 'from', 'where', 'insert', 'into', 'values', 'update',
+      'delete', 'create', 'table', 'alter', 'drop', 'join', 'inner', 'left',
+      'right', 'outer', 'on', 'group', 'by', 'having', 'order', 'limit',
+      'offset', 'distinct', 'union', 'primary', 'key', 'foreign', 'index',
+      'view', 'and', 'or', 'not', 'null', 'count', 'sum', 'avg', 'min',
+      'max', 'between', 'like', 'in', 'as', 'exists', 'begin', 'commit',
+      'rollback', 'grant', 'revoke'
+    ]
+  },
+  {
+    name: 'DART', abbr: 'Dt', color: '#0175c2',
+    words: [
+      'void', 'main', 'var', 'final', 'const', 'int', 'double', 'num',
+      'string', 'bool', 'list', 'map', 'set', 'dynamic', 'class', 'extends',
+      'implements', 'with', 'mixin', 'abstract', 'factory', 'static', 'new',
+      'this', 'super', 'if', 'else', 'for', 'while', 'do', 'switch', 'case',
+      'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw',
+      'async', 'await', 'future', 'stream', 'yield', 'null', 'true', 'false',
+      'print', 'late', 'required', 'get', 'set', 'is', 'as',
+      '=>', '??', '?.', '..'
+    ]
+  },
+  {
+    name: 'TYPESCRIPT', abbr: 'TS', color: '#3178c6',
     words: [
       'interface', 'type', 'enum', 'implements', 'extends', 'readonly',
       'private', 'public', 'protected', 'abstract', 'namespace', 'declare',
@@ -75,7 +123,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'JAVA', abbr: 'J', color: '#e76f00', target: 830, timeMult: 0.82,
+    name: 'JAVA', abbr: 'J', color: '#e76f00',
     words: [
       'public', 'private', 'protected', 'static', 'final', 'void', 'class',
       'interface', 'extends', 'implements', 'abstract', 'new', 'this',
@@ -88,7 +136,19 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'C#', abbr: 'C#', color: '#9b4f96', target: 860, timeMult: 0.79,
+    name: 'KOTLIN', abbr: 'Kt', color: '#7f52ff',
+    words: [
+      'fun', 'val', 'var', 'class', 'object', 'interface', 'data', 'sealed',
+      'open', 'override', 'abstract', 'companion', 'init', 'constructor',
+      'when', 'is', 'in', 'if', 'else', 'for', 'while', 'do', 'return',
+      'break', 'continue', 'null', 'true', 'false', 'this', 'super',
+      'package', 'import', 'lateinit', 'lazy', 'suspend', 'inline',
+      'reified', 'vararg', 'println', 'listof', 'mapof', 'let', 'also',
+      'apply', 'run', 'with', '?:', '!!', '?.'
+    ]
+  },
+  {
+    name: 'C#', abbr: 'C#', color: '#9b4f96',
     words: [
       'using', 'namespace', 'class', 'struct', 'interface', 'enum', 'public',
       'private', 'protected', 'internal', 'static', 'readonly', 'const',
@@ -101,53 +161,20 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'GO', abbr: 'Go', color: '#00add8', target: 890, timeMult: 0.76,
+    name: 'FLUTTER', abbr: 'Fl', color: '#54c5f8', dark: true,
     words: [
-      'package', 'import', 'func', 'var', 'const', 'type', 'struct',
-      'interface', 'map', 'chan', 'go', 'defer', 'select', 'range', 'return',
-      'if', 'else', 'for', 'switch', 'case', 'default', 'break', 'continue',
-      'fallthrough', 'goto', 'nil', 'true', 'false', 'make', 'new', 'len',
-      'cap', 'append', 'copy', 'panic', 'recover', 'println', 'fmt', 'main',
-      'error', 'string', 'int', 'bool', ':=', '<-', '=='
+      'widget', 'stateless', 'stateful', 'state', 'setstate', 'build',
+      'context', 'scaffold', 'appbar', 'container', 'column', 'row', 'text',
+      'center', 'padding', 'expanded', 'flexible', 'stack', 'positioned',
+      'listview', 'gridview', 'sizedbox', 'icon', 'image', 'card', 'divider',
+      'drawer', 'snackbar', 'dialog', 'theme', 'material', 'cupertino',
+      'navigator', 'route', 'push', 'pop', 'animation', 'controller',
+      'builder', 'future', 'stream', 'provider', 'align', 'wrap', 'key',
+      'child', 'children', 'hero', 'inkwell', 'gesture'
     ]
   },
   {
-    name: 'BASH', abbr: '>_', color: '#4eaa25', target: 920, timeMult: 0.73,
-    words: [
-      'echo', 'read', 'if', 'then', 'else', 'elif', 'fi', 'for', 'while',
-      'do', 'done', 'case', 'esac', 'function', 'local', 'export', 'source',
-      'alias', 'cd', 'ls', 'pwd', 'grep', 'sed', 'awk', 'cat', 'chmod',
-      'chown', 'sudo', 'exit', 'return', 'break', 'continue', 'shift',
-      'eval', 'exec', 'trap', 'set', 'unset', 'test', 'sleep', 'kill',
-      'touch', 'mkdir', 'curl', 'tar', '&&', '||', '>>', '|', '$?'
-    ]
-  },
-  {
-    name: 'SQL', abbr: 'SQL', color: '#e38c00', target: 950, timeMult: 0.70,
-    words: [
-      'select', 'from', 'where', 'insert', 'into', 'values', 'update',
-      'delete', 'create', 'table', 'alter', 'drop', 'join', 'inner', 'left',
-      'right', 'outer', 'on', 'group', 'by', 'having', 'order', 'limit',
-      'offset', 'distinct', 'union', 'primary', 'key', 'foreign', 'index',
-      'view', 'and', 'or', 'not', 'null', 'count', 'sum', 'avg', 'min',
-      'max', 'between', 'like', 'in', 'as', 'exists', 'begin', 'commit',
-      'rollback', 'grant', 'revoke'
-    ]
-  },
-  {
-    name: 'KOTLIN', abbr: 'Kt', color: '#7f52ff', target: 980, timeMult: 0.67,
-    words: [
-      'fun', 'val', 'var', 'class', 'object', 'interface', 'data', 'sealed',
-      'open', 'override', 'abstract', 'companion', 'init', 'constructor',
-      'when', 'is', 'in', 'if', 'else', 'for', 'while', 'do', 'return',
-      'break', 'continue', 'null', 'true', 'false', 'this', 'super',
-      'package', 'import', 'lateinit', 'lazy', 'suspend', 'inline',
-      'reified', 'vararg', 'println', 'listof', 'mapof', 'let', 'also',
-      'apply', 'run', 'with', '?:', '!!', '?.'
-    ]
-  },
-  {
-    name: 'SWIFT', abbr: 'Sw', color: '#f05138', target: 1010, timeMult: 0.64,
+    name: 'SWIFT', abbr: 'Sw', color: '#f05138',
     words: [
       'func', 'var', 'let', 'class', 'struct', 'enum', 'protocol',
       'extension', 'guard', 'defer', 'if', 'else', 'switch', 'case',
@@ -159,7 +186,51 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'C', abbr: 'C', color: '#5c6bc0', target: 1040, timeMult: 0.61,
+    name: 'GO', abbr: 'Go', color: '#00add8',
+    words: [
+      'package', 'import', 'func', 'var', 'const', 'type', 'struct',
+      'interface', 'map', 'chan', 'go', 'defer', 'select', 'range', 'return',
+      'if', 'else', 'for', 'switch', 'case', 'default', 'break', 'continue',
+      'fallthrough', 'goto', 'nil', 'true', 'false', 'make', 'new', 'len',
+      'cap', 'append', 'copy', 'panic', 'recover', 'println', 'fmt', 'main',
+      'error', 'string', 'int', 'bool', ':=', '<-', '=='
+    ]
+  },
+  {
+    name: 'BASH', abbr: '>_', color: '#4eaa25',
+    words: [
+      'echo', 'read', 'if', 'then', 'else', 'elif', 'fi', 'for', 'while',
+      'do', 'done', 'case', 'esac', 'function', 'local', 'export', 'source',
+      'alias', 'cd', 'ls', 'pwd', 'grep', 'sed', 'awk', 'cat', 'chmod',
+      'chown', 'sudo', 'exit', 'return', 'break', 'continue', 'shift',
+      'eval', 'exec', 'trap', 'set', 'unset', 'test', 'sleep', 'kill',
+      'touch', 'mkdir', 'curl', 'tar', '&&', '||', '>>', '|', '$?'
+    ]
+  },
+  {
+    name: 'PERL', abbr: 'Pl', color: '#39457e',
+    words: [
+      'my', 'our', 'local', 'sub', 'use', 'package', 'require', 'print',
+      'chomp', 'if', 'elsif', 'else', 'unless', 'while', 'until', 'for',
+      'foreach', 'do', 'last', 'next', 'redo', 'return', 'die', 'warn',
+      'defined', 'undef', 'shift', 'push', 'pop', 'splice', 'split', 'join',
+      'grep', 'sort', 'keys', 'values', 'each', 'scalar', 'wantarray',
+      'bless', 'ref', 'qw', 'eq', 'ne', '=~', '->', '=>', '<=>'
+    ]
+  },
+  {
+    name: 'R', abbr: 'R', color: '#276dc3',
+    words: [
+      'function', 'return', 'if', 'else', 'for', 'while', 'repeat', 'break',
+      'next', 'library', 'require', 'print', 'cat', 'paste', 'vector',
+      'matrix', 'list', 'factor', 'mean', 'median', 'sum', 'length', 'names',
+      'null', 'na', 'true', 'false', 'apply', 'sapply', 'lapply', 'ggplot',
+      'dplyr', 'filter', 'mutate', 'select', 'summary', 'plot', 'hist',
+      'data.frame', 'rnorm', 'seq', 'rep', '<-', '%>%', '%in%'
+    ]
+  },
+  {
+    name: 'C', abbr: 'C', color: '#5c6bc0',
     words: [
       'include', 'stdio', 'main', 'printf', 'scanf', 'int', 'char', 'float',
       'double', 'void', 'long', 'short', 'unsigned', 'signed', 'struct',
@@ -171,7 +242,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'C++', abbr: 'C++', color: '#659ad2', target: 1070, timeMult: 0.58,
+    name: 'C++', abbr: 'C++', color: '#659ad2',
     words: [
       'include', 'iostream', 'using', 'namespace', 'std', 'cout', 'cin',
       'endl', 'int', 'char', 'bool', 'float', 'double', 'void', 'long',
@@ -185,7 +256,18 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'RUST', abbr: 'Rs', color: '#f74c00', target: 1100, timeMult: 0.55,
+    name: 'ZIG', abbr: 'Zg', color: '#f7a41d', dark: true,
+    words: [
+      'fn', 'pub', 'const', 'var', 'comptime', 'inline', 'export', 'extern',
+      'struct', 'enum', 'union', 'error', 'defer', 'errdefer', 'try',
+      'catch', 'if', 'else', 'switch', 'while', 'for', 'break', 'continue',
+      'return', 'unreachable', 'undefined', 'null', 'true', 'false', 'void',
+      'usize', 'u8', 'u32', 'i32', 'f64', 'bool', 'anytype', 'test',
+      'orelse', 'and', 'or', 'packed', 'align', 'volatile', 'std'
+    ]
+  },
+  {
+    name: 'RUST', abbr: 'Rs', color: '#f74c00',
     words: [
       'fn', 'let', 'mut', 'const', 'static', 'struct', 'enum', 'impl',
       'trait', 'pub', 'mod', 'use', 'crate', 'self', 'super', 'match', 'if',
@@ -198,7 +280,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'HASKELL', abbr: 'λ', color: '#5e5086', target: 1130, timeMult: 0.52,
+    name: 'HASKELL', abbr: 'λ', color: '#5e5086',
     words: [
       'module', 'where', 'import', 'data', 'type', 'newtype', 'class',
       'instance', 'deriving', 'let', 'in', 'case', 'of', 'do', 'if', 'then',
@@ -210,7 +292,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'ASSEMBLY', abbr: 'ASM', color: '#8a8a8a', target: 1170, timeMult: 0.50,
+    name: 'ASSEMBLY', abbr: 'ASM', color: '#8a8a8a',
     words: [
       'mov', 'add', 'sub', 'mul', 'div', 'inc', 'dec', 'jmp', 'je', 'jne',
       'jz', 'jnz', 'jg', 'jl', 'jge', 'jle', 'cmp', 'test', 'push', 'pop',
@@ -221,3 +303,10 @@ const LANGUAGES = [
     ]
   }
 ];
+
+// Difficulty curve, one place to tune: target grows and the per-word time
+// bonus shrinks as you climb the ladder.
+LANGUAGES.forEach((lang, i) => {
+  lang.target = 650 + i * 30;
+  lang.timeMult = Math.max(0.5, +(1 - i * 0.02).toFixed(2));
+});

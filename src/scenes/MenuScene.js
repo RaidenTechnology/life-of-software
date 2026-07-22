@@ -45,10 +45,12 @@ class MenuScene extends Phaser.Scene {
     this.add.text(cx, cy + 118, LANGUAGES.length + ' DİLLİK YOL', {
       fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
     }).setOrigin(0.5);
-    const spacing = 48;
-    const x0 = cx - (LANGUAGES.length - 1) * spacing / 2;
+    const spacing = 44, perRow = Math.ceil(LANGUAGES.length / 2);
     LANGUAGES.forEach((lang, i) => {
-      UI.badge(this, x0 + i * spacing, cy + 158, lang, 16);
+      const row = Math.floor(i / perRow), col = i % perRow;
+      const rowLen = row === 0 ? perRow : LANGUAGES.length - perRow;
+      const x0 = cx - (rowLen - 1) * spacing / 2;
+      UI.badge(this, x0 + col * spacing, cy + 148 + row * 40, lang, 14);
     });
 
     this.input.once('pointerdown', () => {

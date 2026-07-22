@@ -18,8 +18,7 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.totalScore = 0;
-    this.levelScore = 0;
+    this.score = 0;          // resets every level — only credits carry over
     this.credits = 0;
     this.wordsTyped = 0;
     this.langIndex = 0;
@@ -146,12 +145,11 @@ class GameScene extends Phaser.Scene {
     this.wordsTyped++;
     const points = w.length * 10;
     const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult;
-    this.totalScore += points;
-    this.levelScore += points;
+    this.score += points;
     this.timeLeft += bonus;
     this.credits = Math.min(CREDIT_MAX, this.credits + CREDIT_PER_WORD);
 
-    this.scoreText.setText('PUAN ' + this.totalScore);
+    this.scoreText.setText('PUAN ' + this.score);
     this.refreshCredits();
     this.pushRecent(w);
     this.floatText('+' + points + '  +' + bonus.toFixed(1) + 's');
@@ -163,7 +161,7 @@ class GameScene extends Phaser.Scene {
       scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
     }).explode();
 
-    if (this.levelScore >= this.lang.target) {
+    if (this.score >= this.lang.target) {
       this.levelUp();
     } else {
       this.refreshLangHud();
@@ -177,7 +175,8 @@ class GameScene extends Phaser.Scene {
       this.finish(true);
       return;
     }
-    this.levelScore = 0;
+    this.score = 0;          // fresh level, fresh score — credits stay
+    this.scoreText.setText('PUAN 0');
     this.found.clear();
     this.recent = [];
     this.recentText.setText('');
@@ -236,10 +235,10 @@ class GameScene extends Phaser.Scene {
     cur.box.setStrokeStyle(3, 0xffffff);
     const next = mkNode(fromIdx + 1, spacing, 0.45);
 
-    this.tweens.add({ targets: overlay, alpha: 1, duration: 250 });
+    this.tweens.add({ targets: overlay, alpha: 1, duration: 400 });
 
     // 1) the cleared section turns white → green
-    this.time.delayedCall(600, () => {
+    this.time.delayedCall(1000, () => {
       cur.box.setStrokeStyle(3, IDE.greenHex);
       cur.add(this.add.text(70, -24, '✓', {
         fontFamily: 'monospace', fontSize: '22px', color: IDE.comment, fontStyle: 'bold'
@@ -248,16 +247,16 @@ class GameScene extends Phaser.Scene {
     });
 
     // 2) the road slides: cleared language falls behind, next one arrives
-    this.time.delayedCall(1300, () => {
+    this.time.delayedCall(2200, () => {
       const incoming = fromIdx + 2 < LANGUAGES.length
         ? mkNode(fromIdx + 2, spacing * 2, 0) : null;
-      const slide = { x: '-=' + spacing, duration: 650, ease: 'Cubic.easeInOut' };
+      const slide = { x: '-=' + spacing, duration: 1000, ease: 'Cubic.easeInOut' };
       this.tweens.add({ targets: [cur, next], ...slide });
       if (prev) this.tweens.add({ targets: prev, ...slide, alpha: 0 });
       if (incoming) this.tweens.add({ targets: incoming, ...slide, alpha: 0.45 });
-      this.tweens.add({ targets: cur, alpha: 0.55, duration: 650 });
+      this.tweens.add({ targets: cur, alpha: 0.55, duration: 1000 });
       this.tweens.add({
-        targets: next, alpha: 1, duration: 650,
+        targets: next, alpha: 1, duration: 1000,
         onComplete: () => {
           next.box.setStrokeStyle(3, 0xffffff);
           this.tweens.add({ targets: next, scale: 1.08, duration: 150, yoyo: true });
@@ -267,9 +266,9 @@ class GameScene extends Phaser.Scene {
     });
 
     // 3) hold, fade out, resume play
-    this.time.delayedCall(2900, () => {
+    this.time.delayedCall(4600, () => {
       this.tweens.add({
-        targets: overlay, alpha: 0, duration: 300,
+        targets: overlay, alpha: 0, duration: 400,
         onComplete: () => { overlay.destroy(); done(); }
       });
     });
@@ -299,7 +298,7 @@ class GameScene extends Phaser.Scene {
     this.over = true;
     if (win) Sfx.win(); else Sfx.hit();
     this.scene.start('End', {
-      score: this.totalScore,
+      score: this.score,
       words: this.wordsTyped,
       langIndex: Math.min(this.langIndex, LANGUAGES.length - 1),
       win: win
@@ -327,7 +326,7 @@ class GameScene extends Phaser.Scene {
   refreshLangHud() {
     this.langText.setText('BÖLÜM ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
       .setColor(this.lang.color);
-    this.progressFill.width = 180 * Math.min(1, this.levelScore / this.lang.target);
+    this.progressFill.width = 180 * Math.min(1, this.score / this.lang.target);
     this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
     if (this.langBadge) this.langBadge.destroy();
     this.langBadge = UI.badge(this,
