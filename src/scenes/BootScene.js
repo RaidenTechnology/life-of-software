@@ -11,7 +11,7 @@ class BootScene extends Phaser.Scene {
     const barW = 320, barH = 8;
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
     const track = this.add.rectangle(cx, cy, barW, barH, 0x333333);
-    const fill = this.add.rectangle(cx - barW / 2, cy, 0, barH, 0xe3242b).setOrigin(0, 0.5);
+    const fill = this.add.rectangle(cx - barW / 2, cy, 0, barH, 0x007acc).setOrigin(0, 0.5);
     this.load.on('progress', v => { fill.width = barW * v; });
 
     // this.load.image('...', 'assets/...');  ← jam assets go here

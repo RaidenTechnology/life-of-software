@@ -4,12 +4,9 @@
 const GAME_WIDTH = 960;
 const GAME_HEIGHT = 540;
 
-// Brand palette
+// Palette lives in src/ui.js (IDE object) — the game is themed as a code editor.
 const COLORS = {
-  bg: 0x0a0a0a,
-  fg: 0xf2f2f2,
-  accent: 0xe3242b,   // Raiden red
-  dim: 0x555555
+  bg: 0x1e1e1e
 };
 
 const config = {
