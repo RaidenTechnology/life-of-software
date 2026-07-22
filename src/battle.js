@@ -81,6 +81,20 @@ class Battle {
       g.fillStyle(0xffeb3b).fillRect(13, 12, 3, 3).fillRect(20, 12, 3, 3);   // eyes
     });
 
+    // white slash crescent — the classic swing effect
+    if (!scene.textures.exists('slash')) {
+      g.clear();
+      g.lineStyle(7, 0xffffff, 1);
+      g.beginPath();
+      g.arc(24, 24, 19, Phaser.Math.DegToRad(-70), Phaser.Math.DegToRad(70));
+      g.strokePath();
+      g.lineStyle(3, 0xffffff, 0.6);
+      g.beginPath();
+      g.arc(24, 24, 12, Phaser.Math.DegToRad(-55), Phaser.Math.DegToRad(55));
+      g.strokePath();
+      g.generateTexture('slash', 48, 48);
+    }
+
     g.destroy();
   }
 
@@ -135,6 +149,21 @@ class Battle {
     });
   }
 
+  // white swing arc, games-style: pops at the hit point, grows and fades
+  slashAt(x, y, delay = 0, big = false) {
+    this.scene.time.delayedCall(delay, () => {
+      const s = this.scene.add.image(x, y, 'slash')
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setAngle(Phaser.Math.Between(-30, 30))
+        .setScale(big ? 1.3 : 0.6)
+        .setDepth(7);
+      this.scene.tweens.add({
+        targets: s, scale: big ? 2.3 : 1.4, alpha: 0, duration: 200,
+        onComplete: () => s.destroy()
+      });
+    });
+  }
+
   // one correct pattern = one sword hit on the front monster
   attack() {
     if (!this.enemies.length) return;
@@ -142,6 +171,7 @@ class Battle {
     this.scene.tweens.add({
       targets: this.hero, x: this.heroX + 40, duration: 90, yoyo: true, ease: 'Quad.easeOut'
     });
+    this.slashAt(target.x - 10, target.y - 4);
     this.kill(target);
     this.reflow();
     this.fill(false);
@@ -158,7 +188,10 @@ class Battle {
     });
     s.tweens.add({ targets: this.hero, x: this.heroX + 70, duration: 160, yoyo: true });
     const n = this.enemies.length;
-    this.enemies.forEach((e, i) => this.kill(e, i * 80));
+    this.enemies.forEach((e, i) => {
+      this.slashAt(e.x - 6, e.y - 4, i * 80, true);
+      this.kill(e, i * 80);
+    });
     this.enemies = [];
     s.time.delayedCall(n * 80 + 500, () => { this.fill(false); done(); });
   }
