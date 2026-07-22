@@ -1,21 +1,33 @@
 // GameScene — the core loop: a text panel in the middle, a countdown at the top.
 // Type the current language's patterns before the clock hits zero. Every correct
 // word buys back time, score and credits; hit the target score to climb to the
-// next (harder) language. Credits (max 100) can be spent on hints — a hint shows
-// part of the word (rest as underscores) and types the revealed part for you.
-// Every FESTIVAL_EVERY levels the road stops at the Software Festival: language
-// badges appear above the input box and a random language demands a pattern.
+// next (harder) language. Clearing all languages advances the STAGE (Very Easy →
+// Survival): same road, higher targets. Credits (max 100) buy hints — a hint
+// shows part of the word (rest as underscores) and types the revealed part.
+// After a level there is a chance of a festival:
+//   SOFTWARE FESTIVAL — a random language demands one of its patterns.
+//   GROWTH FESTIVAL   — a pattern is shown; type which language it belongs to.
 
-const HINT_COST = 10;
+const HINT_COST = 20;
+const FESTIVAL_HINT_COST = 10;
 const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
 const START_TIME = 75;
 const LEVELUP_TIME_BONUS = 10;
 const MAX_TYPED = 24;
-const FESTIVAL_CHANCE = 0.35;   // chance of the festival appearing after a level
+const FESTIVAL_CHANCE = 0.35;   // chance of a festival appearing after a level
 const FESTIVAL_TIME = 20;
 const FESTIVAL_CREDIT = 15;
 const FESTIVAL_TIME_BONUS = 2;
+
+const STAGES = [
+  { name: 'VERY EASY', mult: 1.0 },
+  { name: 'EASY',      mult: 1.4 },
+  { name: 'MEDIUM',    mult: 1.8 },
+  { name: 'HARD',      mult: 2.3 },
+  { name: 'VERY HARD', mult: 2.8 },
+  { name: 'SURVIVAL',  mult: 3.5 }   // loops forever, +0.5 mult per lap
+];
 
 class GameScene extends Phaser.Scene {
   constructor() {
@@ -27,6 +39,8 @@ class GameScene extends Phaser.Scene {
     this.credits = 0;
     this.wordsTyped = 0;
     this.langIndex = 0;
+    this.stageIndex = 0;
+    this.survivalLap = 0;
     this.timeLeft = START_TIME;
     this.typed = '';
     this.found = new Set();
@@ -39,8 +53,9 @@ class GameScene extends Phaser.Scene {
 
     const cx = this.scale.width / 2;
 
-    const status = UI.chrome(this, 'syntax_countdown — Raiden IDE');
-    status.left.setText('yaz + ENTER · ESC durdur · İPUCU = ' + HINT_COST + ' kredi');
+    const status = UI.chrome(this, 'life_of_software — Raiden IDE');
+    status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
+      ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     status.right.setText('GMTK 2026 — Count Down');
 
     // big countdown — the theme, front and center
@@ -48,9 +63,12 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '60px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // HUD: level score (left), language badge + name + progress (right)
-    this.scoreText = this.add.text(16, 44, 'PUAN 0', {
+    // HUD: score + stage (left), language badge + name + progress (right)
+    this.scoreText = this.add.text(16, 44, 'SCORE 0', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.text
+    });
+    this.stageText = this.add.text(16, 70, '', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
     });
     this.langText = this.add.text(this.scale.width - 16, 44, '', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.text, fontStyle: 'bold'
@@ -78,7 +96,7 @@ class GameScene extends Phaser.Scene {
     this.creditText = this.add.text(panelRight, panelTop - 22, '', {
       fontFamily: 'monospace', fontSize: '16px', color: IDE.text
     }).setOrigin(1, 0.5);
-    this.hintBtn = this.add.text(panelRight, panelTop - 44, '[ İPUCU -' + HINT_COST + ' ]', {
+    this.hintBtn = this.add.text(panelRight, panelTop - 44, '', {
       fontFamily: 'monospace', fontSize: '16px', color: IDE.keyword
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
     this.hintBtn.on('pointerover', () => this.hintBtn.setColor(IDE.white));
@@ -96,7 +114,7 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
 
-    this.pauseText = this.add.text(cx, this.scale.height / 2, 'DURAKLATILDI', {
+    this.pauseText = this.add.text(cx, this.scale.height / 2, 'PAUSED', {
       fontFamily: 'monospace', fontSize: '48px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(0.5).setVisible(false).setDepth(10);
 
@@ -110,13 +128,23 @@ class GameScene extends Phaser.Scene {
     return LANGUAGES[this.langIndex];
   }
 
-  // during the festival the demanded language changes every word
+  // during festivals the relevant language changes every word
   get activeLang() {
     return this.festival ? this.festival.lang : this.lang;
   }
 
   get activeFound() {
     return this.festival ? this.festival.used : this.found;
+  }
+
+  get hintCost() {
+    return this.festival ? FESTIVAL_HINT_COST : HINT_COST;
+  }
+
+  // target score for the current level, scaled by stage (and survival laps)
+  targetScore() {
+    const mult = STAGES[this.stageIndex].mult + this.survivalLap * 0.5;
+    return Math.round(this.lang.target * mult / 10) * 10;
   }
 
   onKey(e) {
@@ -143,13 +171,18 @@ class GameScene extends Phaser.Scene {
     this.refreshInput();
     if (!w) return;
 
+    if (this.festival && this.festival.type === 'growth') {
+      this.growthSubmit(w);
+      return;
+    }
+
     if (this.activeFound.has(w)) {
-      this.feedback('"' + w + '" zaten yazıldı', IDE.dim);
+      this.feedback('"' + w + '" already typed', IDE.dim);
       Sfx.blip();
       return;
     }
     if (!this.activeLang.words.includes(w)) {
-      this.feedback('"' + w + '" ' + this.activeLang.name + ' kalıbı değil', IDE.error);
+      this.feedback('"' + w + '" is not a ' + this.activeLang.name + ' pattern', IDE.error);
       Sfx.wrong();
       this.shakePanel();
       return;
@@ -157,13 +190,7 @@ class GameScene extends Phaser.Scene {
 
     this.activeFound.add(w);
     this.wordsTyped++;
-    this.hintText.setText('');
-    this.flashPanel(IDE.greenHex);
-    Sfx.pickup();
-    this.add.particles(this.panel.x, this.panel.y, 'pixel', {
-      speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
-      scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
-    }).explode();
+    this.celebrate();
 
     if (this.festival) {
       // festival word: credits + a little main-clock time, no score
@@ -171,7 +198,7 @@ class GameScene extends Phaser.Scene {
       this.credits = Math.min(CREDIT_MAX, this.credits + FESTIVAL_CREDIT);
       this.timeLeft += FESTIVAL_TIME_BONUS;
       this.refreshCredits();
-      this.floatText('+' + FESTIVAL_CREDIT + ' kredi  +' + FESTIVAL_TIME_BONUS + 's');
+      this.floatText('+' + FESTIVAL_CREDIT + ' credits  +' + FESTIVAL_TIME_BONUS + 's');
       this.pickFestivalLang();
       return;
     }
@@ -183,27 +210,55 @@ class GameScene extends Phaser.Scene {
     this.timeLeft += bonus;
     this.credits = Math.min(CREDIT_MAX, this.credits + CREDIT_PER_WORD);
 
-    this.scoreText.setText('PUAN ' + this.score);
+    this.scoreText.setText('SCORE ' + this.score);
     this.refreshCredits();
     this.pushRecent(w);
     this.floatText('+' + points + '  +' + bonus.toFixed(1) + 's');
 
-    if (this.score >= this.lang.target) {
+    if (this.score >= this.targetScore()) {
       this.levelUp();
     } else {
       this.refreshLangHud();
     }
   }
 
+  // GROWTH FESTIVAL answer: name the language the shown pattern belongs to
+  growthSubmit(w) {
+    const f = this.festival;
+    const ok = w === f.lang.name.toLowerCase() || w === f.lang.abbr.toLowerCase();
+    if (!ok) {
+      this.feedback('"' + f.word + '" is not a ' + w.toUpperCase() + ' pattern', IDE.error);
+      Sfx.wrong();
+      this.shakePanel();
+      return;
+    }
+    f.count++;
+    this.wordsTyped++;
+    this.celebrate();
+    const i = f.pool.indexOf(f.lang);
+    this.tweens.add({ targets: f.badges[i], scale: 1.4, duration: 150, yoyo: true });
+    this.credits = Math.min(CREDIT_MAX, this.credits + FESTIVAL_CREDIT);
+    this.timeLeft += FESTIVAL_TIME_BONUS;
+    this.refreshCredits();
+    this.floatText('+' + FESTIVAL_CREDIT + ' credits  +' + FESTIVAL_TIME_BONUS + 's');
+    this.pickGrowthRound();
+  }
+
+  celebrate() {
+    this.hintText.setText('');
+    this.flashPanel(IDE.greenHex);
+    Sfx.pickup();
+    this.add.particles(this.panel.x, this.panel.y, 'pixel', {
+      speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
+      scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
+    }).explode();
+  }
+
   levelUp() {
     const fromIdx = this.langIndex;
     this.langIndex++;
-    if (this.langIndex >= LANGUAGES.length) {
-      this.finish(true);
-      return;
-    }
     this.score = 0;          // fresh level, fresh score — credits stay
-    this.scoreText.setText('PUAN 0');
+    this.scoreText.setText('SCORE 0');
     this.found.clear();
     this.recent = [];
     this.recentText.setText('');
@@ -211,19 +266,30 @@ class GameScene extends Phaser.Scene {
     this.feedbackText.setText('');
     this.timeLeft += LEVELUP_TIME_BONUS;
     Sfx.win();
-
-    // the countdown freezes while the language path plays
     this.transitioning = true;
+
+    if (this.langIndex >= LANGUAGES.length) {
+      // whole road cleared → next stage (or another survival lap)
+      this.langIndex = 0;
+      if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
+      else this.survivalLap++;
+      this.showStage(() => {
+        this.transitioning = false;
+        this.refreshLangHud();
+      });
+      return;
+    }
+
     this.showPath(fromIdx, () => {
       this.transitioning = false;
       this.refreshLangHud();
-      if (Math.random() < FESTIVAL_CHANCE) this.startFestival();
+      if (Math.random() < FESTIVAL_CHANCE) {
+        this.startFestival(Math.random() < 0.5 ? 'sw' : 'growth');
+      }
     });
   }
 
   // --- language path: max 3 sections side by side, icons underneath.
-  // The section you cleared turns white→green, then the road slides so the
-  // cleared language falls behind and the next one takes its place.
   showPath(fromIdx, done) {
     const cx = this.scale.width / 2, cy = 250;
     const spacing = 230;
@@ -231,7 +297,7 @@ class GameScene extends Phaser.Scene {
     const overlay = this.add.container(0, 0).setDepth(20).setAlpha(0);
     overlay.add(this.add.rectangle(cx, this.scale.height / 2,
       this.scale.width, this.scale.height, IDE.bg, 0.93));
-    overlay.add(this.add.text(cx, 120, '// bölüm geçildi ✓ — dil yolu', {
+    overlay.add(this.add.text(cx, 120, '// level cleared ✓ — the language road', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.comment
     }).setOrigin(0.5));
 
@@ -244,7 +310,7 @@ class GameScene extends Phaser.Scene {
       const color = Phaser.Display.Color.HexStringToColor(lang.color).color;
       const box = this.add.rectangle(0, 0, 170, 64, IDE.panel).setStrokeStyle(2, color);
       node.add(box);
-      node.add(this.add.text(0, -14, 'BÖLÜM ' + (idx + 1), {
+      node.add(this.add.text(0, -14, 'LEVEL ' + (idx + 1), {
         fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
       }).setOrigin(0.5));
       node.add(this.add.text(0, 8, lang.name, {
@@ -302,16 +368,46 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  // --- Software Festival: badges above the input box, a random language
-  // demands one of its patterns; each hit pays credits + a bit of time.
-  startFestival() {
+  // --- stage transition: the whole road was cleared, difficulty rises
+  showStage(done) {
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    const stage = STAGES[this.stageIndex];
+
+    const overlay = this.add.container(0, 0).setDepth(20).setAlpha(0);
+    overlay.add(this.add.rectangle(cx, cy, this.scale.width, this.scale.height, IDE.bg, 0.95));
+    overlay.add(this.add.text(cx, cy - 80, '// all ' + LANGUAGES.length + ' languages cleared ✓', {
+      fontFamily: 'monospace', fontSize: '20px', color: IDE.comment
+    }).setOrigin(0.5));
+    const title = this.survivalLap > 0
+      ? 'SURVIVAL — LAP ' + (this.survivalLap + 1)
+      : 'STAGE: ' + stage.name;
+    overlay.add(this.add.text(cx, cy - 20, title, {
+      fontFamily: 'monospace', fontSize: '44px', color: '#dcdcaa', fontStyle: 'bold'
+    }).setOrigin(0.5));
+    overlay.add(this.add.text(cx, cy + 40, 'targets rise — good luck!', {
+      fontFamily: 'monospace', fontSize: '16px', color: IDE.dim
+    }).setOrigin(0.5));
+
+    this.tweens.add({ targets: overlay, alpha: 1, duration: 400 });
+    Sfx.win();
+    this.time.delayedCall(3200, () => {
+      this.tweens.add({
+        targets: overlay, alpha: 0, duration: 400,
+        onComplete: () => { overlay.destroy(); done(); }
+      });
+    });
+  }
+
+  // --- festivals: badges above the input box, own 20s clock, main clock frozen
+  startFestival(type) {
     const cx = this.scale.width / 2;
     const pool = Phaser.Utils.Array.Shuffle(LANGUAGES.slice()).slice(0, 6);
 
     const c = this.add.container(0, 0).setDepth(5).setAlpha(0);
-    c.add(this.add.text(cx, 150, '★ YAZILIM ŞENLİĞİ ★', {
-      fontFamily: 'monospace', fontSize: '22px', color: '#dcdcaa', fontStyle: 'bold'
-    }).setOrigin(0.5));
+    c.add(this.add.text(cx, 150,
+      type === 'sw' ? '★ SOFTWARE FESTIVAL ★' : '★ GROWTH FESTIVAL ★', {
+        fontFamily: 'monospace', fontSize: '22px', color: '#dcdcaa', fontStyle: 'bold'
+      }).setOrigin(0.5));
     const spacing = 56, x0 = cx - (pool.length - 1) * spacing / 2;
     const badges = pool.map((lang, i) => {
       const b = UI.badge(this, x0 + i * spacing, 198, lang, 18);
@@ -325,19 +421,22 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: c, alpha: 1, duration: 300 });
 
     this.festival = {
-      pool, badges, prompt, container: c,
-      lang: null, used: new Set(), timeLeft: FESTIVAL_TIME, count: 0
+      type, pool, badges, prompt, container: c,
+      lang: null, word: null, used: new Set(), timeLeft: FESTIVAL_TIME, count: 0
     };
 
-    this.langText.setText('YAZILIM ŞENLİĞİ').setColor('#dcdcaa');
+    this.langText.setText(type === 'sw' ? 'SOFTWARE FESTIVAL' : 'GROWTH FESTIVAL')
+      .setColor('#dcdcaa');
     if (this.langBadge) { this.langBadge.destroy(); this.langBadge = null; }
     this.progressFill.width = 0;
     this.typed = '';
     this.refreshInput();
-    this.pickFestivalLang();
+    this.refreshCredits();
+    if (type === 'sw') this.pickFestivalLang(); else this.pickGrowthRound();
     Sfx.win();
   }
 
+  // SOFTWARE FESTIVAL round: a random language demands one of its patterns
   pickFestivalLang() {
     const f = this.festival;
     const i = Phaser.Math.Between(0, f.pool.length - 1);
@@ -347,7 +446,28 @@ class GameScene extends Phaser.Scene {
         targets: b, scale: j === i ? 1.35 : 1, alpha: j === i ? 1 : 0.4, duration: 200
       });
     });
-    f.prompt.setText(f.lang.name + ' kalıbı yaz!').setColor(f.lang.color);
+    f.prompt.setText('type a ' + f.lang.name + ' pattern!').setColor(f.lang.color);
+    this.refreshInput();
+  }
+
+  // GROWTH FESTIVAL round: show a pattern unique to one pool language
+  pickGrowthRound() {
+    const f = this.festival;
+    let lang = null, word = null, guard = 0;
+    while (!word && ++guard < 25) {
+      lang = Phaser.Utils.Array.GetRandom(f.pool);
+      const unique = lang.words.filter(w =>
+        !f.used.has(w) && f.pool.every(o => o === lang || !o.words.includes(w)));
+      if (unique.length) word = Phaser.Utils.Array.GetRandom(unique);
+    }
+    if (!word) { this.endFestival(); return; }
+    f.lang = lang;
+    f.word = word;
+    f.used.add(word);
+    f.badges.forEach(b => {
+      this.tweens.add({ targets: b, scale: 1, alpha: 1, duration: 200 });
+    });
+    f.prompt.setText('"' + word + '" → type its language!').setColor(IDE.stringy);
     this.refreshInput();
   }
 
@@ -358,31 +478,40 @@ class GameScene extends Phaser.Scene {
       targets: f.container, alpha: 0, duration: 300,
       onComplete: () => f.container.destroy()
     });
-    this.feedback('şenlik bitti — ' + f.count + ' kalıp, +' + (f.count * FESTIVAL_CREDIT) + ' kredi', '#dcdcaa');
+    this.feedback('festival over — ' + f.count + ' answers, +' +
+      (f.count * FESTIVAL_CREDIT) + ' credits', '#dcdcaa');
     this.typed = '';
     this.refreshInput();
     this.refreshLangHud();
+    this.refreshCredits();
     Sfx.hint();
   }
 
-  // a hint shows part of the word, the rest as underscores, and also types
-  // the revealed part into the input box for you
+  // a hint shows part of the answer, the rest as underscores, and also types
+  // the revealed part into the input box. Cheaper during festivals.
   buyHint() {
     if (this.paused || this.over || this.transitioning) return;
-    if (this.credits < HINT_COST) {
-      this.feedback('yetersiz kredi (' + HINT_COST + ' gerek)', IDE.error);
+    const cost = this.hintCost;
+    if (this.credits < cost) {
+      this.feedback('not enough credits (' + cost + ' needed)', IDE.error);
       Sfx.wrong();
       return;
     }
-    const remaining = this.activeLang.words.filter(w => !this.activeFound.has(w));
-    if (remaining.length === 0) return;
 
-    this.credits -= HINT_COST;
+    let w;
+    if (this.festival && this.festival.type === 'growth') {
+      w = this.festival.lang.name.toLowerCase();
+    } else {
+      const remaining = this.activeLang.words.filter(x => !this.activeFound.has(x));
+      if (remaining.length === 0) return;
+      w = Phaser.Utils.Array.GetRandom(remaining);
+    }
+
+    this.credits -= cost;
     this.refreshCredits();
-    const w = Phaser.Utils.Array.GetRandom(remaining);
     const shown = Math.ceil(w.length / 2);
     const masked = (w.slice(0, shown) + '_'.repeat(w.length - shown)).split('').join(' ');
-    this.hintText.setText('// ipucu: ' + masked);
+    this.hintText.setText('// hint: ' + masked);
     this.typed = w.slice(0, shown);
     this.refreshInput();
     Sfx.hint();
@@ -397,16 +526,25 @@ class GameScene extends Phaser.Scene {
       score: this.score,
       words: this.wordsTyped,
       langIndex: Math.min(this.langIndex, LANGUAGES.length - 1),
+      stage: STAGES[this.stageIndex].name,
+      lap: this.survivalLap,
       win: win
     });
   }
 
   // --- UI helpers ---
 
-  // live syntax coloring, IDE-style: blue = valid pattern, dim = already used,
+  // live syntax coloring, IDE-style: blue = valid, dim = already used,
   // red = nothing can match anymore, default while still a valid prefix
   typedColor() {
     if (!this.typed) return IDE.text;
+    const f = this.festival;
+    if (f && f.type === 'growth') {
+      const names = f.pool.flatMap(l => [l.name.toLowerCase(), l.abbr.toLowerCase()]);
+      if (names.includes(this.typed)) return IDE.keyword;
+      if (names.some(n => n.startsWith(this.typed))) return IDE.text;
+      return IDE.error;
+    }
     if (this.activeLang.words.includes(this.typed)) {
       return this.activeFound.has(this.typed) ? IDE.dim : IDE.keyword;
     }
@@ -420,9 +558,12 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshLangHud() {
-    this.langText.setText('BÖLÜM ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
+    this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
       .setColor(this.lang.color);
-    this.progressFill.width = 180 * Math.min(1, this.score / this.lang.target);
+    this.stageText.setText('STAGE ' + STAGES[this.stageIndex].name +
+      (this.survivalLap > 0 ? ' · LAP ' + (this.survivalLap + 1) : '') +
+      ' · target ' + this.targetScore());
+    this.progressFill.width = 180 * Math.min(1, this.score / this.targetScore());
     this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
     if (this.langBadge) this.langBadge.destroy();
     this.langBadge = UI.badge(this,
@@ -430,8 +571,9 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshCredits() {
-    this.creditText.setText('KREDİ ' + this.credits + '/' + CREDIT_MAX);
-    this.hintBtn.setAlpha(this.credits >= HINT_COST ? 1 : 0.4);
+    this.creditText.setText('CREDITS ' + this.credits + '/' + CREDIT_MAX);
+    this.hintBtn.setText('[ HINT -' + this.hintCost + ' ]');
+    this.hintBtn.setAlpha(this.credits >= this.hintCost ? 1 : 0.4);
   }
 
   pushRecent(w) {

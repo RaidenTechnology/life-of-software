@@ -1,4 +1,4 @@
-# SYNTAX COUNTDOWN — Raiden Technology
+# LIFE OF SOFTWARE — Raiden Technology
 
 **GMTK 2026 jam game.** Ortada bir yazı paneli, tepede acımasız bir geri sayım.
 Süre bitmeden aktif dilin kalıplarını yaz (`import`, `async`, `let`, `fn`...) —

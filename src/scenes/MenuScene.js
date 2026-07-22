@@ -6,15 +6,16 @@ class MenuScene extends Phaser.Scene {
   create() {
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
 
-    const status = UI.chrome(this, 'syntax_countdown — Raiden IDE');
-    status.left.setText('yaz + ENTER · ESC durdur · İPUCU = ' + HINT_COST + ' kredi');
+    const status = UI.chrome(this, 'life_of_software — Raiden IDE');
+    status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
+      ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     status.right.setText('GMTK 2026 — Count Down');
 
     // two-tone title, like syntax highlighting
-    const t1 = this.add.text(0, 0, 'SYNTAX', {
+    const t1 = this.add.text(0, 0, 'LIFE OF', {
       fontFamily: 'monospace', fontSize: '56px', color: IDE.keyword, fontStyle: 'bold'
     });
-    const t2 = this.add.text(0, 0, ' COUNTDOWN', {
+    const t2 = this.add.text(0, 0, ' SOFTWARE', {
       fontFamily: 'monospace', fontSize: '56px', color: IDE.stringy, fontStyle: 'bold'
     });
     const totalW = t1.width + t2.width;
@@ -26,23 +27,23 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(cx, cy - 18,
-      'Süre bitmeden dilin kalıplarını yaz: import, async, fn, => ...\n' +
-      'Her doğru kalıp SÜRE + PUAN + KREDİ kazandırır.\n' +
-      'Hedef puana ulaş → sıradaki (daha zor) dile geç.',
+      'Type the language\'s patterns before time runs out: import, async, fn, => ...\n' +
+      'Every correct pattern grants TIME + SCORE + CREDITS.\n' +
+      'Clear all ' + LANGUAGES.length + ' languages to raise the STAGE: Very Easy → Survival.',
       {
         fontFamily: 'monospace', fontSize: '15px', color: IDE.text,
         align: 'center', lineSpacing: 8
       }).setOrigin(0.5);
 
-    const start = this.add.text(cx, cy + 62, '[ BAŞLAMAK İÇİN TIKLA ]', {
+    const start = this.add.text(cx, cy + 62, '[ CLICK TO START ]', {
       fontFamily: 'monospace', fontSize: '24px', color: IDE.white
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.tweens.add({
       targets: start, alpha: 0.3, duration: 600, yoyo: true, repeat: -1
     });
 
-    // the full language road, as badges — 18 languages waiting
-    this.add.text(cx, cy + 118, LANGUAGES.length + ' DİLLİK YOL', {
+    // the full language road, as badges
+    this.add.text(cx, cy + 112, 'A ' + LANGUAGES.length + '-LANGUAGE ROAD', {
       fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
     }).setOrigin(0.5);
     const spacing = 44, perRow = Math.ceil(LANGUAGES.length / 2);
@@ -53,7 +54,7 @@ class MenuScene extends Phaser.Scene {
       UI.badge(this, x0 + col * spacing, cy + 148 + row * 40, lang, 14);
     });
 
-    this.input.once('pointerdown', () => {
+    start.on('pointerdown', () => {
       Sfx.unlock();          // first user gesture → audio allowed from here on
       Sfx.blip();
       this.scene.start('Game');

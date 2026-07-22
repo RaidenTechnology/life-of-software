@@ -3,6 +3,12 @@
 
 const Sfx = {
   ctx: null,
+  muted: localStorage.getItem('los_muted') === '1',
+
+  setMuted(m) {
+    this.muted = m;
+    localStorage.setItem('los_muted', m ? '1' : '0');
+  },
 
   // Browsers block audio until the first user gesture; call this on first pointerdown.
   unlock() {
@@ -15,6 +21,7 @@ const Sfx = {
   },
 
   tone(freq, dur, type = 'square', vol = 0.15, slideTo = null) {
+    if (this.muted) return;
     if (!this.ctx || this.ctx.state !== 'running') return;
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();

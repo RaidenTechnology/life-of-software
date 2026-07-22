@@ -6,7 +6,7 @@
 
 const LANGUAGES = [
   {
-    name: 'HTML', abbr: '<>', color: '#e34c26',
+    name: 'HTML', abbr: '<>', icon: '</>', color: '#e34c26',
     words: [
       'html', 'head', 'body', 'title', 'meta', 'link', 'script', 'style',
       'div', 'span', 'p', 'a', 'img', 'href', 'src', 'alt', 'class', 'id',
@@ -17,7 +17,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'CSS', abbr: 'CSS', color: '#264de4',
+    name: 'CSS', abbr: 'CSS', icon: '🎨', color: '#264de4',
     words: [
       'color', 'background', 'margin', 'padding', 'border', 'width', 'height',
       'display', 'flex', 'grid', 'position', 'absolute', 'relative', 'fixed',
@@ -29,7 +29,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'PYTHON', abbr: 'Py', color: '#4b8bbe',
+    name: 'PYTHON', abbr: 'Py', icon: '🐍', color: '#4b8bbe',
     words: [
       'import', 'from', 'as', 'def', 'class', 'return', 'if', 'elif', 'else',
       'for', 'while', 'in', 'is', 'not', 'and', 'or', 'break', 'continue',
@@ -40,7 +40,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'JAVASCRIPT', abbr: 'JS', color: '#f7df1e', dark: true,
+    name: 'JAVASCRIPT', abbr: 'JS', icon: 'JS', color: '#f7df1e', dark: true,
     words: [
       'var', 'let', 'const', 'function', 'return', 'if', 'else', 'switch',
       'case', 'default', 'for', 'while', 'do', 'break', 'continue', 'new',
@@ -53,7 +53,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'LUA', abbr: 'Lua', color: '#51a0cf',
+    name: 'LUA', abbr: 'Lua', icon: '🌙', color: '#51a0cf',
     words: [
       'local', 'function', 'end', 'if', 'then', 'else', 'elseif', 'for',
       'while', 'do', 'repeat', 'until', 'break', 'return', 'nil', 'true',
@@ -63,7 +63,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'RUBY', abbr: 'Rb', color: '#cc342d',
+    name: 'RUBY', abbr: 'Rb', icon: '💎', color: '#cc342d',
     words: [
       'def', 'end', 'puts', 'gets', 'class', 'module', 'require', 'include',
       'attr_accessor', 'initialize', 'new', 'nil', 'true', 'false', 'self',
@@ -74,7 +74,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'PHP', abbr: 'php', color: '#8993be',
+    name: 'PHP', abbr: 'php', icon: '🐘', color: '#8993be',
     words: [
       'echo', 'print', 'function', 'class', 'public', 'private', 'protected',
       'static', 'new', 'this', 'extends', 'implements', 'interface',
@@ -86,7 +86,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'SQL', abbr: 'SQL', color: '#e38c00',
+    name: 'SQL', abbr: 'SQL', icon: '🗃', color: '#e38c00',
     words: [
       'select', 'from', 'where', 'insert', 'into', 'values', 'update',
       'delete', 'create', 'table', 'alter', 'drop', 'join', 'inner', 'left',
@@ -98,7 +98,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'DART', abbr: 'Dt', color: '#0175c2',
+    name: 'DART', abbr: 'Dt', icon: '🎯', color: '#0175c2',
     words: [
       'void', 'main', 'var', 'final', 'const', 'int', 'double', 'num',
       'string', 'bool', 'list', 'map', 'set', 'dynamic', 'class', 'extends',
@@ -111,7 +111,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'TYPESCRIPT', abbr: 'TS', color: '#3178c6',
+    name: 'TYPESCRIPT', abbr: 'TS', icon: 'TS', color: '#3178c6',
     words: [
       'interface', 'type', 'enum', 'implements', 'extends', 'readonly',
       'private', 'public', 'protected', 'abstract', 'namespace', 'declare',
@@ -123,7 +123,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'JAVA', abbr: 'J', color: '#e76f00',
+    name: 'JAVA', abbr: 'J', icon: '☕', color: '#e76f00',
     words: [
       'public', 'private', 'protected', 'static', 'final', 'void', 'class',
       'interface', 'extends', 'implements', 'abstract', 'new', 'this',
@@ -136,7 +136,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'KOTLIN', abbr: 'Kt', color: '#7f52ff',
+    name: 'KOTLIN', abbr: 'Kt', icon: 'K', color: '#7f52ff',
     words: [
       'fun', 'val', 'var', 'class', 'object', 'interface', 'data', 'sealed',
       'open', 'override', 'abstract', 'companion', 'init', 'constructor',
@@ -148,7 +148,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'C#', abbr: 'C#', color: '#9b4f96',
+    name: 'C#', abbr: 'C#', icon: 'C#', color: '#9b4f96',
     words: [
       'using', 'namespace', 'class', 'struct', 'interface', 'enum', 'public',
       'private', 'protected', 'internal', 'static', 'readonly', 'const',
@@ -161,7 +161,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'FLUTTER', abbr: 'Fl', color: '#54c5f8', dark: true,
+    name: 'FLUTTER', abbr: 'Fl', icon: '🦋', color: '#54c5f8', dark: true,
     words: [
       'widget', 'stateless', 'stateful', 'state', 'setstate', 'build',
       'context', 'scaffold', 'appbar', 'container', 'column', 'row', 'text',
@@ -174,7 +174,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'SWIFT', abbr: 'Sw', color: '#f05138',
+    name: 'SWIFT', abbr: 'Sw', icon: '🐦', color: '#f05138',
     words: [
       'func', 'var', 'let', 'class', 'struct', 'enum', 'protocol',
       'extension', 'guard', 'defer', 'if', 'else', 'switch', 'case',
@@ -186,7 +186,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'GO', abbr: 'Go', color: '#00add8',
+    name: 'GO', abbr: 'Go', icon: '🐹', color: '#00add8',
     words: [
       'package', 'import', 'func', 'var', 'const', 'type', 'struct',
       'interface', 'map', 'chan', 'go', 'defer', 'select', 'range', 'return',
@@ -197,7 +197,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'BASH', abbr: '>_', color: '#4eaa25',
+    name: 'BASH', abbr: '>_', icon: '>_', color: '#4eaa25',
     words: [
       'echo', 'read', 'if', 'then', 'else', 'elif', 'fi', 'for', 'while',
       'do', 'done', 'case', 'esac', 'function', 'local', 'export', 'source',
@@ -208,7 +208,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'PERL', abbr: 'Pl', color: '#39457e',
+    name: 'PERL', abbr: 'Pl', icon: '🐪', color: '#39457e',
     words: [
       'my', 'our', 'local', 'sub', 'use', 'package', 'require', 'print',
       'chomp', 'if', 'elsif', 'else', 'unless', 'while', 'until', 'for',
@@ -219,7 +219,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'R', abbr: 'R', color: '#276dc3',
+    name: 'R', abbr: 'R', icon: 'R', color: '#276dc3',
     words: [
       'function', 'return', 'if', 'else', 'for', 'while', 'repeat', 'break',
       'next', 'library', 'require', 'print', 'cat', 'paste', 'vector',
@@ -230,7 +230,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'C', abbr: 'C', color: '#5c6bc0',
+    name: 'C', abbr: 'C', icon: 'C', color: '#5c6bc0',
     words: [
       'include', 'stdio', 'main', 'printf', 'scanf', 'int', 'char', 'float',
       'double', 'void', 'long', 'short', 'unsigned', 'signed', 'struct',
@@ -242,7 +242,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'C++', abbr: 'C++', color: '#659ad2',
+    name: 'C++', abbr: 'C++', icon: 'C++', color: '#659ad2',
     words: [
       'include', 'iostream', 'using', 'namespace', 'std', 'cout', 'cin',
       'endl', 'int', 'char', 'bool', 'float', 'double', 'void', 'long',
@@ -256,7 +256,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'ZIG', abbr: 'Zg', color: '#f7a41d', dark: true,
+    name: 'ZIG', abbr: 'Zg', icon: '⚡', color: '#f7a41d', dark: true,
     words: [
       'fn', 'pub', 'const', 'var', 'comptime', 'inline', 'export', 'extern',
       'struct', 'enum', 'union', 'error', 'defer', 'errdefer', 'try',
@@ -267,7 +267,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'RUST', abbr: 'Rs', color: '#f74c00',
+    name: 'RUST', abbr: 'Rs', icon: '🦀', color: '#f74c00',
     words: [
       'fn', 'let', 'mut', 'const', 'static', 'struct', 'enum', 'impl',
       'trait', 'pub', 'mod', 'use', 'crate', 'self', 'super', 'match', 'if',
@@ -280,7 +280,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'HASKELL', abbr: 'λ', color: '#5e5086',
+    name: 'HASKELL', abbr: 'λ', icon: 'λ', color: '#5e5086',
     words: [
       'module', 'where', 'import', 'data', 'type', 'newtype', 'class',
       'instance', 'deriving', 'let', 'in', 'case', 'of', 'do', 'if', 'then',
@@ -292,7 +292,7 @@ const LANGUAGES = [
     ]
   },
   {
-    name: 'ASSEMBLY', abbr: 'ASM', color: '#8a8a8a',
+    name: 'ASSEMBLY', abbr: 'ASM', icon: '⚙', color: '#8a8a8a',
     words: [
       'mov', 'add', 'sub', 'mul', 'div', 'inc', 'dec', 'jmp', 'je', 'jne',
       'jz', 'jnz', 'jg', 'jl', 'jge', 'jle', 'cmp', 'test', 'push', 'pop',
