@@ -6,15 +6,15 @@
 // Every FESTIVAL_EVERY levels the road stops at the Software Festival: language
 // badges appear above the input box and a random language demands a pattern.
 
-const HINT_COST = 20;
+const HINT_COST = 10;
 const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
 const START_TIME = 75;
 const LEVELUP_TIME_BONUS = 10;
 const MAX_TYPED = 24;
-const FESTIVAL_EVERY = 3;
+const FESTIVAL_CHANCE = 0.35;   // chance of the festival appearing after a level
 const FESTIVAL_TIME = 20;
-const FESTIVAL_CREDIT = 10;
+const FESTIVAL_CREDIT = 15;
 const FESTIVAL_TIME_BONUS = 2;
 
 class GameScene extends Phaser.Scene {
@@ -217,7 +217,7 @@ class GameScene extends Phaser.Scene {
     this.showPath(fromIdx, () => {
       this.transitioning = false;
       this.refreshLangHud();
-      if (this.langIndex % FESTIVAL_EVERY === 0) this.startFestival();
+      if (Math.random() < FESTIVAL_CHANCE) this.startFestival();
     });
   }
 

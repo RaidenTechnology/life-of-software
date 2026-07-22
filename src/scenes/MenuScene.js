@@ -7,7 +7,7 @@ class MenuScene extends Phaser.Scene {
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
 
     const status = UI.chrome(this, 'syntax_countdown — Raiden IDE');
-    status.left.setText('yaz + ENTER · ESC durdur · İPUCU = 20 kredi');
+    status.left.setText('yaz + ENTER · ESC durdur · İPUCU = ' + HINT_COST + ' kredi');
     status.right.setText('GMTK 2026 — Count Down');
 
     // two-tone title, like syntax highlighting

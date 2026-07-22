@@ -304,9 +304,9 @@ const LANGUAGES = [
   }
 ];
 
-// Difficulty curve, one place to tune: target grows and the per-word time
-// bonus shrinks as you climb the ladder.
+// Difficulty curve, one place to tune: every level needs 500 points; the
+// per-word time bonus shrinks as you climb the ladder.
 LANGUAGES.forEach((lang, i) => {
-  lang.target = 650 + i * 30;
+  lang.target = 500;
   lang.timeMult = Math.max(0.5, +(1 - i * 0.02).toFixed(2));
 });
