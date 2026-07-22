@@ -1,7 +1,12 @@
-# GMTK 2026 Jam Game (isim TBD) — Raiden Technology
+# SYNTAX COUNTDOWN — Raiden Technology
 
-Generic pre-jam skeleton (allowed by jam rules: "pre-existing generic code").
-Game-specific mechanics start after the theme reveal — **July 22, 2026, 20:00**.
+**GMTK 2026 jam game.** Ortada bir yazı paneli, tepede acımasız bir geri sayım.
+Süre bitmeden aktif dilin kalıplarını yaz (`import`, `async`, `let`, `fn`...) —
+her doğru kelime **süre + puan + kredi** kazandırır. Hedef puana ulaşınca sıradaki
+(daha zor) dile geçersin: **Python → JavaScript → Java → C++ → Rust**.
+Kredilerle (max 100) panelin sağ üstündeki **İPUCU** butonundan ipucu satın alınır (20 kredi).
+
+Built on our generic pre-jam skeleton (allowed by jam rules: "pre-existing generic code").
 
 ## Tema: Count Down
 
@@ -21,6 +26,7 @@ index.html            entry point (plain script tags, no build step)
 lib/phaser.min.js     Phaser 3 (local copy — works offline / on itch.io)
 src/main.js           game config (960x540, FIT scale, arcade physics)
 src/sfx.js            WebAudio synth — zero asset files, zero AI
+src/data/languages.js dil merdiveni: kelime listeleri, hedef puanlar, süre çarpanları
 src/scenes/           Boot → Menu → Game → End
 assets/               jam art goes here (hand-made only — AI art = disqualification)
 ```
@@ -46,5 +52,5 @@ be played in the browser"**, viewport 960×540.
 
 - [x] Playable in browser, keyboard + mouse
 - [x] No AI-generated art or audio (sfx = our own WebAudio synth)
-- [ ] Theme integrated mechanically (theme day)
+- [x] Theme integrated mechanically (countdown timer IS the core mechanic)
 - [ ] Name + cover image + screenshots on itch.io page

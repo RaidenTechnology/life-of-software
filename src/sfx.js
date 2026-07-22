@@ -32,6 +32,10 @@ const Sfx = {
   blip()   { this.tone(440, 0.08, 'square', 0.12); },
   pickup() { this.tone(660, 0.12, 'square', 0.12, 1320); },
   hit()    { this.tone(220, 0.2, 'sawtooth', 0.18, 55); },
+  type()   { this.tone(880, 0.03, 'square', 0.05); },
+  wrong()  { this.tone(160, 0.15, 'sawtooth', 0.15, 80); },
+  tick()   { this.tone(990, 0.05, 'square', 0.08); },
+  hint()   { this.tone(523, 0.08, 'sine', 0.12, 1046); },
   win()    {
     this.tone(523, 0.1);
     setTimeout(() => this.tone(659, 0.1), 100);
