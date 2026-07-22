@@ -24,6 +24,7 @@ class BootScene extends Phaser.Scene {
   create() {
     this.makeTextures();
     Battle.makeTextures(this);
+    Items.makeTextures(this);
     this.scene.start('Menu');
   }
 

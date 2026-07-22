@@ -1,18 +1,19 @@
-// Battle strip — the hero on the left, a queue of monsters on the right,
-// fighting in front of a retro side-scroller backdrop (dusk sky, moon,
-// castle silhouette, brick ground). Every correct pattern = one sword hit.
-// Clearing a level = ulti attack. Running out of time = the monsters swarm.
+// Battle strip — the hero on the left, a queue of monsters on the right.
+// Each stage has its own monster AND its own backdrop. Melee stages: the
+// hero dashes into contact and slashes. Ranged stages (skeleton, elf):
+// the hero carries a crossbow and shoots a bolt instead.
+// Monsters can drop loot: white flash, rarity label, fall to the ground,
+// then fly into the bag.
 //
-// All art is original, code-drawn pixel style: dark outlines + 3-tone
-// shading. To swap in hand-made PNGs (e.g. Blender renders), load them in
-// BootScene with the SAME keys ('hero0'..'hero5', 'en_ork', 'en_skeleton',
-// 'en_elf', 'en_vampire', 'en_goblin', 'en_demon', 'battlebg');
-// makeTextures() skips any key that is already loaded.
+// All art is original, code-drawn pixel style. To swap in hand-made PNGs
+// load them in BootScene with the SAME keys; makeTextures() skips any key
+// that is already loaded.
 
 class Battle {
   // one monster type per stage: Very Easy → ork, Easy → skeleton,
   // Medium → elf, Hard → goblin, Very Hard → vampire, Survival → demon
   static TYPES = ['ork', 'skeleton', 'elf', 'goblin', 'vampire', 'demon'];
+  static RANGED = ['skeleton', 'elf'];   // stages where the hero uses the crossbow
 
   static makeTextures(scene) {
     const g = scene.add.graphics();
@@ -25,7 +26,6 @@ class Battle {
       const b = Phaser.Math.Clamp(Math.round(col.blue * f), 0, 255);
       return (r << 16) | (gr << 8) | b;
     };
-    // outlined block with top highlight and bottom shadow
     const part = (x, y, w, h, base, flat) => {
       g.fillStyle(OUT).fillRect(x - 1, y - 1, w + 2, h + 2);
       g.fillStyle(base).fillRect(x, y, w, h);
@@ -35,16 +35,15 @@ class Battle {
       }
     };
 
-    // --- hero tiers 0-5: armor color changes, sword grows, gear is added
+    // --- hero tiers 0-5, sword and crossbow variants
     const armors = [0x8d6e63, 0x9e9e9e, 0xd4af37, 0x2e9c87, 0xc62828, 0x6a4fb3];
-    armors.forEach((armor, t) => {
-      const key = 'hero' + t, W = 48 + t * 3;
-      if (scene.textures.exists(key)) return;
-      g.clear();
+    const heroBase = (armor, t) => {
       part(12, 40, 7, 10, 0x37474f);                    // legs
       part(23, 40, 7, 10, 0x37474f);
       g.fillStyle(0x14181c).fillRect(11, 48, 9, 3).fillRect(22, 48, 9, 3); // boots
-      part(9, 22, 24, 18, armor);                       // torso armor
+      part(9, 22, 24, 18, armor);                       // torso
+      g.fillStyle(shade(armor, 0.85)).fillRect(11, 26, 20, 1).fillRect(11, 31, 20, 1); // plate lines
+      g.fillStyle(shade(armor, 1.35)).fillRect(12, 24, 2, 2).fillRect(28, 24, 2, 2);   // rivets
       part(9, 36, 24, 4, 0x5d4037, true);               // belt
       g.fillStyle(0xc9a227).fillRect(19, 36, 4, 4);     // buckle
       part(4, 24, 6, 12, armor);                        // arms
@@ -55,13 +54,42 @@ class Battle {
       if (t >= 3) part(18, 0, 6, 4, 0xd32f2f, true);    // plume
       if (t >= 2) {                                     // shield
         part(0, 26, 7, 16, 0x4e342e);
-        g.fillStyle(0xb0bec5).fillRect(2, 32, 3, 4);    // metal boss
+        g.fillStyle(0xb0bec5).fillRect(2, 32, 3, 4);
       }
-      part(34, 28, 5, 4, 0x4e342e, true);               // hilt
-      part(38, 29, 8 + t * 3, 3, 0xdfe7ec, true);       // blade
-      g.fillStyle(0xffffff).fillRect(38, 29, 8 + t * 3, 1); // edge shine
-      g.generateTexture(key, W, 52);
+    };
+    armors.forEach((armor, t) => {
+      const W = 52 + t * 3;
+      if (!scene.textures.exists('hero' + t)) {
+        g.clear();
+        heroBase(armor, t);
+        part(34, 27, 4, 6, 0x5d4037, true);             // grip
+        g.fillStyle(0xc9a227).fillRect(33, 26, 6, 2);   // crossguard
+        g.fillStyle(0xc9a227).fillRect(34, 33, 3, 3);   // pommel
+        const L = 10 + t * 3;
+        g.fillStyle(0xdfe7ec).fillRect(38, 27, L, 4);   // blade
+        g.fillStyle(0xffffff).fillRect(38, 27, L, 1);   // edge shine
+        g.fillStyle(0xb0bec5).fillRect(38, 30, L, 1);   // fuller
+        g.fillStyle(0xdfe7ec).fillTriangle(38 + L, 26, 38 + L, 32, 44 + L, 29); // tip
+        g.generateTexture('hero' + t, W + 8, 52);
+      }
+      if (!scene.textures.exists('hero' + t + 'x')) {
+        g.clear();
+        heroBase(armor, t);
+        part(33, 27, 12, 4, 0x5d4037, true);            // crossbow stock
+        part(42, 20, 3, 18, 0x6d4c41, true);            // bow arms
+        g.fillStyle(0xeeeeee).fillRect(45, 21, 1, 16);  // string
+        g.fillStyle(0xb0bec5).fillRect(38, 28, 12, 2);  // loaded bolt
+        g.generateTexture('hero' + t + 'x', 58, 52);
+      }
     });
+
+    // crossbow bolt projectile
+    if (!scene.textures.exists('bolt')) {
+      g.clear();
+      g.fillStyle(0xa1887f).fillRect(0, 2, 12, 2);
+      g.fillStyle(0xdfe7ec).fillTriangle(12, 0, 12, 6, 17, 3);
+      g.generateTexture('bolt', 18, 6);
+    }
 
     // --- monsters (facing left, 40x52)
     const mk = (key, draw) => {
@@ -73,106 +101,199 @@ class Battle {
     mk('ork', () => {
       part(10, 40, 7, 10, 0x2e4d1e);
       part(23, 40, 7, 10, 0x2e4d1e);
-      part(6, 20, 28, 20, 0x5d8a3c);                     // broad torso
-      part(4, 17, 8, 6, 0x4a7030, true);                 // shoulder pads
+      part(6, 20, 28, 20, 0x5d8a3c);
+      part(4, 17, 8, 6, 0x4a7030, true);
       part(28, 17, 8, 6, 0x4a7030, true);
-      part(11, 6, 18, 15, 0x7cb342);                     // head
-      g.fillStyle(0xffee58).fillRect(15, 10, 3, 3).fillRect(23, 10, 3, 3); // eyes
-      g.fillStyle(0xffffff).fillRect(13, 15, 3, 5).fillRect(24, 15, 3, 5); // tusks
-      part(0, 18, 5, 22, 0x4e342e);                      // club
-      g.fillStyle(0x8d6e63).fillRect(1, 20, 3, 2).fillRect(1, 26, 3, 2);   // studs
+      part(11, 6, 18, 15, 0x7cb342);
+      g.fillStyle(0xffee58).fillRect(15, 10, 3, 3).fillRect(23, 10, 3, 3);
+      g.fillStyle(0xffffff).fillRect(13, 15, 3, 5).fillRect(24, 15, 3, 5);
+      part(0, 18, 5, 22, 0x4e342e);
+      g.fillStyle(0x8d6e63).fillRect(1, 20, 3, 2).fillRect(1, 26, 3, 2);
     });
     mk('skeleton', () => {
       part(13, 40, 4, 10, 0xd7d7d7);
       part(23, 40, 4, 10, 0xd7d7d7);
-      part(12, 36, 16, 4, 0xcfcfcf, true);               // pelvis
-      part(18, 22, 4, 14, 0xcfcfcf, true);               // spine
-      g.fillStyle(0xe5e5e5).fillRect(11, 23, 18, 3).fillRect(11, 28, 18, 3).fillRect(11, 33, 18, 3); // ribs
-      part(12, 5, 16, 14, 0xefefef);                     // skull
-      g.fillStyle(0x111111).fillRect(15, 10, 4, 4).fillRect(22, 10, 4, 4); // sockets
-      g.fillStyle(0x9e9e9e).fillRect(14, 17, 12, 1);     // jaw line
-      part(2, 22, 4, 20, 0xe0e0e0);                      // bone club
-      g.fillStyle(0xffffff).fillRect(1, 20, 6, 3).fillRect(1, 41, 6, 3);   // knobs
+      part(12, 36, 16, 4, 0xcfcfcf, true);
+      part(18, 22, 4, 14, 0xcfcfcf, true);
+      g.fillStyle(0xe5e5e5).fillRect(11, 23, 18, 3).fillRect(11, 28, 18, 3).fillRect(11, 33, 18, 3);
+      part(12, 5, 16, 14, 0xefefef);
+      g.fillStyle(0x111111).fillRect(15, 10, 4, 4).fillRect(22, 10, 4, 4);
+      g.fillStyle(0x9e9e9e).fillRect(14, 17, 12, 1);
+      part(2, 22, 4, 20, 0xe0e0e0);
+      g.fillStyle(0xffffff).fillRect(1, 20, 6, 3).fillRect(1, 41, 6, 3);
     });
     mk('elf', () => {
       part(12, 40, 6, 10, 0x14532d);
       part(22, 40, 6, 10, 0x14532d);
-      part(10, 22, 20, 18, 0x1f7a45);                    // tunic
-      part(10, 36, 20, 3, 0x8d6e63, true);               // belt
-      part(13, 7, 15, 12, 0xffe0b2);                     // head
-      part(12, 3, 17, 5, 0xd9c04a, true);                // hair
-      g.fillStyle(0x1b5e20).fillRect(16, 11, 2, 2).fillRect(22, 11, 2, 2); // eyes
-      part(2, 12, 3, 28, 0x6d4c41);                      // bow
-      g.fillStyle(0xeeeeee).fillRect(6, 13, 1, 26);      // bowstring
-    });
-    mk('vampire', () => {
-      g.fillStyle(OUT).fillTriangle(3, 15, 37, 15, 20, 51);   // cape outline
-      g.fillStyle(0x1a1a1a).fillTriangle(4, 16, 36, 16, 20, 49);
-      g.fillStyle(0x38124a).fillTriangle(8, 18, 32, 18, 20, 44); // cape lining
-      part(14, 42, 5, 8, 0x212121);
-      part(22, 42, 5, 8, 0x212121);
-      part(12, 22, 16, 20, 0x3c1361);                    // suit
-      g.fillStyle(0x1a1a1a).fillTriangle(9, 8, 15, 20, 9, 22);  // collar
-      g.fillStyle(0x1a1a1a).fillTriangle(31, 8, 25, 20, 31, 22);
-      part(13, 6, 14, 13, 0xf3e5d8);                     // pale head
-      g.fillStyle(0x1a1a1a).fillTriangle(17, 6, 23, 6, 20, 10); // widow's peak
-      g.fillStyle(0xff1744).fillRect(16, 11, 3, 2).fillRect(21, 11, 3, 2); // eyes
-      g.fillStyle(0xffffff).fillRect(17, 16, 1, 2).fillRect(22, 16, 1, 2); // fangs
+      part(10, 22, 20, 18, 0x1f7a45);
+      part(10, 36, 20, 3, 0x8d6e63, true);
+      part(13, 7, 15, 12, 0xffe0b2);
+      part(12, 3, 17, 5, 0xd9c04a, true);
+      g.fillStyle(0x1b5e20).fillRect(16, 11, 2, 2).fillRect(22, 11, 2, 2);
+      part(2, 12, 3, 28, 0x6d4c41);
+      g.fillStyle(0xeeeeee).fillRect(6, 13, 1, 26);
     });
     mk('goblin', () => {
       part(14, 44, 5, 6, 0x33691e);
       part(21, 44, 5, 6, 0x33691e);
-      part(11, 30, 18, 14, 0x4f7a28);                    // small body
-      part(10, 14, 20, 16, 0x76a840);                    // big head
-      part(4, 18, 6, 4, 0x76a840, true);                 // ears
+      part(11, 30, 18, 14, 0x4f7a28);
+      part(10, 14, 20, 16, 0x76a840);
+      part(4, 18, 6, 4, 0x76a840, true);
       part(30, 18, 6, 4, 0x76a840, true);
-      g.fillStyle(0xffc107).fillRect(14, 20, 3, 3).fillRect(23, 20, 3, 3); // eyes
-      g.fillStyle(0x2e1b0e).fillRect(15, 26, 10, 1);     // grin
-      part(2, 34, 8, 3, 0xb0bec5, true);                 // dagger
+      g.fillStyle(0xffc107).fillRect(14, 20, 3, 3).fillRect(23, 20, 3, 3);
+      g.fillStyle(0x2e1b0e).fillRect(15, 26, 10, 1);
+      part(2, 34, 8, 3, 0xb0bec5, true);
+    });
+    mk('vampire', () => {
+      g.fillStyle(OUT).fillTriangle(3, 15, 37, 15, 20, 51);
+      g.fillStyle(0x1a1a1a).fillTriangle(4, 16, 36, 16, 20, 49);
+      g.fillStyle(0x38124a).fillTriangle(8, 18, 32, 18, 20, 44);
+      part(14, 42, 5, 8, 0x212121);
+      part(22, 42, 5, 8, 0x212121);
+      part(12, 22, 16, 20, 0x3c1361);
+      g.fillStyle(0x1a1a1a).fillTriangle(9, 8, 15, 20, 9, 22);
+      g.fillStyle(0x1a1a1a).fillTriangle(31, 8, 25, 20, 31, 22);
+      part(13, 6, 14, 13, 0xf3e5d8);
+      g.fillStyle(0x1a1a1a).fillTriangle(17, 6, 23, 6, 20, 10);
+      g.fillStyle(0xff1744).fillRect(16, 11, 3, 2).fillRect(21, 11, 3, 2);
+      g.fillStyle(0xffffff).fillRect(17, 16, 1, 2).fillRect(22, 16, 1, 2);
     });
     mk('demon', () => {
-      g.fillStyle(0x3a0d0d).fillTriangle(1, 18, 11, 8, 9, 34);   // wings
+      g.fillStyle(0x3a0d0d).fillTriangle(1, 18, 11, 8, 9, 34);
       g.fillStyle(0x3a0d0d).fillTriangle(39, 18, 29, 8, 31, 34);
       part(11, 40, 7, 10, 0x6d1b1b);
       part(22, 40, 7, 10, 0x6d1b1b);
-      part(8, 20, 24, 20, 0xb42222);                     // torso
-      part(12, 6, 16, 13, 0xcf3030);                     // head
-      g.fillStyle(0x2d1b12).fillTriangle(12, 6, 16, 6, 13, 0);   // horns
+      part(8, 20, 24, 20, 0xb42222);
+      part(12, 6, 16, 13, 0xcf3030);
+      g.fillStyle(0x2d1b12).fillTriangle(12, 6, 16, 6, 13, 0);
       g.fillStyle(0x2d1b12).fillTriangle(24, 6, 28, 6, 27, 0);
-      g.fillStyle(0xffee58).fillRect(15, 10, 3, 3).fillRect(22, 10, 3, 3); // eyes
+      g.fillStyle(0xffee58).fillRect(15, 10, 3, 3).fillRect(22, 10, 3, 3);
     });
 
-    // --- backdrop: dusk sky, moon, clouds, castle silhouette, brick ground
-    if (!scene.textures.exists('battlebg')) {
-      const W = 920, H = 104, GY = H - 18;
+    // --- one backdrop per monster type (920x104, ground top at y=86)
+    const W = 920, H = 104, GY = H - 18;
+    const bg = (key, draw) => {
+      if (scene.textures.exists('bg_' + key)) return;
       g.clear();
-      g.fillStyle(0x1c2438).fillRect(0, 0, W, GY);                  // sky
-      g.fillStyle(0x232c44).fillRect(0, GY - 26, W, 26);            // horizon glow
-      g.fillStyle(0xe8e3c8).fillCircle(838, 22, 11);                // moon
-      g.fillStyle(0x1c2438).fillCircle(834, 19, 9);                 // crescent bite
-      [[70, 16], [180, 26], [430, 12], [560, 24], [730, 18]].forEach(([x, y]) => {
-        g.fillStyle(0x39445e).fillRect(x, y, 46, 6).fillRect(x + 10, y - 4, 26, 5); // clouds
-      });
-      // castle silhouette with battlements
-      const castle = (x, w, h) => {
-        g.fillStyle(0x121828).fillRect(x, GY - h, w, h);
-        for (let i = 0; i < w; i += 8) g.fillRect(x + i, GY - h - 4, 5, 4);
-      };
-      castle(240, 34, 34); castle(274, 60, 22); castle(334, 34, 40);
-      castle(640, 30, 28); castle(670, 50, 18); castle(720, 30, 36);
-      g.fillStyle(0xf7d774).fillRect(250, GY - 26, 3, 4).fillRect(345, GY - 30, 3, 4)
-        .fillRect(650, GY - 20, 3, 4).fillRect(729, GY - 28, 3, 4);  // lit windows
-      // ground: bricks + grass lip
-      g.fillStyle(0x3b2a20).fillRect(0, GY, W, 18);
-      g.fillStyle(0x2a1d16);
+      draw();
+      g.generateTexture('bg_' + key, W, H);
+    };
+    const ground = (base, line, grass, tuft) => {
+      g.fillStyle(base).fillRect(0, GY, W, 18);
+      g.fillStyle(line);
       for (let y = GY; y < H; y += 6) g.fillRect(0, y, W, 1);
       for (let y = 0; y < 3; y++)
         for (let x = (y % 2) * 16; x < W; x += 32) g.fillRect(x, GY + y * 6, 1, 6);
-      g.fillStyle(0x33691e).fillRect(0, GY - 3, W, 4);
-      g.fillStyle(0x4e8a37);
-      for (let x = 14; x < W; x += 38) g.fillRect(x, GY - 6, 2, 4);
-      g.generateTexture('battlebg', W, H);
-    }
+      if (grass) {
+        g.fillStyle(grass).fillRect(0, GY - 3, W, 4);
+        if (tuft) {
+          g.fillStyle(tuft);
+          for (let x = 14; x < W; x += 38) g.fillRect(x, GY - 6, 2, 4);
+        }
+      }
+    };
+
+    bg('ork', () => {   // deep forest
+      g.fillStyle(0x16241a).fillRect(0, 0, W, GY);
+      g.fillStyle(0x1d3122).fillRect(0, GY - 30, W, 30);
+      [[60, 40], [150, 56], [300, 36], [420, 50], [600, 42], [740, 58], [860, 44]].forEach(([x, h]) => {
+        g.fillStyle(0x241a10).fillRect(x, GY - h, 8, h);              // trunks
+        g.fillStyle(0x0f2016).fillCircle(x + 4, GY - h - 6, 18);       // canopy
+        g.fillStyle(0x14301f).fillCircle(x + 12, GY - h + 2, 13);
+      });
+      g.fillStyle(0x87c96b);
+      [[110, 30], [370, 44], [530, 26], [810, 38]].forEach(([x, y]) => g.fillRect(x, y, 2, 2)); // fireflies
+      ground(0x3a2c1c, 0x2a2014, 0x2f5d2a, 0x417c39);
+    });
+    bg('skeleton', () => {   // graveyard
+      g.fillStyle(0x1d2130).fillRect(0, 0, W, GY);
+      g.fillStyle(0xe8e3c8).fillCircle(838, 22, 11);
+      g.fillStyle(0x1d2130).fillCircle(834, 19, 9);
+      [[120, 0], [380, 0], [700, 0]].forEach(([x]) => {                // dead trees
+        g.fillStyle(0x14151c).fillRect(x, GY - 44, 5, 44)
+          .fillRect(x - 12, GY - 40, 14, 3).fillRect(x + 4, GY - 52, 3, 14);
+      });
+      [[220, 16], [300, 12], [520, 18], [610, 12], [800, 16]].forEach(([x, h]) => {
+        g.fillStyle(0x3a3f52).fillRect(x, GY - h, 14, h);              // tombstones
+        g.fillStyle(0x2c3040).fillRect(x, GY - h, 14, 3);
+      });
+      g.fillStyle(0x39445e).fillRect(0, GY - 8, W, 5);                 // fog band
+      ground(0x2c2a26, 0x201e1b, 0x39413b, null);
+    });
+    bg('elf', () => {   // enchanted glade
+      g.fillStyle(0x102830).fillRect(0, 0, W, GY);
+      g.fillStyle(0x16414a).fillRect(0, GY - 26, W, 26);
+      [[90, 46], [260, 60], [500, 40], [680, 56], [850, 48]].forEach(([x, h]) => {
+        g.fillStyle(0x1e2a20).fillRect(x, GY - h, 7, h);
+        g.fillStyle(0x2e7d6b).fillCircle(x + 3, GY - h - 4, 15);       // glowing canopy
+        g.fillStyle(0x4dd0a1).fillCircle(x + 3, GY - h - 8, 6);
+      });
+      [[180, 10], [430, 8], [760, 10]].forEach(([x, r]) => {           // mushrooms
+        g.fillStyle(0xefe6d0).fillRect(x, GY - 8, 4, 8);
+        g.fillStyle(0xd9534f).fillCircle(x + 2, GY - 9, r);
+        g.fillStyle(0xffffff).fillRect(x - 2, GY - 12, 2, 2).fillRect(x + 5, GY - 11, 2, 2);
+      });
+      g.fillStyle(0x9fe8c8);
+      [[70, 24], [330, 38], [560, 20], [790, 34]].forEach(([x, y]) => g.fillRect(x, y, 2, 2)); // motes
+      ground(0x2b2418, 0x1f1a11, 0x1e4632, 0x2f6b4d);
+    });
+    bg('goblin', () => {   // torch-lit cave
+      g.fillStyle(0x181410).fillRect(0, 0, W, GY);
+      g.fillStyle(0x241e18);
+      for (let x = 0; x < W; x += 60) g.fillTriangle(x, 0, x + 44, 0, x + 22, 22 + (x % 3) * 8); // stalactites
+      [[160, 0], [470, 0], [780, 0]].forEach(([x]) => {                // torches
+        g.fillStyle(0x4e342e).fillRect(x, GY - 26, 4, 26);
+        g.fillStyle(0xff9800).fillTriangle(x - 2, GY - 26, x + 6, GY - 26, x + 2, GY - 38);
+        g.fillStyle(0xffee58).fillTriangle(x, GY - 26, x + 4, GY - 26, x + 2, GY - 33);
+      });
+      [[260, 12], [640, 10]].forEach(([x, h]) => {                     // rocks
+        g.fillStyle(0x2c2620).fillTriangle(x, GY, x + 30, GY, x + 15, GY - h - 8);
+      });
+      g.fillStyle(0x4dd0e1).fillTriangle(350, GY, 356, GY, 353, GY - 10); // crystal
+      g.fillStyle(0x4dd0e1).fillTriangle(700, GY, 708, GY, 704, GY - 13);
+      ground(0x2c2620, 0x201c17, null, null);
+    });
+    bg('vampire', () => {   // grand crimson hall
+      g.fillStyle(0x2c0b10).fillRect(0, 0, W, GY);
+      g.fillStyle(0x3a1015).fillRect(0, 22, W, GY - 22);
+      g.fillStyle(0xc9a227).fillRect(0, 20, W, 2);                     // gold trim
+      for (let x = 40; x < W; x += 160) {                              // columns
+        g.fillStyle(0x57181f).fillRect(x, 22, 18, GY - 22);
+        g.fillStyle(0x6d2028).fillRect(x, 22, 4, GY - 22);
+        g.fillStyle(0xc9a227).fillRect(x - 3, 22, 24, 4).fillRect(x - 3, GY - 6, 24, 6);
+      }
+      for (let x = 110; x < W; x += 160) {                             // arched windows
+        g.fillStyle(0x200609).fillRect(x, 34, 22, 34);
+        g.fillStyle(0x200609).fillCircle(x + 11, 34, 11);
+        g.fillStyle(0x8c1c2b).fillRect(x + 10, 34, 2, 34);
+      }
+      for (let x = 150; x < W; x += 320) {                             // banners
+        g.fillStyle(0x6d1220).fillRect(x, 24, 16, 26);
+        g.fillStyle(0x6d1220).fillTriangle(x, 50, x + 16, 50, x + 8, 60);
+        g.fillStyle(0xc9a227).fillRect(x + 6, 30, 4, 4);
+      }
+      g.fillStyle(0x6d1220).fillRect(0, GY, W, 18);                    // carpet
+      g.fillStyle(0x8c1c2b).fillRect(0, GY, W, 3);
+      g.fillStyle(0xc9a227).fillRect(0, GY + 4, W, 1).fillRect(0, GY + 14, W, 1);
+    });
+    bg('demon', () => {   // hellscape
+      g.fillStyle(0x1a0b08).fillRect(0, 0, W, GY);
+      g.fillStyle(0x2d0f08).fillRect(0, GY - 30, W, 30);
+      g.fillStyle(0x241210).fillTriangle(600, GY, 780, GY, 690, GY - 58);   // volcano
+      g.fillStyle(0xff5722).fillRect(682, GY - 58, 16, 4);
+      g.fillStyle(0xff9800).fillTriangle(684, GY - 58, 696, GY - 58, 690, GY - 74); // eruption
+      g.fillStyle(0xff7043);
+      [[100, 30], [280, 18], [460, 40], [840, 26]].forEach(([x, y]) => g.fillRect(x, y, 2, 2)); // embers
+      [[60, 0], [230, 0], [420, 0], [560, 0], [820, 0]].forEach(([x]) => {  // flames
+        g.fillStyle(0xbf360c).fillTriangle(x, GY, x + 18, GY, x + 9, GY - 20);
+        g.fillStyle(0xff9800).fillTriangle(x + 3, GY, x + 15, GY, x + 9, GY - 14);
+        g.fillStyle(0xffee58).fillTriangle(x + 6, GY, x + 12, GY, x + 9, GY - 8);
+      });
+      g.fillStyle(0x241210).fillRect(0, GY, W, 18);                    // scorched ground
+      g.fillStyle(0xff5722);
+      for (let x = 30; x < W; x += 90) g.fillRect(x, GY + 6 + (x % 2) * 4, 24, 2); // lava cracks
+      g.fillStyle(0xbf360c).fillRect(0, GY, W, 2);
+    });
 
     // white slash crescent — the classic swing effect
     if (!scene.textures.exists('slash')) {
@@ -198,9 +319,12 @@ class Battle {
     this.baseX = 470;
     this.spacing = 80;
     this.max = 5;
-
     this.typeIndex = 0;
-    this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'battlebg');
+    this.tier = 0;
+    this.ranged = false;
+    this.decor = [];
+
+    this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'bg_ork');
     this.hero = scene.add.image(this.heroX, groundY - 4, 'hero0');
     scene.tweens.add({ targets: this.hero, y: groundY - 7, duration: 700, yoyo: true, repeat: -1 });
     this.enemies = [];
@@ -242,7 +366,6 @@ class Battle {
     });
   }
 
-  // white swing arc, games-style: pops at the hit point, grows and fades
   slashAt(x, y, delay = 0, big = false) {
     this.scene.time.delayedCall(delay, () => {
       const s = this.scene.add.image(x, y, 'slash')
@@ -257,20 +380,78 @@ class Battle {
     });
   }
 
-  // one correct pattern = one sword hit on the front monster
+  // one correct pattern = one hit. Melee: dash INTO the monster and slash.
+  // Ranged stages: stand ground, loose a crossbow bolt. Returns the hit spot.
   attack() {
-    if (!this.enemies.length) return;
+    if (!this.enemies.length) return null;
     const target = this.enemies.shift();
-    this.scene.tweens.add({
-      targets: this.hero, x: this.heroX + 40, duration: 90, yoyo: true, ease: 'Quad.easeOut'
-    });
-    this.slashAt(target.x - 10, target.y - 4);
-    this.kill(target);
+    const pos = { x: target.x, y: target.y };
+    const s = this.scene;
+
+    if (this.ranged) {
+      s.tweens.killTweensOf(this.hero);
+      this.hero.x = this.heroX;
+      s.tweens.add({ targets: this.hero, x: this.heroX - 6, duration: 60, yoyo: true }); // recoil
+      const bolt = s.add.image(this.heroX + 34, this.groundY - 12, 'bolt').setDepth(6);
+      s.tweens.add({
+        targets: bolt, x: pos.x - 12, duration: 140, ease: 'Linear',
+        onComplete: () => {
+          bolt.destroy();
+          this.slashAt(pos.x - 8, pos.y - 4);
+          this.kill(target);
+        }
+      });
+    } else {
+      s.tweens.killTweensOf(this.hero);
+      this.hero.x = this.heroX;
+      s.tweens.add({
+        targets: this.hero, x: pos.x - 48, duration: 140, yoyo: true,
+        ease: 'Quad.easeIn', hold: 60
+      });
+      this.slashAt(pos.x - 10, pos.y - 4, 140);
+      this.kill(target, 150);
+    }
     this.reflow();
     this.fill(false);
+    return pos;
   }
 
-  // level cleared: flash + dash, every monster on screen dies
+  // loot presentation: white flash, item falls to the ground with its rarity
+  // label glowing in the rarity color, then flies into the bag
+  dropLoot(pos, item, bagX, bagY, onDone) {
+    const s = this.scene;
+    const rar = RARITIES[item.r];
+    s.time.delayedCall(350, () => {
+      const flash = s.add.image(pos.x, pos.y, 'slash')
+        .setBlendMode(Phaser.BlendModes.ADD).setScale(0.4).setDepth(8);
+      s.tweens.add({ targets: flash, scale: 1.8, alpha: 0, duration: 250, onComplete: () => flash.destroy() });
+
+      const icon = s.add.image(pos.x, pos.y - 26, ITEM_TYPES[item.t].tex).setDepth(8);
+      const label = s.add.text(pos.x, this.groundY + 24, rar.name, {
+        fontFamily: 'monospace', fontSize: '12px', color: rar.color, fontStyle: 'bold'
+      }).setOrigin(0.5).setDepth(8).setAlpha(0);
+      const ring = s.add.circle(pos.x, this.groundY + 6, 14, rar.tint, 0)
+        .setStrokeStyle(2, rar.tint, 0.9).setDepth(7).setAlpha(0);
+
+      s.tweens.add({   // fall + bounce
+        targets: icon, y: this.groundY + 6, duration: 450, ease: 'Bounce.easeOut',
+        onComplete: () => {
+          label.setAlpha(1);
+          ring.setAlpha(1);
+          s.tweens.add({ targets: ring, scale: 1.4, alpha: 0.2, duration: 500, yoyo: true, repeat: 1 });
+          s.tweens.add({ targets: icon, angle: 8, duration: 260, yoyo: true, repeat: 2 });
+          s.time.delayedCall(1400, () => {   // fly to the bag
+            s.tweens.add({
+              targets: [icon, label, ring], x: bagX, y: bagY, scale: 0.3, alpha: 0,
+              duration: 380, ease: 'Cubic.easeIn',
+              onComplete: () => { icon.destroy(); label.destroy(); ring.destroy(); onDone(); }
+            });
+          });
+        }
+      });
+    });
+  }
+
   ulti(done) {
     const s = this.scene;
     const flash = s.add.rectangle(s.scale.width / 2, this.groundY,
@@ -289,7 +470,6 @@ class Battle {
     s.time.delayedCall(n * 80 + 500, () => { this.fill(false); done(); });
   }
 
-  // time ran out: the monsters swarm the hero and he falls
   defeat(done) {
     const s = this.scene;
     this.enemies.forEach((e, i) => {
@@ -302,18 +482,39 @@ class Battle {
     });
   }
 
-  setTier(t) {
-    this.hero.setTexture('hero' + Phaser.Math.Clamp(t, 0, 5));
+  applyHeroTexture() {
+    this.hero.setTexture('hero' + this.tier + (this.ranged ? 'x' : ''));
   }
 
-  // stage decides the monster type; retexture the ones already on screen
+  setTier(t) {
+    this.tier = Phaser.Math.Clamp(t, 0, 5);
+    this.applyHeroTexture();
+  }
+
+  // stage decides the monster type, the backdrop and the hero's weapon
   setStage(i) {
     this.typeIndex = Phaser.Math.Clamp(i, 0, Battle.TYPES.length - 1);
-    const key = 'en_' + Battle.TYPES[this.typeIndex];
-    this.enemies.forEach(e => e.setTexture(key));
+    const type = Battle.TYPES[this.typeIndex];
+    this.bg.setTexture('bg_' + type);
+    this.ranged = Battle.RANGED.includes(type);
+    this.applyHeroTexture();
+    this.enemies.forEach(e => e.setTexture('en_' + type));
+
+    this.decor.forEach(d => d.destroy());
+    this.decor = [];
+    if (type === 'demon') {   // fire fountains
+      [340, 700].forEach(x => {
+        const em = this.scene.add.particles(x, this.groundY + 12, 'pixel', {
+          speedY: { min: -70, max: -30 }, speedX: { min: -12, max: 12 },
+          scale: { start: 2, end: 0 }, tint: [0xff7043, 0xffca28, 0xef5350],
+          lifespan: 600, frequency: 90
+        });
+        this.decor.push(em);
+      });
+    }
   }
 
   setVisible(v) {
-    [this.bg, this.hero, ...this.enemies].forEach(o => o.setVisible(v));
+    [this.bg, this.hero, ...this.enemies, ...this.decor].forEach(o => o.setVisible(v));
   }
 }

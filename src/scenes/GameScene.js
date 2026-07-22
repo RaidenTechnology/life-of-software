@@ -1,12 +1,11 @@
-// GameScene — the core loop: a text panel in the middle, a countdown at the top.
-// Type the current language's patterns before the clock hits zero. Every correct
-// word buys back time, score and credits; hit the target score to climb to the
-// next (harder) language. Clearing all languages advances the STAGE (Very Easy →
-// Survival): same road, higher targets. Credits (max 100) buy hints — a hint
-// shows part of the word (rest as underscores) and types the revealed part.
-// After a level there is a chance of a festival:
-//   SOFTWARE FESTIVAL — a random language demands one of its patterns.
-//   GROWTH FESTIVAL   — a pattern is shown; type which language it belongs to.
+// GameScene — the core loop: a text panel in the middle, a countdown at the
+// top, the battle strip in between. Type the current language's patterns
+// before the clock hits zero; every correct word = a sword hit, score, time
+// and credits. Clearing the road raises the STAGE. Monsters drop loot by
+// chance (more at higher stages, +20% during festivals): sword (credit
+// multiplier), armor (death save), potion (time), scroll (free hints),
+// treasure (credits). Items live in a persistent BAG with a salvage option,
+// and a daily SHOP sells four rotating items for credits.
 
 const HINT_COST = 20;
 const FESTIVAL_HINT_COST = 10;
@@ -15,7 +14,7 @@ const CREDIT_MAX = 100;
 const START_TIME = 75;
 const LEVELUP_TIME_BONUS = 10;
 const MAX_TYPED = 24;
-const FESTIVAL_CHANCE = 0.35;   // chance of a festival appearing after a level
+const FESTIVAL_CHANCE = 0.35;
 const FESTIVAL_TIME = 20;
 const FESTIVAL_CREDIT = 15;
 const FESTIVAL_TIME_BONUS = 2;
@@ -26,7 +25,7 @@ const STAGES = [
   { name: 'MEDIUM',    mult: 1.8 },
   { name: 'HARD',      mult: 2.3 },
   { name: 'VERY HARD', mult: 2.8 },
-  { name: 'SURVIVAL',  mult: 3.5 }   // loops forever, +0.5 mult per lap
+  { name: 'SURVIVAL',  mult: 3.5 }
 ];
 
 class GameScene extends Phaser.Scene {
@@ -52,6 +51,15 @@ class GameScene extends Phaser.Scene {
     this.festival = null;
     this.lastTickSecond = -1;
 
+    // loot state
+    this.inventory = Items.load();
+    this.hintTokens = 0;
+    this.creditMult = 1;
+    this.multWords = 0;
+    this.deathSave = 0;
+    this.menuOpen = null;
+    this.menuC = null;
+
     const cx = this.scale.width / 2;
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
@@ -59,18 +67,30 @@ class GameScene extends Phaser.Scene {
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     status.right.setText('GMTK 2026 — Count Down');
 
-    // big countdown — the theme, front and center
     this.timerText = this.add.text(cx, 95, String(START_TIME), {
       fontFamily: 'monospace', fontSize: '60px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // HUD: score + stage (left), language badge + name + progress (right)
-    this.scoreText = this.add.text(16, 44, 'SCORE 0', {
+    // HUD: score + stage + bag/shop (left), language + progress (right)
+    this.scoreText = this.add.text(16, 40, 'SCORE 0', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.text
     });
-    this.stageText = this.add.text(16, 70, '', {
+    this.stageText = this.add.text(16, 66, '', {
       fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
     });
+    this.bagBtn = this.add.text(16, 92, '', {
+      fontFamily: 'monospace', fontSize: '15px', color: IDE.keyword
+    }).setInteractive({ useHandCursor: true }).setDepth(9);
+    this.bagBtn.on('pointerover', () => this.bagBtn.setColor(IDE.white));
+    this.bagBtn.on('pointerout', () => this.bagBtn.setColor(IDE.keyword));
+    this.bagBtn.on('pointerdown', () => this.toggleMenu('bag'));
+    this.shopBtn = this.add.text(130, 92, '[ SHOP ]', {
+      fontFamily: 'monospace', fontSize: '15px', color: IDE.keyword
+    }).setInteractive({ useHandCursor: true }).setDepth(9);
+    this.shopBtn.on('pointerover', () => this.shopBtn.setColor(IDE.white));
+    this.shopBtn.on('pointerout', () => this.shopBtn.setColor(IDE.keyword));
+    this.shopBtn.on('pointerdown', () => this.toggleMenu('shop'));
+
     this.langText = this.add.text(this.scale.width - 16, 44, '', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(1, 0);
@@ -95,7 +115,7 @@ class GameScene extends Phaser.Scene {
     this.cursor = this.add.rectangle(this.inputText.x + 2, panelY, 3, 36, 0xaeafad);
     this.tweens.add({ targets: this.cursor, alpha: 0, duration: 400, yoyo: true, repeat: -1 });
 
-    // credits + hint button — top-right corner of the input panel
+    // credits + hint + active effects — top-right corner of the input panel
     const panelRight = cx + panelW / 2, panelTop = panelY - panelH / 2;
     this.creditText = this.add.text(panelRight, panelTop - 22, '', {
       fontFamily: 'monospace', fontSize: '16px', color: IDE.text
@@ -106,8 +126,10 @@ class GameScene extends Phaser.Scene {
     this.hintBtn.on('pointerover', () => this.hintBtn.setColor(IDE.white));
     this.hintBtn.on('pointerout', () => this.hintBtn.setColor(IDE.keyword));
     this.hintBtn.on('pointerdown', () => this.buyHint());
+    this.effectText = this.add.text(panelRight, panelTop - 66, '', {
+      fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa'
+    }).setOrigin(1, 0.5);
 
-    // hint + feedback lines under the panel
     this.hintText = this.add.text(cx, panelY + 62, '', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.stringy
     }).setOrigin(0.5);
@@ -126,13 +148,13 @@ class GameScene extends Phaser.Scene {
 
     this.refreshLangHud();
     this.refreshCredits();
+    this.refreshBag();
   }
 
   get lang() {
     return LANGUAGES[this.langIndex];
   }
 
-  // during festivals the relevant language changes every word
   get activeLang() {
     return this.festival ? this.festival.lang : this.lang;
   }
@@ -145,14 +167,26 @@ class GameScene extends Phaser.Scene {
     return this.festival ? FESTIVAL_HINT_COST : HINT_COST;
   }
 
-  // target score for the current level, scaled by stage (and survival laps)
   targetScore() {
     const mult = STAGES[this.stageIndex].mult + this.survivalLap * 0.5;
     return Math.round(this.lang.target * mult / 10) * 10;
   }
 
+  fmtC(c) {
+    return String(parseFloat(c.toFixed(2)));
+  }
+
+  gainCredits(base) {
+    this.credits = Math.min(CREDIT_MAX, this.credits + base * this.creditMult);
+  }
+
   onKey(e) {
-    if (this.transitioning || this.over || this.dying) return;
+    if (this.over || this.dying) return;
+    if (this.menuOpen) {
+      if (e.key === 'Escape') this.closeMenu();
+      return;
+    }
+    if (this.transitioning) return;
     if (e.key === 'Escape') { this.togglePause(); return; }
     if (this.paused) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -194,30 +228,32 @@ class GameScene extends Phaser.Scene {
 
     this.activeFound.add(w);
     this.wordsTyped++;
-    this.celebrate();
+    const pos = this.celebrate();
 
     if (this.festival) {
-      // festival word: credits + a little main-clock time, no score
       this.festival.count++;
-      this.credits = Math.min(CREDIT_MAX, this.credits + FESTIVAL_CREDIT);
+      this.gainCredits(FESTIVAL_CREDIT);
       this.timeLeft += FESTIVAL_TIME_BONUS;
+      this.tickMult();
       this.refreshCredits();
       this.floatText('+' + FESTIVAL_CREDIT + ' credits  +' + FESTIVAL_TIME_BONUS + 's');
+      this.maybeDrop(pos);
       this.pickFestivalLang();
       return;
     }
 
-    // normal word: score + time + credits
     const points = w.length * 10;
     const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult;
     this.score += points;
     this.timeLeft += bonus;
-    this.credits = Math.min(CREDIT_MAX, this.credits + CREDIT_PER_WORD);
+    this.gainCredits(CREDIT_PER_WORD);
+    this.tickMult();
 
     this.scoreText.setText('SCORE ' + this.score);
     this.refreshCredits();
     this.pushRecent(w);
     this.floatText('+' + points + '  +' + bonus.toFixed(1) + 's');
+    this.maybeDrop(pos);
 
     if (this.score >= this.targetScore()) {
       this.levelUp();
@@ -226,7 +262,6 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // GROWTH FESTIVAL answer: name the language the shown pattern belongs to
   growthSubmit(w) {
     const f = this.festival;
     const ok = w === f.lang.name.toLowerCase() || w === f.lang.abbr.toLowerCase();
@@ -238,31 +273,252 @@ class GameScene extends Phaser.Scene {
     }
     f.count++;
     this.wordsTyped++;
-    this.celebrate();
+    const pos = this.celebrate();
     const i = f.pool.indexOf(f.lang);
     this.tweens.add({ targets: f.badges[i], scale: 1.4, duration: 150, yoyo: true });
-    this.credits = Math.min(CREDIT_MAX, this.credits + FESTIVAL_CREDIT);
+    this.gainCredits(FESTIVAL_CREDIT);
     this.timeLeft += FESTIVAL_TIME_BONUS;
+    this.tickMult();
     this.refreshCredits();
     this.floatText('+' + FESTIVAL_CREDIT + ' credits  +' + FESTIVAL_TIME_BONUS + 's');
+    this.maybeDrop(pos);
     this.pickGrowthRound();
+  }
+
+  // sword multiplier runs out word by word
+  tickMult() {
+    if (this.multWords > 0) {
+      this.multWords--;
+      if (this.multWords === 0) {
+        this.creditMult = 1;
+        this.feedback('sword effect expired', IDE.dim);
+      }
+    }
   }
 
   celebrate() {
     this.hintText.setText('');
     this.flashPanel(IDE.greenHex);
-    if (!this.festival) this.battle.attack();   // one word = one sword hit
     Sfx.pickup();
     this.add.particles(this.panel.x, this.panel.y, 'pixel', {
       speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
       scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
     }).explode();
+    return this.festival ? null : this.battle.attack();
   }
+
+  // --- loot ---
+
+  maybeDrop(pos) {
+    const chance = Items.dropChance(this.stageIndex, !!this.festival);
+    if (Math.random() >= chance) return;
+    const item = Items.roll();
+    if (pos) {
+      this.battle.dropLoot(pos, item, 40, 100, () => this.addItem(item, false));
+    } else {
+      this.addItem(item, true);
+    }
+  }
+
+  addItem(item, announce) {
+    if (this.inventory.length >= INV_MAX) {
+      const v = RARITIES[item.r].salvage;
+      this.credits = Math.min(CREDIT_MAX, this.credits + v);
+      this.refreshCredits();
+      this.feedback('bag full — ' + Items.name(item) + ' salvaged +' + this.fmtC(v), RARITIES[item.r].color);
+      return;
+    }
+    this.inventory.push(item);
+    Items.save(this.inventory);
+    this.refreshBag();
+    if (announce) this.feedback('LOOT: ' + Items.name(item), RARITIES[item.r].color);
+    Sfx.hint();
+  }
+
+  useItem(i) {
+    const item = this.inventory[i];
+    if (!item) return;
+    const T = ITEM_TYPES[item.t], r = item.r;
+    if (T.key === 'sword') {
+      this.creditMult = T.mult(r);
+      this.multWords = T.multWords[r];
+    } else if (T.key === 'armor') {
+      this.deathSave = Math.max(this.deathSave, T.save[r]);
+    } else if (T.key === 'potion') {
+      this.timeLeft += T.time[r];
+    } else if (T.key === 'scroll') {
+      this.hintTokens += T.hints[r];
+    } else if (T.key === 'treasure') {
+      this.credits = Math.min(CREDIT_MAX, this.credits + T.credits[r]);
+    }
+    this.inventory.splice(i, 1);
+    Items.save(this.inventory);
+    this.refreshBag();
+    this.refreshCredits();
+    this.feedback('used ' + Items.name(item) + ' — ' + Items.desc(item), RARITIES[r].color);
+    Sfx.win();
+  }
+
+  salvageItem(i) {
+    const item = this.inventory[i];
+    if (!item) return;
+    const v = RARITIES[item.r].salvage;
+    this.credits = Math.min(CREDIT_MAX, this.credits + v);
+    this.inventory.splice(i, 1);
+    Items.save(this.inventory);
+    this.refreshBag();
+    this.refreshCredits();
+    this.feedback('salvaged ' + Items.name(item) + ' +' + this.fmtC(v) + ' credits', RARITIES[item.r].color);
+    Sfx.blip();
+  }
+
+  // --- bag & shop panels (game freezes while open) ---
+
+  toggleMenu(which) {
+    if (this.over || this.dying || this.transitioning || this.paused) return;
+    if (this.menuOpen === which) return this.closeMenu();
+    this.closeMenu();
+    if (which === 'bag') this.openBag(-1); else this.openShop();
+  }
+
+  closeMenu() {
+    if (this.menuC) this.menuC.destroy();
+    this.menuC = null;
+    this.menuOpen = null;
+  }
+
+  menuShell(title, note) {
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    const c = this.add.container(0, 0).setDepth(30);
+    const dim = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.7)
+      .setInteractive();
+    dim.on('pointerdown', () => this.closeMenu());
+    c.add(dim);
+    const win = this.add.rectangle(cx, cy, 720, 430, IDE.panel).setStrokeStyle(2, IDE.border)
+      .setInteractive();
+    c.add(win);
+    c.add(this.add.text(cx, cy - 190, title, {
+      fontFamily: 'monospace', fontSize: '22px', color: IDE.white, fontStyle: 'bold'
+    }).setOrigin(0.5));
+    c.add(this.add.text(cx, cy - 164, note, {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
+    }).setOrigin(0.5));
+    const close = this.add.text(cx + 340, cy - 195, '[X]', {
+      fontFamily: 'monospace', fontSize: '18px', color: IDE.error
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    close.on('pointerdown', () => this.closeMenu());
+    c.add(close);
+    this.menuC = c;
+    return c;
+  }
+
+  openBag(selected) {
+    this.menuOpen = 'bag';
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    const c = this.menuShell('INVENTORY  (' + this.inventory.length + '/' + INV_MAX + ')',
+      'click an item, then USE it or SALVAGE it for credits · ESC closes');
+
+    const cols = 6, size = 78;
+    const x0 = cx - (cols - 1) * size / 2;
+    for (let i = 0; i < INV_MAX; i++) {
+      const x = x0 + (i % cols) * size, y = cy - 108 + Math.floor(i / cols) * size;
+      const item = this.inventory[i];
+      const slot = this.add.rectangle(x, y, 64, 64, 0x1c1c1d)
+        .setStrokeStyle(2, item ? RARITIES[item.r].tint : IDE.border);
+      c.add(slot);
+      if (item) {
+        if (i === selected) slot.setStrokeStyle(3, 0xffffff);
+        c.add(this.add.image(x, y - 6, ITEM_TYPES[item.t].tex).setScale(1.6));
+        c.add(this.add.text(x, y + 22, RARITIES[item.r].name.slice(0, 4), {
+          fontFamily: 'monospace', fontSize: '10px', color: RARITIES[item.r].color
+        }).setOrigin(0.5));
+        slot.setInteractive({ useHandCursor: true });
+        slot.on('pointerdown', () => { this.closeMenu(); this.openBag(i); });
+      }
+    }
+
+    const item = this.inventory[selected];
+    if (item) {
+      c.add(this.add.text(cx - 330, cy + 78, Items.name(item), {
+        fontFamily: 'monospace', fontSize: '18px', color: RARITIES[item.r].color, fontStyle: 'bold'
+      }).setOrigin(0, 0.5));
+      c.add(this.add.text(cx - 330, cy + 104, Items.desc(item), {
+        fontFamily: 'monospace', fontSize: '14px', color: IDE.text
+      }).setOrigin(0, 0.5));
+      const use = this.add.text(cx + 120, cy + 90, '[ USE ]', {
+        fontFamily: 'monospace', fontSize: '18px', color: IDE.comment, fontStyle: 'bold'
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      use.on('pointerdown', () => { this.useItem(selected); this.closeMenu(); this.openBag(-1); });
+      c.add(use);
+      const salv = this.add.text(cx + 260, cy + 90, '[ SALVAGE +' + this.fmtC(RARITIES[item.r].salvage) + ' ]', {
+        fontFamily: 'monospace', fontSize: '16px', color: IDE.stringy
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      salv.on('pointerdown', () => { this.salvageItem(selected); this.closeMenu(); this.openBag(-1); });
+      c.add(salv);
+    } else if (this.inventory.length === 0) {
+      c.add(this.add.text(cx, cy + 90, 'no items yet — monsters drop loot when slain', {
+        fontFamily: 'monospace', fontSize: '14px', color: IDE.dim
+      }).setOrigin(0.5));
+    }
+    c.add(this.add.text(cx - 330, cy + 160, 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX, {
+      fontFamily: 'monospace', fontSize: '15px', color: IDE.text
+    }).setOrigin(0, 0.5));
+  }
+
+  openShop() {
+    this.menuOpen = 'shop';
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    const stock = Items.shopStock();
+    const c = this.menuShell('SHOP — ' + stock.day, 'new stock every day · bought items go to your bag · ESC closes');
+
+    stock.items.forEach((item, i) => {
+      const x = cx - 255 + i * 170, y = cy - 40;
+      const sold = stock.sold.includes(i);
+      const card = this.add.rectangle(x, y, 150, 190, 0x1c1c1d)
+        .setStrokeStyle(2, sold ? IDE.border : RARITIES[item.r].tint);
+      c.add(card);
+      c.add(this.add.image(x, y - 60, ITEM_TYPES[item.t].tex).setScale(2).setAlpha(sold ? 0.3 : 1));
+      c.add(this.add.text(x, y - 24, RARITIES[item.r].name, {
+        fontFamily: 'monospace', fontSize: '13px', color: RARITIES[item.r].color, fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(sold ? 0.4 : 1));
+      c.add(this.add.text(x, y - 6, ITEM_TYPES[item.t].label, {
+        fontFamily: 'monospace', fontSize: '14px', color: IDE.text
+      }).setOrigin(0.5).setAlpha(sold ? 0.4 : 1));
+      c.add(this.add.text(x, y + 30, ITEM_TYPES[item.t].desc(item.r), {
+        fontFamily: 'monospace', fontSize: '11px', color: IDE.dim,
+        align: 'center', wordWrap: { width: 136 }
+      }).setOrigin(0.5).setAlpha(sold ? 0.4 : 1));
+      const price = RARITIES[item.r].price;
+      const afford = this.credits >= price;
+      const btn = this.add.text(x, y + 74,
+        sold ? 'SOLD' : '[ BUY ' + price + ' ]', {
+          fontFamily: 'monospace', fontSize: '15px', fontStyle: 'bold',
+          color: sold ? IDE.dim : (afford ? IDE.comment : IDE.error)
+        }).setOrigin(0.5);
+      if (!sold && afford) {
+        btn.setInteractive({ useHandCursor: true });
+        btn.on('pointerdown', () => {
+          this.credits -= price;
+          Items.markSold(stock, i);
+          this.addItem(item, true);
+          this.refreshCredits();
+          this.closeMenu();
+          this.openShop();
+        });
+      }
+      c.add(btn);
+    });
+    c.add(this.add.text(cx, cy + 160, 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX, {
+      fontFamily: 'monospace', fontSize: '15px', color: IDE.text
+    }).setOrigin(0.5));
+  }
+
+  // --- level flow ---
 
   levelUp() {
     const fromIdx = this.langIndex;
     this.langIndex++;
-    this.score = 0;          // fresh level, fresh score — credits stay
+    this.score = 0;
     this.scoreText.setText('SCORE 0');
     this.found.clear();
     this.recent = [];
@@ -272,14 +528,11 @@ class GameScene extends Phaser.Scene {
     this.timeLeft += LEVELUP_TIME_BONUS;
     Sfx.win();
     this.transitioning = true;
-
-    // the hero's ulti clears the screen, then the road plays
     this.battle.ulti(() => this.afterUlti(fromIdx));
   }
 
   afterUlti(fromIdx) {
     if (this.langIndex >= LANGUAGES.length) {
-      // whole road cleared → next stage (or another survival lap)
       this.langIndex = 0;
       if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
       else this.survivalLap++;
@@ -289,7 +542,6 @@ class GameScene extends Phaser.Scene {
       });
       return;
     }
-
     this.showPath(fromIdx, () => {
       this.transitioning = false;
       this.refreshLangHud();
@@ -299,7 +551,6 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  // --- language path: max 3 sections side by side, icons underneath.
   showPath(fromIdx, done) {
     const cx = this.scale.width / 2, cy = 250;
     const spacing = 230;
@@ -332,7 +583,6 @@ class GameScene extends Phaser.Scene {
       return node;
     };
 
-    // road: [previous (already green)] [current (white)] [next (dim)]
     const prev = fromIdx > 0 ? mkNode(fromIdx - 1, -spacing, 0.55) : null;
     if (prev) prev.box.setStrokeStyle(2, IDE.greenHex);
     const cur = mkNode(fromIdx, 0, 1);
@@ -341,7 +591,6 @@ class GameScene extends Phaser.Scene {
 
     this.tweens.add({ targets: overlay, alpha: 1, duration: 400 });
 
-    // 1) the cleared section turns white → green
     this.time.delayedCall(1000, () => {
       cur.box.setStrokeStyle(3, IDE.greenHex);
       cur.add(this.add.text(70, -24, '✓', {
@@ -350,7 +599,6 @@ class GameScene extends Phaser.Scene {
       Sfx.pickup();
     });
 
-    // 2) the road slides: cleared language falls behind, next one arrives
     this.time.delayedCall(2200, () => {
       const incoming = fromIdx + 2 < LANGUAGES.length
         ? mkNode(fromIdx + 2, spacing * 2, 0) : null;
@@ -369,7 +617,6 @@ class GameScene extends Phaser.Scene {
       });
     });
 
-    // 3) hold, fade out, resume play
     this.time.delayedCall(4600, () => {
       this.tweens.add({
         targets: overlay, alpha: 0, duration: 400,
@@ -378,7 +625,6 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  // --- stage transition: the whole road was cleared, difficulty rises
   showStage(done) {
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
     const stage = STAGES[this.stageIndex];
@@ -408,7 +654,8 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  // --- festivals: badges above the input box, own 20s clock, main clock frozen
+  // --- festivals ---
+
   startFestival(type) {
     const cx = this.scale.width / 2;
     const pool = Phaser.Utils.Array.Shuffle(LANGUAGES.slice()).slice(0, 6);
@@ -435,7 +682,7 @@ class GameScene extends Phaser.Scene {
       lang: null, word: null, used: new Set(), timeLeft: FESTIVAL_TIME, count: 0
     };
 
-    this.battle.setVisible(false);   // the monsters watch the festival from afar
+    this.battle.setVisible(false);
     this.langText.setText(type === 'sw' ? 'SOFTWARE FESTIVAL' : 'GROWTH FESTIVAL')
       .setColor('#dcdcaa');
     if (this.langBadge) { this.langBadge.destroy(); this.langBadge = null; }
@@ -447,7 +694,6 @@ class GameScene extends Phaser.Scene {
     Sfx.win();
   }
 
-  // SOFTWARE FESTIVAL round: a random language demands one of its patterns
   pickFestivalLang() {
     const f = this.festival;
     const i = Phaser.Math.Between(0, f.pool.length - 1);
@@ -461,7 +707,6 @@ class GameScene extends Phaser.Scene {
     this.refreshInput();
   }
 
-  // GROWTH FESTIVAL round: show a pattern unique to one pool language
   pickGrowthRound() {
     const f = this.festival;
     let lang = null, word = null, guard = 0;
@@ -499,11 +744,12 @@ class GameScene extends Phaser.Scene {
     Sfx.hint();
   }
 
-  // a hint shows part of the answer, the rest as underscores, and also types
-  // the revealed part into the input box. Cheaper during festivals.
+  // --- hints ---
+
   buyHint() {
-    if (this.paused || this.over || this.transitioning) return;
-    const cost = this.hintCost;
+    if (this.paused || this.over || this.dying || this.transitioning || this.menuOpen) return;
+    const free = this.hintTokens > 0;
+    const cost = free ? 0 : this.hintCost;
     if (this.credits < cost) {
       this.feedback('not enough credits (' + cost + ' needed)', IDE.error);
       Sfx.wrong();
@@ -519,7 +765,7 @@ class GameScene extends Phaser.Scene {
       w = Phaser.Utils.Array.GetRandom(remaining);
     }
 
-    this.credits -= cost;
+    if (free) this.hintTokens--; else this.credits -= cost;
     this.refreshCredits();
     const shown = Math.ceil(w.length / 2);
     const masked = (w.slice(0, shown) + '_'.repeat(w.length - shown)).split('').join(' ');
@@ -533,6 +779,7 @@ class GameScene extends Phaser.Scene {
   finish(win) {
     if (this.over) return;
     this.over = true;
+    this.closeMenu();
     if (win) Sfx.win(); else Sfx.hit();
     this.scene.start('End', {
       score: this.score,
@@ -546,8 +793,6 @@ class GameScene extends Phaser.Scene {
 
   // --- UI helpers ---
 
-  // live syntax coloring, IDE-style: blue = valid, dim = already used,
-  // red = nothing can match anymore, default while still a valid prefix
   typedColor() {
     if (!this.typed) return IDE.text;
     const f = this.festival;
@@ -587,9 +832,19 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshCredits() {
-    this.creditText.setText('CREDITS ' + this.credits + '/' + CREDIT_MAX);
-    this.hintBtn.setText('[ HINT -' + this.hintCost + ' ]');
-    this.hintBtn.setAlpha(this.credits >= this.hintCost ? 1 : 0.4);
+    this.creditText.setText('CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX);
+    this.hintBtn.setText(this.hintTokens > 0
+      ? '[ HINT FREE ×' + this.hintTokens + ' ]'
+      : '[ HINT -' + this.hintCost + ' ]');
+    this.hintBtn.setAlpha(this.hintTokens > 0 || this.credits >= this.hintCost ? 1 : 0.4);
+    const fx = [];
+    if (this.multWords > 0) fx.push('×' + this.creditMult + ' credits (' + this.multWords + 'w)');
+    if (this.deathSave > 0) fx.push('SAVE ' + this.deathSave + 's');
+    this.effectText.setText(fx.join('  ·  '));
+  }
+
+  refreshBag() {
+    this.bagBtn.setText('[ BAG ' + this.inventory.length + '/' + INV_MAX + ' ]');
   }
 
   pushRecent(w) {
@@ -632,7 +887,7 @@ class GameScene extends Phaser.Scene {
   }
 
   togglePause() {
-    if (this.over || this.transitioning) return;
+    if (this.over || this.transitioning || this.menuOpen) return;
     this.paused = !this.paused;
     this.pauseText.setVisible(this.paused);
     this.time.paused = this.paused;
@@ -640,9 +895,8 @@ class GameScene extends Phaser.Scene {
   }
 
   update(_, delta) {
-    if (this.paused || this.over || this.transitioning || this.dying) return;
+    if (this.paused || this.over || this.transitioning || this.dying || this.menuOpen) return;
 
-    // festival: its own little clock runs, the main countdown is frozen
     if (this.festival) {
       this.festival.timeLeft -= delta / 1000;
       if (this.festival.timeLeft <= 0) {
@@ -656,9 +910,18 @@ class GameScene extends Phaser.Scene {
 
     this.timeLeft -= delta / 1000;
     if (this.timeLeft <= 0) {
+      // armor's death save gets one chance before the monsters do
+      if (this.deathSave > 0) {
+        this.timeLeft = this.deathSave;
+        this.deathSave = 0;
+        this.refreshCredits();
+        this.feedback('your ARMOR saved you! +' + Math.ceil(this.timeLeft) + 's', '#dcdcaa');
+        this.flashPanel(0xdcdcaa);
+        Sfx.win();
+        return;
+      }
       this.timeLeft = 0;
       this.timerText.setText('0');
-      // the monsters get their moment: swarm the hero, then the end screen
       this.dying = true;
       Sfx.hit();
       this.battle.defeat(() => this.finish(false));
