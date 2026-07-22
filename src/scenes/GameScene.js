@@ -47,6 +47,7 @@ class GameScene extends Phaser.Scene {
     this.recent = [];
     this.paused = false;
     this.over = false;
+    this.dying = false;
     this.transitioning = false;
     this.festival = null;
     this.lastTickSecond = -1;
@@ -77,8 +78,11 @@ class GameScene extends Phaser.Scene {
     this.progressTrack = this.add.rectangle(this.scale.width - 16, 76, 180, 6, IDE.border).setOrigin(1, 0.5);
     this.progressFill = this.add.rectangle(this.scale.width - 196, 76, 0, 6, IDE.statusbar).setOrigin(0, 0.5);
 
+    // battle strip: hero vs monsters, between the countdown and the panel
+    this.battle = new Battle(this, 195);
+
     // input panel: one editor line, with a line-number gutter
-    const panelW = 620, panelH = 74, panelY = 285;
+    const panelW = 620, panelH = 74, panelY = 350;
     this.panel = this.add.rectangle(cx, panelY, panelW, panelH, IDE.panel)
       .setStrokeStyle(2, IDE.border);
     this.add.rectangle(cx - panelW / 2 + 24, panelY, 48, panelH - 4, 0x2a2a2b);
@@ -148,7 +152,7 @@ class GameScene extends Phaser.Scene {
   }
 
   onKey(e) {
-    if (this.transitioning || this.over) return;
+    if (this.transitioning || this.over || this.dying) return;
     if (e.key === 'Escape') { this.togglePause(); return; }
     if (this.paused) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -247,6 +251,7 @@ class GameScene extends Phaser.Scene {
   celebrate() {
     this.hintText.setText('');
     this.flashPanel(IDE.greenHex);
+    if (!this.festival) this.battle.attack();   // one word = one sword hit
     Sfx.pickup();
     this.add.particles(this.panel.x, this.panel.y, 'pixel', {
       speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
@@ -268,6 +273,11 @@ class GameScene extends Phaser.Scene {
     Sfx.win();
     this.transitioning = true;
 
+    // the hero's ulti clears the screen, then the road plays
+    this.battle.ulti(() => this.afterUlti(fromIdx));
+  }
+
+  afterUlti(fromIdx) {
     if (this.langIndex >= LANGUAGES.length) {
       // whole road cleared → next stage (or another survival lap)
       this.langIndex = 0;
@@ -425,6 +435,7 @@ class GameScene extends Phaser.Scene {
       lang: null, word: null, used: new Set(), timeLeft: FESTIVAL_TIME, count: 0
     };
 
+    this.battle.setVisible(false);   // the monsters watch the festival from afar
     this.langText.setText(type === 'sw' ? 'SOFTWARE FESTIVAL' : 'GROWTH FESTIVAL')
       .setColor('#dcdcaa');
     if (this.langBadge) { this.langBadge.destroy(); this.langBadge = null; }
@@ -474,6 +485,7 @@ class GameScene extends Phaser.Scene {
   endFestival() {
     const f = this.festival;
     this.festival = null;
+    this.battle.setVisible(true);
     this.tweens.add({
       targets: f.container, alpha: 0, duration: 300,
       onComplete: () => f.container.destroy()
@@ -565,6 +577,7 @@ class GameScene extends Phaser.Scene {
       ' · target ' + this.targetScore());
     this.progressFill.width = 180 * Math.min(1, this.score / this.targetScore());
     this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
+    if (this.battle) this.battle.setTier(Math.floor(this.langIndex / 5));
     if (this.langBadge) this.langBadge.destroy();
     this.langBadge = UI.badge(this,
       this.scale.width - 30 - this.langText.width, 54, this.lang, 13);
@@ -624,7 +637,7 @@ class GameScene extends Phaser.Scene {
   }
 
   update(_, delta) {
-    if (this.paused || this.over || this.transitioning) return;
+    if (this.paused || this.over || this.transitioning || this.dying) return;
 
     // festival: its own little clock runs, the main countdown is frozen
     if (this.festival) {
@@ -642,7 +655,10 @@ class GameScene extends Phaser.Scene {
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
       this.timerText.setText('0');
-      this.finish(false);
+      // the monsters get their moment: swarm the hero, then the end screen
+      this.dying = true;
+      Sfx.hit();
+      this.battle.defeat(() => this.finish(false));
       return;
     }
 

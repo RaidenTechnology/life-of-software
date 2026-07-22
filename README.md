@@ -48,6 +48,14 @@ powershell -File build.ps1
 Produces `dist/raiden-gmtk2026.zip` — upload to itch.io, mark **"This file will
 be played in the browser"**, viewport 960×540.
 
+## Swapping in your own art (Blender renders etc.)
+
+The hero and monster sprites are code-drawn placeholders. To replace them,
+export transparent PNGs (~40×48) and load them in `BootScene.preload` with
+the same keys — `hero0`..`hero5`, `en_ork`, `en_skeleton`, `en_elf`,
+`en_vampire`, `en_goblin`, `en_demon`. `Battle.makeTextures` skips any key
+that is already loaded. Hand-made art only (jam rule: no AI art).
+
 ## Jam constraints checklist
 
 - [x] Playable in browser, keyboard + mouse

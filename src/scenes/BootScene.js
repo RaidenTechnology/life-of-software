@@ -14,11 +14,16 @@ class BootScene extends Phaser.Scene {
     const fill = this.add.rectangle(cx - barW / 2, cy, 0, barH, 0x007acc).setOrigin(0, 0.5);
     this.load.on('progress', v => { fill.width = barW * v; });
 
-    // this.load.image('...', 'assets/...');  ← jam assets go here
+    // Hand-made art (e.g. Blender renders as transparent PNGs) goes here.
+    // Use the SAME keys and Battle.makeTextures will skip its placeholders:
+    // this.load.image('hero0', 'assets/hero0.png');   // ... hero1..hero5
+    // this.load.image('en_ork', 'assets/ork.png');    // en_skeleton, en_elf,
+    //                                                 // en_vampire, en_goblin, en_demon
   }
 
   create() {
     this.makeTextures();
+    Battle.makeTextures(this);
     this.scene.start('Menu');
   }
 
