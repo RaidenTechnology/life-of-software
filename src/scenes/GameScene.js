@@ -577,7 +577,10 @@ class GameScene extends Phaser.Scene {
       ' · target ' + this.targetScore());
     this.progressFill.width = 180 * Math.min(1, this.score / this.targetScore());
     this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
-    if (this.battle) this.battle.setTier(Math.floor(this.langIndex / 5));
+    if (this.battle) {
+      this.battle.setTier(Math.floor(this.langIndex / 5));
+      this.battle.setStage(this.stageIndex);
+    }
     if (this.langBadge) this.langBadge.destroy();
     this.langBadge = UI.badge(this,
       this.scale.width - 30 - this.langText.width, 54, this.lang, 13);

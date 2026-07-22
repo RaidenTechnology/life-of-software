@@ -10,7 +10,9 @@
 // makeTextures() skips any key that is already loaded.
 
 class Battle {
-  static TYPES = ['ork', 'skeleton', 'elf', 'vampire', 'goblin', 'demon'];
+  // one monster type per stage: Very Easy → ork, Easy → skeleton,
+  // Medium → elf, Hard → goblin, Very Hard → vampire, Survival → demon
+  static TYPES = ['ork', 'skeleton', 'elf', 'goblin', 'vampire', 'demon'];
 
   static makeTextures(scene) {
     const g = scene.add.graphics();
@@ -197,6 +199,7 @@ class Battle {
     this.spacing = 80;
     this.max = 5;
 
+    this.typeIndex = 0;
     this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'battlebg');
     this.hero = scene.add.image(this.heroX, groundY - 4, 'hero0');
     scene.tweens.add({ targets: this.hero, y: groundY - 7, duration: 700, yoyo: true, repeat: -1 });
@@ -207,7 +210,7 @@ class Battle {
   fill(instant) {
     while (this.enemies.length < this.max) {
       const i = this.enemies.length;
-      const key = 'en_' + Phaser.Utils.Array.GetRandom(Battle.TYPES);
+      const key = 'en_' + Battle.TYPES[this.typeIndex];
       const e = this.scene.add.image(this.baseX + i * this.spacing, this.groundY - 4, key);
       if (!instant) {
         e.setAlpha(0);
@@ -301,6 +304,13 @@ class Battle {
 
   setTier(t) {
     this.hero.setTexture('hero' + Phaser.Math.Clamp(t, 0, 5));
+  }
+
+  // stage decides the monster type; retexture the ones already on screen
+  setStage(i) {
+    this.typeIndex = Phaser.Math.Clamp(i, 0, Battle.TYPES.length - 1);
+    const key = 'en_' + Battle.TYPES[this.typeIndex];
+    this.enemies.forEach(e => e.setTexture(key));
   }
 
   setVisible(v) {
