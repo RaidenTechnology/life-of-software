@@ -18,6 +18,7 @@ const FESTIVAL_CHANCE = 0.35;
 const FESTIVAL_TIME = 20;
 const FESTIVAL_CREDIT = 15;
 const FESTIVAL_TIME_BONUS = 2;
+const ENEMY_STRIKE_EVERY = 10;   // seconds between the front monster's hits
 
 const STAGES = [
   { name: 'VERY EASY', mult: 1.0 },
@@ -50,6 +51,7 @@ class GameScene extends Phaser.Scene {
     this.transitioning = false;
     this.festival = null;
     this.lastTickSecond = -1;
+    this.strikeTimer = 0;
 
     // loot state
     this.inventory = Items.load();
@@ -526,6 +528,7 @@ class GameScene extends Phaser.Scene {
     this.hintText.setText('');
     this.feedbackText.setText('');
     this.timeLeft += LEVELUP_TIME_BONUS;
+    this.strikeTimer = 0;
     Sfx.win();
     this.transitioning = true;
     this.battle.ulti(() => this.afterUlti(fromIdx));
@@ -737,6 +740,7 @@ class GameScene extends Phaser.Scene {
     });
     this.feedback('festival over — ' + f.count + ' answers, +' +
       (f.count * FESTIVAL_CREDIT) + ' credits', '#dcdcaa');
+    this.strikeTimer = 0;
     this.typed = '';
     this.refreshInput();
     this.refreshLangHud();
@@ -906,6 +910,13 @@ class GameScene extends Phaser.Scene {
           .setColor('#dcdcaa').setScale(1);
       }
       return;
+    }
+
+    // every few seconds the front monster lands a (non-lethal) hit
+    this.strikeTimer += delta / 1000;
+    if (this.strikeTimer >= ENEMY_STRIKE_EVERY) {
+      this.strikeTimer = 0;
+      this.battle.enemyStrike(false);
     }
 
     this.timeLeft -= delta / 1000;

@@ -3,13 +3,13 @@
 
 const IDE = {
   bg: 0x1e1e1e,
-  panel: 0x252526,
-  border: 0x3c3c3c,
-  titlebar: 0x323233,
+  panel: 0x2b2b30,
+  border: 0x50505a,
+  titlebar: 0x3a3a3e,
   statusbar: 0x007acc,
   greenHex: 0x6a9955,
-  text: '#d4d4d4',
-  dim: '#808080',
+  text: '#e8e8e8',
+  dim: '#a0a0a0',
   keyword: '#569cd6',   // VS keyword blue — valid word while typing
   stringy: '#ce9178',   // VS string orange
   comment: '#6a9955',   // VS comment green

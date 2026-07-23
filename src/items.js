@@ -66,6 +66,8 @@ const Items = {
       g.fillStyle(0xb2ebf2).fillRect(6, 5, 4, 4);
     });
     g.destroy();
+    ['it_sword', 'it_armor', 'it_potion', 'it_scroll', 'it_treasure'].forEach(k =>
+      scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST));
   },
 
   rollRarity(rnd = Math.random) {

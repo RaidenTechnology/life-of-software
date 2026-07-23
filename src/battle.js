@@ -310,6 +310,11 @@ class Battle {
     }
 
     g.destroy();
+
+    // crisp pixels: nearest-neighbor filtering for every battle texture
+    Object.keys(scene.textures.list)
+      .filter(k => /^(hero|en_|bg_|bolt|slash)/.test(k))
+      .forEach(k => scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST));
   }
 
   constructor(scene, groundY) {
@@ -324,9 +329,11 @@ class Battle {
     this.ranged = false;
     this.decor = [];
 
+    this.striking = false;
+    this.strikeTarget = null;
     this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'bg_ork');
-    this.hero = scene.add.image(this.heroX, groundY - 4, 'hero0');
-    scene.tweens.add({ targets: this.hero, y: groundY - 7, duration: 700, yoyo: true, repeat: -1 });
+    this.hero = scene.add.image(this.heroX, groundY - 7, 'hero0').setScale(1.15);
+    scene.tweens.add({ targets: this.hero, y: groundY - 10, duration: 700, yoyo: true, repeat: -1 });
     this.enemies = [];
     this.fill(true);
   }
@@ -335,13 +342,14 @@ class Battle {
     while (this.enemies.length < this.max) {
       const i = this.enemies.length;
       const key = 'en_' + Battle.TYPES[this.typeIndex];
-      const e = this.scene.add.image(this.baseX + i * this.spacing, this.groundY - 4, key);
+      const e = this.scene.add.image(this.baseX + i * this.spacing, this.groundY - 7, key)
+        .setScale(1.15);
       if (!instant) {
         e.setAlpha(0);
         this.scene.tweens.add({ targets: e, alpha: 1, duration: 300 });
       }
       this.scene.tweens.add({
-        targets: e, y: this.groundY - 6, duration: 600 + i * 60, yoyo: true, repeat: -1
+        targets: e, y: this.groundY - 10, duration: 600 + i * 60, yoyo: true, repeat: -1
       });
       this.enemies.push(e);
     }
@@ -385,6 +393,7 @@ class Battle {
   attack() {
     if (!this.enemies.length) return null;
     const target = this.enemies.shift();
+    if (target === this.strikeTarget) { this.striking = false; this.strikeTarget = null; }
     const pos = { x: target.x, y: target.y };
     const s = this.scene;
 
@@ -470,16 +479,56 @@ class Battle {
     s.time.delayedCall(n * 80 + 500, () => { this.fill(false); done(); });
   }
 
-  defeat(done) {
+  // the front monster steps up and strikes the hero once.
+  // lethal=false: a warning hit (red flash + knockback), then it walks back.
+  // lethal=true: the killing blow — the hero falls.
+  enemyStrike(lethal, done) {
     const s = this.scene;
-    this.enemies.forEach((e, i) => {
-      s.tweens.add({ targets: e, x: this.heroX + 45 + i * 22, duration: 350 });
+    if (!this.enemies.length || (this.striking && !lethal)) { if (done) done(); return; }
+    const e = this.enemies[0];
+    const back = e.x;
+    this.striking = true;
+    this.strikeTarget = e;
+    s.tweens.killTweensOf(e);
+    s.tweens.add({
+      targets: e, x: this.heroX + 44, duration: 260, ease: 'Quad.easeIn',
+      onComplete: () => {
+        if (e !== this.strikeTarget) return;   // it died mid-charge
+        const sl = s.add.image(this.heroX + 14, this.groundY - 14, 'slash')
+          .setBlendMode(Phaser.BlendModes.ADD).setTint(0xff6655)
+          .setScale(0.7).setAngle(Phaser.Math.Between(150, 210)).setDepth(7);
+        s.tweens.add({ targets: sl, scale: 1.5, alpha: 0, duration: 200, onComplete: () => sl.destroy() });
+        Sfx.hit();
+        if (lethal) {
+          s.tweens.killTweensOf(this.hero);
+          this.hero.setTint(0xff8888);
+          s.tweens.add({ targets: this.hero, angle: -90, y: '+=14', alpha: 0.4, duration: 500 });
+          s.time.delayedCall(950, () => {
+            this.striking = false;
+            this.strikeTarget = null;
+            if (done) done();
+          });
+        } else {
+          this.hero.setTint(0xff8888);
+          s.tweens.add({ targets: this.hero, x: this.heroX - 14, duration: 90, yoyo: true });
+          s.time.delayedCall(260, () => this.hero.clearTint());
+          s.tweens.add({
+            targets: e, x: back, duration: 320, delay: 160, ease: 'Quad.easeOut',
+            onComplete: () => {
+              this.striking = false;
+              this.strikeTarget = null;
+              s.tweens.add({ targets: e, y: this.groundY - 10, duration: 650, yoyo: true, repeat: -1 });
+              if (done) done();
+            }
+          });
+        }
+      }
     });
-    s.time.delayedCall(420, () => {
-      s.tweens.killTweensOf(this.hero);
-      s.tweens.add({ targets: this.hero, angle: -90, y: '+=14', alpha: 0.4, duration: 500 });
-      s.time.delayedCall(950, done);
-    });
+  }
+
+  // time ran out: only the front monster attacks — one lethal blow
+  defeat(done) {
+    this.enemyStrike(true, done);
   }
 
   applyHeroTexture() {

@@ -11,6 +11,11 @@ class MenuScene extends Phaser.Scene {
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     status.right.setText('GMTK 2026 — Count Down');
 
+    // soft color glow behind the title — brighter, warmer menu lighting
+    this.add.circle(cx - 150, cy - 140, 150, 0x569cd6, 0.10);
+    this.add.circle(cx + 150, cy - 140, 150, 0xce9178, 0.10);
+    this.add.circle(cx, cy - 140, 220, 0xffffff, 0.05);
+
     // two-tone title, like syntax highlighting
     const t1 = this.add.text(0, 0, 'LIFE OF', {
       fontFamily: 'monospace', fontSize: '56px', color: IDE.keyword, fontStyle: 'bold'
