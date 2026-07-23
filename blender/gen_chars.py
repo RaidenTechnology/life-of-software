@@ -49,12 +49,16 @@ def reset(canvasW):
     cam.data.type = 'ORTHO'; cam.data.ortho_scale = canvasW * S
     cam.location = (canvasW*S/2, -60, PXH*S/2); cam.rotation_euler = (math.radians(90),0,0)
     bpy.context.collection.objects.link(cam); sc.camera = cam
-    # lighting: key from upper-left-front + soft ambient fill
-    d = bpy.data.lights.new("key",'SUN'); d.energy=3.6; d.angle=math.radians(12)
+    # lighting: key (upper-left-front) + cool rim (behind) for edge definition +
+    # soft ambient fill. The rim pops the silhouette so limbs read at small sizes.
+    d = bpy.data.lights.new("key",'SUN'); d.energy=3.4; d.angle=math.radians(12)
     o = bpy.data.objects.new("key",d); o.rotation_euler=(math.radians(52),0,math.radians(28))
     bpy.context.collection.objects.link(o)
+    rim = bpy.data.lights.new("rim",'SUN'); rim.energy=2.6; rim.color=(0.65,0.78,1.0); rim.angle=math.radians(10)
+    ro = bpy.data.objects.new("rim",rim); ro.rotation_euler=(math.radians(70),0,math.radians(200))
+    bpy.context.collection.objects.link(ro)
     w = bpy.data.worlds.new("W"); w.use_nodes=True
-    w.node_tree.nodes.get("Background").inputs[1].default_value = 0.55
+    w.node_tree.nodes.get("Background").inputs[1].default_value = 0.5
     sc.world = w
 
 def wx(px): return px*S

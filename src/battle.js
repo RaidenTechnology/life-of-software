@@ -322,7 +322,13 @@ class Battle {
     this.groundY = groundY;
     this.heroX = 150;
     this.baseX = 470;
-    this.spacing = 80;
+    this.spacing = 92;
+    // bigger, more detailed figurines: one place to tune size + ground alignment.
+    // charScale up from 1.15; sprites are taller so their centre rests higher so
+    // the feet stay on the backdrop's ground line. bobY = top of the idle bob.
+    this.charScale = 1.45;
+    this.restY = groundY - 15;
+    this.bobY = groundY - 18;
     this.max = 5;
     this.typeIndex = 0;
     this.tier = 0;
@@ -333,9 +339,9 @@ class Battle {
     this.strikeTarget = null;
     this.bossActive = false;
     this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'bg_ork');
-    this.hero = scene.add.image(this.heroX, groundY - 7, 'hero0').setScale(1.15);
+    this.hero = scene.add.image(this.heroX, this.restY, 'hero0').setScale(this.charScale);
     // idle bob runs forever on y; dashes animate x only, so they don't conflict
-    scene.tweens.add({ targets: this.hero, y: groundY - 10, duration: 700, yoyo: true, repeat: -1 });
+    scene.tweens.add({ targets: this.hero, y: this.bobY, duration: 700, yoyo: true, repeat: -1 });
     this.heroDash = null;
     this.enemies = [];
     this.fill(true);
@@ -355,14 +361,14 @@ class Battle {
     while (this.enemies.length < this.max) {
       const i = this.enemies.length;
       const key = 'en_' + Battle.TYPES[this.typeIndex];
-      const e = this.scene.add.image(this.baseX + i * this.spacing, this.groundY - 7, key)
-        .setScale(1.15);
+      const e = this.scene.add.image(this.baseX + i * this.spacing, this.restY, key)
+        .setScale(this.charScale);
       if (!instant) {
         e.setAlpha(0);
         this.scene.tweens.add({ targets: e, alpha: 1, duration: 300 });
       }
       this.scene.tweens.add({
-        targets: e, y: this.groundY - 10, duration: 600 + i * 60, yoyo: true, repeat: -1
+        targets: e, y: this.bobY, duration: 600 + i * 60, yoyo: true, repeat: -1
       });
       this.enemies.push(e);
     }
@@ -414,7 +420,7 @@ class Battle {
 
     if (this.ranged) {
       this.dashHero({ x: this.heroX - 6, duration: 60, yoyo: true }); // recoil
-      const bolt = s.add.image(this.heroX + 34, this.groundY - 12, 'bolt').setDepth(6);
+      const bolt = s.add.image(this.heroX + 34, this.restY + 3, 'bolt').setDepth(6);
       s.tweens.add({
         targets: bolt, x: pos.x - 12, duration: 140, ease: 'Linear',
         onComplete: () => {
@@ -524,7 +530,7 @@ class Battle {
       onComplete: () => {
         if (e !== this.strikeTarget) return;   // it died mid-charge
         const slX = bossJab ? e.x - 30 : this.heroX + 14;
-        const sl = s.add.image(slX, this.groundY - 14, 'slash')
+        const sl = s.add.image(slX, this.restY, 'slash')
           .setBlendMode(Phaser.BlendModes.ADD).setTint(0xff6655)
           .setScale(bossJab ? 1.1 : 0.7).setAngle(Phaser.Math.Between(150, 210)).setDepth(7);
         s.tweens.add({ targets: sl, scale: bossJab ? 2 : 1.5, alpha: 0, duration: 200, onComplete: () => sl.destroy() });
@@ -558,7 +564,7 @@ class Battle {
               this.strikeTarget = null;
               // restore the idle hover at the RIGHT height: a boss floats far
               // higher than a rank-and-file monster, so groundY-10 would sink it.
-              const restY = this.bossActive ? this.groundY - 38 : this.groundY - 10;
+              const restY = this.bossActive ? this.groundY - 38 : this.bobY;
               s.tweens.add({ targets: e, y: restY, duration: 650, yoyo: true, repeat: -1 });
               if (done) done();
             }
@@ -596,7 +602,7 @@ class Battle {
     const s = this.scene;
     if (this.ranged) {
       this.dashHero({ x: this.heroX - 6, duration: 60, yoyo: true });
-      const bolt = s.add.image(this.heroX + 34, this.groundY - 12, 'bolt').setDepth(6);
+      const bolt = s.add.image(this.heroX + 34, this.restY + 3, 'bolt').setDepth(6);
       s.tweens.add({
         targets: bolt, x: pos.x - 40, duration: 140,
         onComplete: () => {
