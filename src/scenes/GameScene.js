@@ -908,7 +908,9 @@ class GameScene extends Phaser.Scene {
     this.over = true;
     this.closeMenu();
     if (win) Sfx.win(); else Sfx.hit();
-    const minutes = Math.max(this.elapsed / 60, 1 / 60);
+    // floor the divisor at 15s: a fast death (e.g. ~3s) must not post an absurd
+    // headline wpm that the daily/PB then surface. Only clamps sub-15s runs.
+    const minutes = Math.max(this.elapsed / 60, 15 / 60);
     this.scene.start('End', {
       score: this.score,
       words: this.wordsTyped,

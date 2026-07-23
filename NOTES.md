@@ -367,3 +367,53 @@ change, no behavior change for normal runs.
    unlimited free pause of the clock, boss strike timer, and death check — on a
    game whose theme *is* the countdown. Keep the clock ticking while a menu is open,
    or block menu access during boss/festival. Effort: low.
+
+---
+
+## Auto-review ideas - 20260723 pass 6
+
+Verified pass-5's change (daily runs stomping the global PB): the `los_best` write
+and its "NEW PERSONAL BEST" banner are now gated behind `!this.daily`
+(EndScene.js:44), while the per-day `los_daily_<date>` key keeps its own additive
+write (:54-61). Correct — a daily loads the shared bag and can post an inflated
+`progress`, so keeping it out of the normal-mode PB is the right call, and normal
+runs are unaffected (the predicate is a pure AND-narrowing).
+
+Code fix this pass (pass-3 #3 / pass-5 #2 — WPM inflation on very short runs).
+`finish()` floored the wpm divisor at one second (`Math.max(this.elapsed/60,
+1/60)`, GameScene.js:911), so a ~3s death posted a triple-digit headline wpm that
+the daily and PB then surfaced. The floor is now 15s (`15/60`), which only clamps
+sub-15s runs and leaves every real run (`elapsed >= 15`) using the true
+`elapsed/60`. Pure correctness — no effect on normal-length runs. This was the
+oldest still-open pure-correctness item; the boss-refill floor (pass-1 #1, below)
+stays deferred because it's a deliberate balance change, not a correctness fix.
+
+1. **Unguarded `localStorage.setItem` can hard-lock the end screen.** Every
+   `localStorage` *read* in the game is wrapped in `try/catch` (EndScene.js:43/57,
+   items.js:100/118, sfx.js:9), but the *writes* are not (EndScene.js:45/59,
+   items.js:105/125, sfx.js:16/21). EndScene's PB write runs inside `create()`
+   *before* the `[ RECOMPILE ]` button is added (EndScene.js:45 vs :83), so on any
+   browser where `setItem` throws — Safari private mode, storage disabled, or a
+   `QuotaExceededError` — `create()` aborts mid-build and the player is stranded on
+   a dead end screen with no way to restart. Judges frequently browse jam entries in
+   locked-down/incognito windows, where this reads as "the game crashed." Wrap the
+   writes in `try/catch` (mirroring the reads). Effort: low; pure robustness.
+
+2. **Per-day localStorage keys accumulate forever.** Each calendar day mints a new
+   `los_daily_<date>` (EndScene.js:55) and `los_shop_<date>` (items.js `shopStock`)
+   key that is written but never pruned. It's a few keys/day — negligible in size —
+   but it grows monotonically across the multi-week GMTK voting window and is exactly
+   the kind of slow accretion that eventually trips the `QuotaExceededError` idea #1
+   must survive. When you add the write-guards, also sweep keys older than ~7 days
+   (enumerate `localStorage`, drop stale `los_daily_`/`los_shop_` prefixes). Effort:
+   low; do it alongside #1.
+
+3. **Low-time urgency is audio-only, so muted playthroughs miss the theme's tension.**
+   Under 10s the game ticks `Sfx.tick()` each second and pulses the timer text red
+   (GameScene.js:1090-1096), but there is no *screen-level* warning — no edge
+   vignette, panel flash, or border pulse. Judges very often skim entries with sound
+   off, and for them the entire "Count Down" pressure — the game's core theme, a
+   distinct scored GMTK axis — simply doesn't register until the fail screen. Add a
+   silent visual cue under 10s (a red screen-edge vignette that intensifies as
+   `timeLeft` drops, or a full-panel flash on each tick). Effort: low (one always-on
+   overlay whose alpha tracks `timeLeft`); direct Theme/Presentation payoff.
