@@ -968,7 +968,12 @@ class GameScene extends Phaser.Scene {
     Sfx.setMusicTempo(94 + this.stageIndex * 8 + this.survivalLap * 4);
     if (this.bossMode) {
       this.langText.setText('BOSS · ' + this.bossMode.lang.name).setColor(IDE.error);
-      this.stageText.setText('defeat the boss! HP ' + this.bossMode.hp + '/' + this.bossMode.max);
+      // surface how many un-typed patterns remain: boss words dedupe into
+      // this.found, so a player with the HP bar alone can't see a starving pool
+      // coming and just eats "already typed" rejections with the clock draining.
+      const left = this.bossMode.lang.words.length - this.found.size;
+      this.stageText.setText('defeat the boss! HP ' + this.bossMode.hp + '/' + this.bossMode.max +
+        ' · ' + left + ' patterns left');
       this.progressFill.width = 180 * Math.max(0, this.bossMode.hp / this.bossMode.max);
       this.progressFill.fillColor = 0xf44747;
       if (this.langBadge) this.langBadge.destroy();
