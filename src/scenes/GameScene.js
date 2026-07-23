@@ -87,6 +87,7 @@ class GameScene extends Phaser.Scene {
     this.deathSave = 0;
     this.menuOpen = null;
     this.menuC = null;
+    this.menuClock = null;
 
     const cx = this.scale.width / 2;
 
@@ -479,7 +480,11 @@ class GameScene extends Phaser.Scene {
   // --- bag & shop panels (game freezes while open) ---
 
   toggleMenu(which) {
-    if (this.over || this.dying || this.transitioning || this.paused) return;
+    // Festivals run their own short timer and swap the whole prompt UI; keep the
+    // bag/shop out of them. Everywhere else the menu is allowed — but the main
+    // countdown keeps ticking while it's open (see update), so it is no longer a
+    // free pause on a game whose theme is the countdown.
+    if (this.over || this.dying || this.transitioning || this.paused || this.festival) return;
     if (this.menuOpen === which) return this.closeMenu();
     this.closeMenu();
     if (which === 'bag') this.openBag(-1); else this.openShop();
@@ -488,6 +493,7 @@ class GameScene extends Phaser.Scene {
   closeMenu() {
     if (this.menuC) this.menuC.destroy();
     this.menuC = null;
+    this.menuClock = null;
     this.menuOpen = null;
   }
 
@@ -512,6 +518,13 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
     close.on('pointerdown', () => this.closeMenu());
     c.add(close);
+    // the countdown does NOT stop for the menu — show it here so the cost of
+    // browsing is honest (update() keeps this in sync each frame)
+    this.menuClock = this.add.text(cx - 340, cy - 195,
+      '⏱ CLOCK RUNNING · ' + Math.ceil(this.timeLeft) + 's', {
+        fontFamily: 'monospace', fontSize: '13px', color: IDE.error, fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
+    c.add(this.menuClock);
     this.menuC = c;
     return c;
   }
@@ -1075,8 +1088,13 @@ class GameScene extends Phaser.Scene {
   }
 
   update(_, delta) {
-    if (this.paused || this.over || this.transitioning || this.dying || this.menuOpen) return;
+    if (this.paused || this.over || this.transitioning || this.dying) return;
     this.elapsed += delta / 1000;
+
+    // the bag/shop no longer freezes the countdown — but it can't open during a
+    // festival, and while it's up the field is covered, so hold the cosmetic
+    // strikes (they'd play out of sight and desync) and mirror the clock in-menu.
+    const inMenu = !!this.menuOpen;
 
     if (this.festival) {
       this.warnFrame.setAlpha(0);
@@ -1091,10 +1109,12 @@ class GameScene extends Phaser.Scene {
     }
 
     // every few seconds the front monster lands a (non-lethal) hit
-    this.strikeTimer += delta / 1000;
-    if (this.strikeTimer >= (this.bossMode ? 6 : ENEMY_STRIKE_EVERY)) {
-      this.strikeTimer = 0;
-      this.battle.enemyStrike(false);
+    if (!inMenu) {
+      this.strikeTimer += delta / 1000;
+      if (this.strikeTimer >= (this.bossMode ? 6 : ENEMY_STRIKE_EVERY)) {
+        this.strikeTimer = 0;
+        this.battle.enemyStrike(false);
+      }
     }
 
     this.timeLeft -= delta / 1000;
@@ -1103,12 +1123,14 @@ class GameScene extends Phaser.Scene {
       if (this.deathSave > 0) {
         this.timeLeft = this.deathSave;
         this.deathSave = 0;
+        if (inMenu) this.closeMenu();
         this.refreshCredits();
         this.feedback('your ARMOR saved you! +' + Math.ceil(this.timeLeft) + 's', '#dcdcaa');
         this.flashPanel(0xdcdcaa);
         Sfx.win();
         return;
       }
+      if (inMenu) this.closeMenu();
       this.timeLeft = 0;
       this.timerText.setText('0');
       this.dying = true;
@@ -1121,6 +1143,10 @@ class GameScene extends Phaser.Scene {
 
     const s = Math.ceil(this.timeLeft);
     this.timerText.setText(String(s));
+    if (inMenu && this.menuClock) {
+      this.menuClock.setText('⏱ CLOCK RUNNING · ' + s + 's')
+        .setColor(s <= 10 ? IDE.error : '#dcdcaa');
+    }
     if (s <= 10) {
       this.timerText.setColor(IDE.error);
       this.timerText.setScale(1 + (this.timeLeft % 1) * 0.15);
