@@ -334,9 +334,20 @@ class Battle {
     this.bossActive = false;
     this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'bg_ork');
     this.hero = scene.add.image(this.heroX, groundY - 7, 'hero0').setScale(1.15);
+    // idle bob runs forever on y; dashes animate x only, so they don't conflict
     scene.tweens.add({ targets: this.hero, y: groundY - 10, duration: 700, yoyo: true, repeat: -1 });
+    this.heroDash = null;
     this.enemies = [];
     this.fill(true);
+  }
+
+  // start a hero lunge/recoil on x, cancelling any in-flight one. Kept separate
+  // from the y idle-bob (killTweensOf(hero) would have frozen the bob for good).
+  dashHero(cfg) {
+    if (this.heroDash) this.heroDash.stop();
+    this.hero.x = this.heroX;
+    this.heroDash = this.scene.tweens.add(Object.assign({ targets: this.hero }, cfg));
+    return this.heroDash;
   }
 
   fill(instant) {
@@ -402,9 +413,7 @@ class Battle {
     const s = this.scene;
 
     if (this.ranged) {
-      s.tweens.killTweensOf(this.hero);
-      this.hero.x = this.heroX;
-      s.tweens.add({ targets: this.hero, x: this.heroX - 6, duration: 60, yoyo: true }); // recoil
+      this.dashHero({ x: this.heroX - 6, duration: 60, yoyo: true }); // recoil
       const bolt = s.add.image(this.heroX + 34, this.groundY - 12, 'bolt').setDepth(6);
       s.tweens.add({
         targets: bolt, x: pos.x - 12, duration: 140, ease: 'Linear',
@@ -415,10 +424,8 @@ class Battle {
         }
       });
     } else {
-      s.tweens.killTweensOf(this.hero);
-      this.hero.x = this.heroX;
-      s.tweens.add({
-        targets: this.hero, x: pos.x - 48, duration: 140, yoyo: true,
+      this.dashHero({
+        x: pos.x - 48, duration: 140, yoyo: true,
         ease: 'Quad.easeIn', hold: 60
       });
       this.slashAt(pos.x - 10, pos.y - 4, 140);
@@ -473,7 +480,7 @@ class Battle {
       targets: flash, fillAlpha: 0.45, duration: 130, yoyo: true,
       onComplete: () => flash.destroy()
     });
-    s.tweens.add({ targets: this.hero, x: this.heroX + 70, duration: 160, yoyo: true });
+    this.dashHero({ x: this.heroX + 70, duration: 160, yoyo: true });
     const n = this.enemies.length;
     this.enemies.forEach((e, i) => {
       this.slashAt(e.x - 6, e.y - 4, i * 80, true);
@@ -521,7 +528,10 @@ class Battle {
             onComplete: () => {
               this.striking = false;
               this.strikeTarget = null;
-              s.tweens.add({ targets: e, y: this.groundY - 10, duration: 650, yoyo: true, repeat: -1 });
+              // restore the idle hover at the RIGHT height: a boss floats far
+              // higher than a rank-and-file monster, so groundY-10 would sink it.
+              const restY = this.bossActive ? this.groundY - 38 : this.groundY - 10;
+              s.tweens.add({ targets: e, y: restY, duration: 650, yoyo: true, repeat: -1 });
               if (done) done();
             }
           });
@@ -557,9 +567,7 @@ class Battle {
     const pos = { x: b.x, y: b.y };
     const s = this.scene;
     if (this.ranged) {
-      s.tweens.killTweensOf(this.hero);
-      this.hero.x = this.heroX;
-      s.tweens.add({ targets: this.hero, x: this.heroX - 6, duration: 60, yoyo: true });
+      this.dashHero({ x: this.heroX - 6, duration: 60, yoyo: true });
       const bolt = s.add.image(this.heroX + 34, this.groundY - 12, 'bolt').setDepth(6);
       s.tweens.add({
         targets: bolt, x: pos.x - 40, duration: 140,
@@ -570,10 +578,8 @@ class Battle {
         }
       });
     } else {
-      s.tweens.killTweensOf(this.hero);
-      this.hero.x = this.heroX;
-      s.tweens.add({
-        targets: this.hero, x: pos.x - 80, duration: 140, yoyo: true,
+      this.dashHero({
+        x: pos.x - 80, duration: 140, yoyo: true,
         ease: 'Quad.easeIn', hold: 60
       });
       this.slashAt(pos.x - 34, pos.y, 140, true);
