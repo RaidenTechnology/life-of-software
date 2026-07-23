@@ -657,3 +657,70 @@ code: the language **data** and the long-standing **decorative-SCORE** debt.
   header would read the tension better while shopping.
 - With run-total SCORE now ranked, consider showing a live run-best "beat N pts"
   target on the HUD, or a small end-screen delta vs. the previous best.
+
+## Auto-dev log - 20260723-2346 pass 1
+
+Fifth active-development pass on Opus 4.8. Re-read all 10 files (all still pass
+`node --check`), then closed the single longest-standing leftover (the festival
+free-pause), fixed a fresh game-feel bug, landed one of the recorded HUD ideas,
+and cut a real per-frame render cost — four separate commits.
+
+**Bug fixed**
+
+1. **Stacked tweens drifted the panel and cut feedback short (GameScene) —
+   FIXED.** Two reused HUD objects each got a *fresh* tween on every call, so a
+   fast wrong-word streak stacked them. `feedback()` added an alpha fade on the
+   shared `feedbackText` each time; an older fade firing mid-message blanked the
+   newest text early — now `killTweensOf(feedbackText)` runs first. `shakePanel()`
+   is a relative `'+=6'` yoyo; a second shake started before the first finished
+   captured its start *mid-offset* and yoyo'd back to that, leaving a permanent
+   x-drift on the panel/input/cursor — now a `_shaking` guard runs one shake at a
+   time. Fresh area: no prior pass touched the panel-shake / feedback juice.
+
+**Feature / balance shipped**
+
+2. **Festivals no longer freeze the clock — the last free-pause surface (pass-4
+   #2, re-flagged in every log since).** A festival both froze the main countdown
+   *and* paid `+2s`/answer, so it was a cost-free net-positive clock event you
+   could coast through. Now the main countdown keeps draining *under* the festival
+   (same call the bag/shop fix made): the big central timer shows the MAIN clock
+   with its usual sub-10s color/scale/tick/warn-frame tension, the festival's own
+   20s timer plus a `⏱ clock runs — festival ends in Ns` warning sit in the
+   banner, and the `+2s`/answer becomes a genuine race to offset the drain instead
+   of pure upside. You can now die mid-festival if you stall. Plumbing: strikes are
+   held under the banner via a `holdStrikes` flag (field is hidden there); the
+   death path tears the banner down quietly with `endFestival(true)` so the battle
+   strip is back for the killing blow; armor death-save still works mid-festival
+   and just lets the round continue. **Decision made: festival = bounded risk/
+   reward speed round, not a pause.**
+
+3. **Live PB target on the HUD (recorded idea from pass 20260723-2313) —
+   SHIPPED.** Run-total SCORE became rankable last pass but had no in-run goal. A
+   small `PB <n>` now sits beside SCORE; the frame `addScore()` carries the run
+   past it, it flips to a gold `★ RECORD ★`, pulses, floats `NEW RECORD!` and
+   plays the win jingle — once. Blank during dailies (they rank on a separate
+   per-day key), so the global-best target never misleads there.
+
+**Quality / perf**
+
+4. **Big timer recolored only on the 10s threshold, not every frame.** Phaser's
+   `Text.setColor` re-renders the glyph's canvas texture on *every* call even when
+   the color is unchanged; `update()` called it on the 60px countdown every frame
+   for the whole (mostly >10s) run — a needless ~60 texture redraws+uploads/sec.
+   Gated behind a `_timerLow` transition flag: recolor fires once crossing the
+   sub-10s line and once on the way back up (level-up / boss reset). The per-frame
+   scale pulse and warn-frame alpha still run only while actually low.
+
+**Leftover for next passes**
+
+- The in-menu clock readout is still text-only; a thin draining bar in the menu
+  header would read the tension better while shopping. (The festival banner now
+  has its own text readout too — same treatment could unify both.)
+- End-screen delta vs. previous best (`+N over` / `N to beat`) is still unbuilt —
+  the live HUD PB target landed this pass, the end-screen counterpart did not.
+- Festival balance is now deliberate but untuned: entering a festival at low time
+  is genuinely dangerous. If playtests find it too punishing, options are a small
+  one-time clock cushion on festival start, or a slightly larger `+2s` per answer.
+- Other reused-object tween sites (`flashPanel` stroke via `delayedCall`,
+  `floatText` spawns) look safe, but a quick audit for the same stacked-tween
+  class the shake/feedback fix addressed wouldn't hurt.
