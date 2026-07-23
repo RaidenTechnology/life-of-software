@@ -200,7 +200,13 @@ class GameScene extends Phaser.Scene {
   }
 
   get activeFound() {
-    return this.festival ? this.festival.used : this.found;
+    if (!this.festival) return this.found;
+    // the sw festival pools many languages and highlights them in turn; dedupe
+    // per highlighted language so a keyword valid in two of them (return, class,
+    // if…) isn't wrongly rejected as "already typed" when the other comes up.
+    // growth stays on the shared set: pickGrowthRound guarantees unique words.
+    if (this.festival.type === 'sw') return this.festival.usedByLang.get(this.activeLang.name);
+    return this.festival.used;
   }
 
   get hintCost() {
@@ -797,7 +803,9 @@ class GameScene extends Phaser.Scene {
 
     this.festival = {
       type, pool, badges, prompt, container: c,
-      lang: null, word: null, used: new Set(), timeLeft: FESTIVAL_TIME, count: 0
+      lang: null, word: null, used: new Set(),
+      usedByLang: new Map(pool.map(l => [l.name, new Set()])),
+      timeLeft: FESTIVAL_TIME, count: 0
     };
 
     this.battle.setVisible(false);

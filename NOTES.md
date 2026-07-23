@@ -259,3 +259,63 @@ destroyed on the next stage's decor rebuild (battle.js:640-650).
    on a timed boss that's a sizable, invisible difficulty leak. Either keep the
    clock ticking while a menu is open (see pass-2 #2) or block menu access during
    boss/festival. Effort: low.
+
+---
+
+## Auto-review ideas - 20260723 pass 4
+
+Verified pass-3's changes: the three one-shot bursts now self-destroy —
+`celebrate()`'s emitter at GameScene.js:387, the kill burst at battle.js:377, and
+the boss-flinch burst at battle.js:594 — matching pass-3's description. Pass-2's
+still-open threads also hold: the menu early-return still freezes the clock and
+`score: this.score` still reports only the current level (GameScene.js:913, resets
+each `levelUp()`), neither addressed since.
+
+Code fix this pass (pass-3 idea #1 — the `sw` festival's shared `used` set). The
+Software festival pools up to 6 languages and highlights them one at a time
+(startFestival GameScene.js:779, pickFestivalLang), but `activeFound` returned a
+single `festival.used` set, so a keyword valid in two pooled languages (`return`,
+`class`, `if`…) was added while one was up and then wrongly rejected as "already
+typed" when another came up — mid-festival, when the clock is fastest, and it also
+docked accuracy (`submitsTotal++` with no `submitsOk`). `activeFound` now dedupes
+per highlighted language for `sw` via a new `festival.usedByLang` map keyed by
+`lang.name` (GameScene.js:203-210, initialized at :807); growth stays on the shared
+`used` set, which is correct because `pickGrowthRound` guarantees each prompt word
+is unique across the pool. `buyHint`'s `remaining` filter reads the same getter, so
+hints stay consistent for free.
+
+1. **Daily runs overwrite the *global* personal best.** EndScene writes `los_best`
+   unconditionally for every run (EndScene.js:41-45); the `if (this.daily)` block
+   that writes the per-day key (`los_daily_<date>`, :51-58) is *additional*, not
+   exclusive. So a daily attempt — which loads the shared persistent bag (pass-3 #2)
+   and can therefore post an inflated `progress` — silently stomps the normal-mode
+   PB banner shown on the menu, conflating two different games. Gate the `los_best`
+   write behind `if (!this.daily)`. Effort: ~1 line.
+
+2. **Festivals freeze the main countdown *and* still hand out clock time.**
+   `update()` returns early whenever `this.festival` is set (GameScene.js:1046),
+   before `this.timeLeft -= delta` at :1064 — so the main clock doesn't tick during
+   a festival — yet every correct festival answer does `this.timeLeft +=
+   FESTIVAL_TIME_BONUS` (:303/:358). A festival (35% after each level) is thus a
+   cost-free, net-*positive* clock event: even a passive player exits with more time
+   than they entered, on a game whose whole theme is the countdown. This is distinct
+   from the menu-freeze already logged. If festivals are meant as a breather that's
+   defensible — but decide it deliberately; otherwise don't grant main-clock time
+   there, or let the main clock tick (slowly) through the festival. Effort: low.
+
+3. **Boss victory still refills no time (pass-1 #1, never actually fixed).**
+   `startBoss()` adds `this.timeLeft += 10` on entry (GameScene.js:651) but
+   `beatBoss()` (:660) adds nothing, so clearing a boss with ~1s left drops you
+   straight into a fresh stage (new monster, higher targets, `langIndex=0`) at
+   near-death — often an instant, unfair-feeling loss. Pass-1 flagged this and
+   pass-2's `beatBoss` edit was the `found.clear()`, not a refill, so it's still
+   open. Floor it (`timeLeft = Math.max(timeLeft, 20)`) or add a fixed bonus.
+   Effort: ~1 line + a pacing playtest.
+
+4. **Ranking ignores score entirely, so the big on-screen SCORE is decorative.**
+   Both the global PB and the daily key rank by `progress` then `words`
+   (EndScene.js:41, :55) — never by `score` or `wpm`. Combined with pass-2 #4
+   (`score` is only the current level's), the prominently displayed SCORE never
+   affects what counts as a "personal best" and isn't comparable across runs. Either
+   accumulate a run-total score and factor it into the PB tiebreak, or stop
+   presenting SCORE as the headline number. Effort: low; confirm intent first.
