@@ -71,6 +71,7 @@ class GameScene extends Phaser.Scene {
     this.bossMode = null;
     this.lastTickSecond = -1;
     this.strikeTimer = 0;
+    this._shaking = false;
 
     // combo + run stats
     this.combo = 0;
@@ -1061,6 +1062,10 @@ class GameScene extends Phaser.Scene {
   }
 
   feedback(msg, color) {
+    // one fade at a time: rapid feedback (e.g. a wrong-word streak) would
+    // otherwise stack alpha tweens on this shared label — an older one firing
+    // mid-message fades the newest text out early. Kill any in-flight fade first.
+    this.tweens.killTweensOf(this.feedbackText);
     this.feedbackText.setText(msg).setColor(color).setAlpha(1);
     this.tweens.add({ targets: this.feedbackText, alpha: 0, delay: 1500, duration: 500 });
   }
@@ -1087,9 +1092,16 @@ class GameScene extends Phaser.Scene {
     this.time.delayedCall(250, () => {
       if (!this.over) this.panel.setStrokeStyle(2, IDE.border);
     });
+    // The shake is a relative '+=6' yoyo. A second one started before the first
+    // finishes captures its start mid-offset and yoyos back to THAT, leaving a
+    // permanent x-drift on the panel/input/cursor after a fast wrong-word streak.
+    // One shake at a time — the in-flight one is already all the feedback needed.
+    if (this._shaking) return;
+    this._shaking = true;
     this.tweens.add({
       targets: [this.panel, this.inputText, this.cursor],
-      x: '+=6', duration: 40, yoyo: true, repeat: 3
+      x: '+=6', duration: 40, yoyo: true, repeat: 3,
+      onComplete: () => { this._shaking = false; }
     });
   }
 
