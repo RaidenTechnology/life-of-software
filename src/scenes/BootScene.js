@@ -25,6 +25,7 @@ class BootScene extends Phaser.Scene {
     this.makeTextures();
     Battle.makeTextures(this);
     Items.makeTextures(this);
+    Items.pruneOld();   // drop stale per-day localStorage keys (see items.js)
     this.scene.start('Menu');
   }
 

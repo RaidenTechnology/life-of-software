@@ -42,10 +42,12 @@ class EndScene extends Phaser.Scene {
     let best = null;
     try { best = JSON.parse(localStorage.getItem('los_best') || 'null'); } catch (e) {}
     if (!this.daily && (!best || progress > best.p || (progress === best.p && this.words > best.words))) {
-      localStorage.setItem('los_best', JSON.stringify({
-        p: progress, words: this.words, wpm: this.wpm,
-        stage: this.stage, level: this.langIndex + 1
-      }));
+      try {
+        localStorage.setItem('los_best', JSON.stringify({
+          p: progress, words: this.words, wpm: this.wpm,
+          stage: this.stage, level: this.langIndex + 1
+        }));
+      } catch (e) {}
       const nb = this.add.text(cx, cy - 88, '★ NEW PERSONAL BEST! ★', {
         fontFamily: 'monospace', fontSize: '18px', color: '#dcdcaa', fontStyle: 'bold'
       }).setOrigin(0.5);
@@ -56,7 +58,7 @@ class EndScene extends Phaser.Scene {
       let dbest = null;
       try { dbest = JSON.parse(localStorage.getItem(dk) || 'null'); } catch (e) {}
       if (!dbest || progress > dbest.p || (progress === dbest.p && this.words > dbest.words)) {
-        localStorage.setItem(dk, JSON.stringify({ p: progress, words: this.words }));
+        try { localStorage.setItem(dk, JSON.stringify({ p: progress, words: this.words })); } catch (e) {}
       }
     }
 

@@ -13,12 +13,12 @@ const Sfx = {
 
   setMuted(m) {
     this.muted = m;
-    localStorage.setItem('los_muted', m ? '1' : '0');
+    try { localStorage.setItem('los_muted', m ? '1' : '0'); } catch (e) {}
   },
 
   setVolume(v) {
     this.master = Math.min(1, Math.max(0, v));
-    localStorage.setItem('los_vol', String(this.master));
+    try { localStorage.setItem('los_vol', String(this.master)); } catch (e) {}
   },
 
   // Browsers block audio until the first user gesture; call this on first pointerdown.

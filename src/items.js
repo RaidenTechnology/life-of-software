@@ -102,7 +102,7 @@ const Items = {
   },
 
   save(inv) {
-    localStorage.setItem('los_inv', JSON.stringify(inv));
+    try { localStorage.setItem('los_inv', JSON.stringify(inv)); } catch (e) {}
   },
 
   // date-seeded daily stock of 4 items; purchases are remembered per day
@@ -122,6 +122,24 @@ const Items = {
 
   markSold(stock, index) {
     stock.sold.push(index);
-    localStorage.setItem(stock.soldKey, JSON.stringify(stock.sold));
+    try { localStorage.setItem(stock.soldKey, JSON.stringify(stock.sold)); } catch (e) {}
+  },
+
+  // Prune per-day keys older than ~7 days. Left unchecked, los_daily_<date> and
+  // los_shop_<date> accrete one pair per calendar day across the multi-week GMTK
+  // voting window — harmless in size but exactly the slow drift that eventually
+  // trips a QuotaExceededError. ISO dates sort lexicographically = chronologically.
+  pruneOld(keepDays = 7) {
+    try {
+      const cutoff = new Date(Date.now() - keepDays * 86400000)
+        .toISOString().slice(0, 10);
+      const stale = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        const m = k && k.match(/^los_(?:daily|shop)_(\d{4}-\d{2}-\d{2})$/);
+        if (m && m[1] < cutoff) stale.push(k);
+      }
+      stale.forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
   }
 };
