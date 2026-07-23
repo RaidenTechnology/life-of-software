@@ -3,7 +3,9 @@
 **GMTK 2026 jam game.** Ortada bir yazı paneli, tepede acımasız bir geri sayım.
 Süre bitmeden aktif dilin kalıplarını yaz (`import`, `async`, `let`, `fn`...) —
 her doğru kelime **süre + puan + kredi** kazandırır. Hedef puana ulaşınca sıradaki
-(daha zor) dile geçersin: **Python → JavaScript → Java → C++ → Rust**.
+dile geçersin: **25 dillik bir merdiven**, en kolaydan en zora —
+**HTML → CSS → Python → JavaScript → … → Rust → Haskell → Assembly**.
+Tüm diller bitince **STAGE** yükselir (hedefler artar) ve merdiven baştan başlar.
 Kredilerle (max 100) panelin sağ üstündeki **İPUCU** butonundan ipucu satın alınır (20 kredi).
 
 Built on our generic pre-jam skeleton (allowed by jam rules: "pre-existing generic code").

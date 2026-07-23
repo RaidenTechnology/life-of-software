@@ -370,9 +370,11 @@ class Battle {
       onComplete: () => e.destroy()
     });
     this.scene.time.delayedCall(delay, () => {
-      this.scene.add.particles(e.x, e.y, 'pixel', {
+      const em = this.scene.add.particles(e.x, e.y, 'pixel', {
         speed: { min: 60, max: 150 }, lifespan: 350, quantity: 8, emitting: false
-      }).explode();
+      });
+      em.explode();
+      this.scene.time.delayedCall(450, () => em.destroy());
     });
   }
 
@@ -585,9 +587,11 @@ class Battle {
     b.setTint(0xff9999);
     s.tweens.add({ targets: b, x: '+=10', duration: 70, yoyo: true });
     s.time.delayedCall(180, () => b.clearTint());
-    s.add.particles(b.x - 20, b.y, 'pixel', {
+    const em = s.add.particles(b.x - 20, b.y, 'pixel', {
       speed: { min: 60, max: 150 }, lifespan: 300, quantity: 6, emitting: false
-    }).explode();
+    });
+    em.explode();
+    s.time.delayedCall(400, () => em.destroy());
   }
 
   bossDie(done) {

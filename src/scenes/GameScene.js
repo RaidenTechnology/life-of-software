@@ -372,10 +372,13 @@ class GameScene extends Phaser.Scene {
     this.hintText.setText('');
     this.flashPanel(IDE.greenHex);
     Sfx.pickup();
-    this.add.particles(this.panel.x, this.panel.y, 'pixel', {
+    const burst = this.add.particles(this.panel.x, this.panel.y, 'pixel', {
       speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
       scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
-    }).explode();
+    });
+    burst.explode();
+    // one-shot emitter; free the GameObject once its particles have died
+    this.time.delayedCall(500, () => burst.destroy());
     if (this.bossMode) return this.battle.bossHit();
     return this.festival ? null : this.battle.attack();
   }
@@ -652,6 +655,7 @@ class GameScene extends Phaser.Scene {
     this.transitioning = true;
     this.bossMode = null;
     this.langIndex = 0;
+    this.found.clear();   // boss words must not carry into the fresh level
     if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
     else this.survivalLap++;
     this.cameras.main.shake(350, 0.01);
