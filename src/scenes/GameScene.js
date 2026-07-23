@@ -34,6 +34,22 @@ class GameScene extends Phaser.Scene {
     super('Game');
   }
 
+  init(data) {
+    this.daily = !!(data && data.daily);
+    if (this.daily) {
+      const day = new Date().toISOString().slice(0, 10);
+      let s = 0;
+      for (const ch of day) s = (s * 31 + ch.charCodeAt(0)) >>> 0;
+      this.rand = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+    } else {
+      this.rand = Math.random;
+    }
+  }
+
+  pickFrom(arr) {
+    return arr[Math.floor(this.rand() * arr.length)];
+  }
+
   create() {
     this.score = 0;          // resets every level — only credits carry over
     this.credits = 0;
@@ -50,8 +66,17 @@ class GameScene extends Phaser.Scene {
     this.dying = false;
     this.transitioning = false;
     this.festival = null;
+    this.bossMode = null;
     this.lastTickSecond = -1;
     this.strikeTimer = 0;
+
+    // combo + run stats
+    this.combo = 0;
+    this.maxCombo = 0;
+    this.elapsed = 0;
+    this.submitsTotal = 0;
+    this.submitsOk = 0;
+    this.lootCount = 0;
 
     // loot state
     this.inventory = Items.load();
@@ -67,7 +92,13 @@ class GameScene extends Phaser.Scene {
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
-    status.right.setText('GMTK 2026 — Count Down');
+    status.right.setText(this.daily
+      ? 'DAILY CHALLENGE — ' + new Date().toISOString().slice(0, 10)
+      : 'GMTK 2026 — Count Down');
+
+    // chiptune loop; tempo rises with the stage
+    Sfx.startMusic(94);
+    this.events.once('shutdown', () => Sfx.stopMusic());
 
     this.timerText = this.add.text(cx, 95, String(START_TIME), {
       fontFamily: 'monospace', fontSize: '60px', color: IDE.text, fontStyle: 'bold'
@@ -99,6 +130,9 @@ class GameScene extends Phaser.Scene {
     this.langBadge = null;
     this.progressTrack = this.add.rectangle(this.scale.width - 16, 76, 180, 6, IDE.border).setOrigin(1, 0.5);
     this.progressFill = this.add.rectangle(this.scale.width - 196, 76, 0, 6, IDE.statusbar).setOrigin(0, 0.5);
+    this.comboText = this.add.text(this.scale.width - 16, 96, '', {
+      fontFamily: 'monospace', fontSize: '15px', color: '#dcdcaa', fontStyle: 'bold'
+    }).setOrigin(1, 0);
 
     // battle strip: hero vs monsters, between the countdown and the panel
     this.battle = new Battle(this, 195);
@@ -151,6 +185,9 @@ class GameScene extends Phaser.Scene {
     this.refreshLangHud();
     this.refreshCredits();
     this.refreshBag();
+
+    // a nudge for first-time players; the first correct word clears it
+    this.hintText.setText('// try typing "body" then ENTER — every word buys time!');
   }
 
   get lang() {
@@ -158,6 +195,7 @@ class GameScene extends Phaser.Scene {
   }
 
   get activeLang() {
+    if (this.bossMode) return this.bossMode.lang;
     return this.festival ? this.festival.lang : this.lang;
   }
 
@@ -210,6 +248,7 @@ class GameScene extends Phaser.Scene {
     this.typed = '';
     this.refreshInput();
     if (!w) return;
+    this.submitsTotal++;
 
     if (this.festival && this.festival.type === 'growth') {
       this.growthSubmit(w);
@@ -223,6 +262,8 @@ class GameScene extends Phaser.Scene {
     }
     if (!this.activeLang.words.includes(w)) {
       this.feedback('"' + w + '" is not a ' + this.activeLang.name + ' pattern', IDE.error);
+      this.combo = 0;
+      this.refreshCombo();
       Sfx.wrong();
       this.shakePanel();
       return;
@@ -230,7 +271,25 @@ class GameScene extends Phaser.Scene {
 
     this.activeFound.add(w);
     this.wordsTyped++;
+    this.submitsOk++;
+    this.combo++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.refreshCombo(true);
     const pos = this.celebrate();
+
+    if (this.bossMode) {
+      const bonus = (1.5 + 0.25 * w.length) * this.bossMode.lang.timeMult;
+      this.timeLeft += bonus;
+      this.gainCredits(CREDIT_PER_WORD);
+      this.tickMult();
+      this.refreshCredits();
+      this.floatText('BOSS HIT!  +' + bonus.toFixed(1) + 's');
+      this.maybeDrop(pos);
+      this.bossMode.hp--;
+      this.refreshLangHud();
+      if (this.bossMode.hp <= 0) this.beatBoss();
+      return;
+    }
 
     if (this.festival) {
       this.festival.count++;
@@ -244,7 +303,8 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    const points = w.length * 10;
+    const comboMult = this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
+    const points = w.length * 10 * comboMult;
     const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult;
     this.score += points;
     this.timeLeft += bonus;
@@ -254,7 +314,11 @@ class GameScene extends Phaser.Scene {
     this.scoreText.setText('SCORE ' + this.score);
     this.refreshCredits();
     this.pushRecent(w);
-    this.floatText('+' + points + '  +' + bonus.toFixed(1) + 's');
+    this.floatText('+' + points + (comboMult > 1 ? ' (×' + comboMult + ')' : '') +
+      '  +' + bonus.toFixed(1) + 's');
+    if (this.wordsTyped === 1) {
+      this.feedback('nice! reach the target score to clear the level', IDE.comment);
+    }
     this.maybeDrop(pos);
 
     if (this.score >= this.targetScore()) {
@@ -269,12 +333,18 @@ class GameScene extends Phaser.Scene {
     const ok = w === f.lang.name.toLowerCase() || w === f.lang.abbr.toLowerCase();
     if (!ok) {
       this.feedback('"' + f.word + '" is not a ' + w.toUpperCase() + ' pattern', IDE.error);
+      this.combo = 0;
+      this.refreshCombo();
       Sfx.wrong();
       this.shakePanel();
       return;
     }
     f.count++;
     this.wordsTyped++;
+    this.submitsOk++;
+    this.combo++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.refreshCombo(true);
     const pos = this.celebrate();
     const i = f.pool.indexOf(f.lang);
     this.tweens.add({ targets: f.badges[i], scale: 1.4, duration: 150, yoyo: true });
@@ -306,15 +376,28 @@ class GameScene extends Phaser.Scene {
       speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
       scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
     }).explode();
+    if (this.bossMode) return this.battle.bossHit();
     return this.festival ? null : this.battle.attack();
+  }
+
+  refreshCombo(pulse) {
+    if (this.combo < 2) { this.comboText.setText(''); return; }
+    const m = this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
+    this.comboText.setText('COMBO ' + this.combo + (m > 1 ? ' · score ×' + m : ''))
+      .setColor(m >= 3 ? '#ff9800' : m >= 2 ? '#dcdcaa' : '#a0d0a0');
+    if (pulse) {
+      this.comboText.setScale(1.25);
+      this.tweens.add({ targets: this.comboText, scale: 1, duration: 150 });
+    }
   }
 
   // --- loot ---
 
   maybeDrop(pos) {
     const chance = Items.dropChance(this.stageIndex, !!this.festival);
-    if (Math.random() >= chance) return;
-    const item = Items.roll();
+    if (this.rand() >= chance) return;
+    const item = Items.roll(this.rand);
+    this.lootCount++;
     if (pos) {
       this.battle.dropLoot(pos, item, 40, 100, () => this.addItem(item, false));
     } else {
@@ -529,6 +612,7 @@ class GameScene extends Phaser.Scene {
     this.feedbackText.setText('');
     this.timeLeft += LEVELUP_TIME_BONUS;
     this.strikeTimer = 0;
+    this.cameras.main.shake(250, 0.006);
     Sfx.win();
     this.transitioning = true;
     this.battle.ulti(() => this.afterUlti(fromIdx));
@@ -536,21 +620,48 @@ class GameScene extends Phaser.Scene {
 
   afterUlti(fromIdx) {
     if (this.langIndex >= LANGUAGES.length) {
-      this.langIndex = 0;
-      if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
-      else this.survivalLap++;
-      this.showStage(() => {
-        this.transitioning = false;
-        this.refreshLangHud();
-      });
+      this.startBoss();
       return;
     }
     this.showPath(fromIdx, () => {
       this.transitioning = false;
       this.refreshLangHud();
-      if (Math.random() < FESTIVAL_CHANCE) {
-        this.startFestival(Math.random() < 0.5 ? 'sw' : 'growth');
+      if (this.rand() < FESTIVAL_CHANCE) {
+        this.startFestival(this.rand() < 0.5 ? 'sw' : 'growth');
       }
+    });
+  }
+
+  // --- boss fight at the end of every stage ---
+
+  startBoss() {
+    this.transitioning = false;
+    const hp = 12 + this.stageIndex * 3;
+    this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES) };
+    this.found.clear();
+    this.timeLeft += 10;
+    this.strikeTimer = 0;
+    this.battle.spawnBoss();
+    this.refreshLangHud();
+    this.feedback('BOSS FIGHT! type ' + this.bossMode.lang.name + ' patterns!', IDE.error);
+    this.cameras.main.shake(200, 0.005);
+    Sfx.hit();
+  }
+
+  beatBoss() {
+    this.transitioning = true;
+    this.bossMode = null;
+    this.langIndex = 0;
+    if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
+    else this.survivalLap++;
+    this.cameras.main.shake(350, 0.01);
+    Sfx.win();
+    this.battle.bossDie(() => {
+      this.showStage(() => {
+        this.transitioning = false;
+        this.battle.clearBoss();
+        this.refreshLangHud();
+      });
     });
   }
 
@@ -661,7 +772,7 @@ class GameScene extends Phaser.Scene {
 
   startFestival(type) {
     const cx = this.scale.width / 2;
-    const pool = Phaser.Utils.Array.Shuffle(LANGUAGES.slice()).slice(0, 6);
+    const pool = LANGUAGES.slice().sort(() => this.rand() - 0.5).slice(0, 6);
 
     const c = this.add.container(0, 0).setDepth(5).setAlpha(0);
     c.add(this.add.text(cx, 150,
@@ -699,7 +810,7 @@ class GameScene extends Phaser.Scene {
 
   pickFestivalLang() {
     const f = this.festival;
-    const i = Phaser.Math.Between(0, f.pool.length - 1);
+    const i = Math.floor(this.rand() * f.pool.length);
     f.lang = f.pool[i];
     f.badges.forEach((b, j) => {
       this.tweens.add({
@@ -714,10 +825,10 @@ class GameScene extends Phaser.Scene {
     const f = this.festival;
     let lang = null, word = null, guard = 0;
     while (!word && ++guard < 25) {
-      lang = Phaser.Utils.Array.GetRandom(f.pool);
+      lang = this.pickFrom(f.pool);
       const unique = lang.words.filter(w =>
         !f.used.has(w) && f.pool.every(o => o === lang || !o.words.includes(w)));
-      if (unique.length) word = Phaser.Utils.Array.GetRandom(unique);
+      if (unique.length) word = this.pickFrom(unique);
     }
     if (!word) { this.endFestival(); return; }
     f.lang = lang;
@@ -785,13 +896,20 @@ class GameScene extends Phaser.Scene {
     this.over = true;
     this.closeMenu();
     if (win) Sfx.win(); else Sfx.hit();
+    const minutes = Math.max(this.elapsed / 60, 1 / 60);
     this.scene.start('End', {
       score: this.score,
       words: this.wordsTyped,
       langIndex: Math.min(this.langIndex, LANGUAGES.length - 1),
       stage: STAGES[this.stageIndex].name,
+      stageIndex: this.stageIndex,
       lap: this.survivalLap,
-      win: win
+      win: win,
+      wpm: Math.round(this.wordsTyped / minutes),
+      acc: this.submitsTotal ? Math.round(100 * this.submitsOk / this.submitsTotal) : 100,
+      maxCombo: this.maxCombo,
+      loot: this.lootCount,
+      daily: this.daily
     });
   }
 
@@ -819,6 +937,17 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshLangHud() {
+    Sfx.setMusicTempo(94 + this.stageIndex * 8 + this.survivalLap * 4);
+    if (this.bossMode) {
+      this.langText.setText('BOSS · ' + this.bossMode.lang.name).setColor(IDE.error);
+      this.stageText.setText('defeat the boss! HP ' + this.bossMode.hp + '/' + this.bossMode.max);
+      this.progressFill.width = 180 * Math.max(0, this.bossMode.hp / this.bossMode.max);
+      this.progressFill.fillColor = 0xf44747;
+      if (this.langBadge) this.langBadge.destroy();
+      this.langBadge = UI.badge(this,
+        this.scale.width - 30 - this.langText.width, 54, this.bossMode.lang, 13);
+      return;
+    }
     this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
       .setColor(this.lang.color);
     this.stageText.setText('STAGE ' + STAGES[this.stageIndex].name +
@@ -900,6 +1029,7 @@ class GameScene extends Phaser.Scene {
 
   update(_, delta) {
     if (this.paused || this.over || this.transitioning || this.dying || this.menuOpen) return;
+    this.elapsed += delta / 1000;
 
     if (this.festival) {
       this.festival.timeLeft -= delta / 1000;
@@ -914,7 +1044,7 @@ class GameScene extends Phaser.Scene {
 
     // every few seconds the front monster lands a (non-lethal) hit
     this.strikeTimer += delta / 1000;
-    if (this.strikeTimer >= ENEMY_STRIKE_EVERY) {
+    if (this.strikeTimer >= (this.bossMode ? 6 : ENEMY_STRIKE_EVERY)) {
       this.strikeTimer = 0;
       this.battle.enemyStrike(false);
     }
@@ -934,6 +1064,8 @@ class GameScene extends Phaser.Scene {
       this.timeLeft = 0;
       this.timerText.setText('0');
       this.dying = true;
+      this.cameras.main.shake(300, 0.01);
+      this.cameras.main.flash(400, 140, 30, 30);
       Sfx.hit();
       this.battle.defeat(() => this.finish(false));
       return;

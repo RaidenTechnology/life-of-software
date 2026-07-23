@@ -11,6 +11,16 @@ class MenuScene extends Phaser.Scene {
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     status.right.setText('GMTK 2026 — Count Down');
 
+    // personal best, if any
+    let best = null;
+    try { best = JSON.parse(localStorage.getItem('los_best') || 'null'); } catch (e) {}
+    if (best) {
+      this.add.text(cx, 46, 'BEST: STAGE ' + best.stage + ' · LEVEL ' + best.level +
+        ' · ' + best.words + ' words · ' + best.wpm + ' wpm', {
+          fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa'
+        }).setOrigin(0.5);
+    }
+
     // soft color glow behind the title — brighter, warmer menu lighting
     this.add.circle(cx - 150, cy - 140, 150, 0x569cd6, 0.10);
     this.add.circle(cx + 150, cy - 140, 150, 0xce9178, 0.10);
@@ -40,15 +50,23 @@ class MenuScene extends Phaser.Scene {
         align: 'center', lineSpacing: 8
       }).setOrigin(0.5);
 
-    const start = this.add.text(cx, cy + 62, '[ CLICK TO START ]', {
+    const start = this.add.text(cx, cy + 58, '[ CLICK TO START ]', {
       fontFamily: 'monospace', fontSize: '24px', color: IDE.white
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.tweens.add({
       targets: start, alpha: 0.3, duration: 600, yoyo: true, repeat: -1
     });
 
+    // same seed for everyone today — race on the itch comments!
+    const daily = this.add.text(cx, cy + 92, '[ DAILY CHALLENGE — ' +
+      new Date().toISOString().slice(0, 10) + ' ]', {
+        fontFamily: 'monospace', fontSize: '15px', color: IDE.stringy
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    daily.on('pointerover', () => daily.setColor(IDE.white));
+    daily.on('pointerout', () => daily.setColor(IDE.stringy));
+
     // the full language road, as badges
-    this.add.text(cx, cy + 112, 'A ' + LANGUAGES.length + '-LANGUAGE ROAD', {
+    this.add.text(cx, cy + 122, 'A ' + LANGUAGES.length + '-LANGUAGE ROAD', {
       fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
     }).setOrigin(0.5);
     const spacing = 44, perRow = Math.ceil(LANGUAGES.length / 2);
@@ -56,13 +74,18 @@ class MenuScene extends Phaser.Scene {
       const row = Math.floor(i / perRow), col = i % perRow;
       const rowLen = row === 0 ? perRow : LANGUAGES.length - perRow;
       const x0 = cx - (rowLen - 1) * spacing / 2;
-      UI.badge(this, x0 + col * spacing, cy + 148 + row * 40, lang, 14);
+      UI.badge(this, x0 + col * spacing, cy + 156 + row * 38, lang, 13);
     });
 
     start.on('pointerdown', () => {
       Sfx.unlock();          // first user gesture → audio allowed from here on
       Sfx.blip();
       this.scene.start('Game');
+    });
+    daily.on('pointerdown', () => {
+      Sfx.unlock();
+      Sfx.blip();
+      this.scene.start('Game', { daily: true });
     });
   }
 }

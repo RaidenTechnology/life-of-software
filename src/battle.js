@@ -331,6 +331,7 @@ class Battle {
 
     this.striking = false;
     this.strikeTarget = null;
+    this.bossActive = false;
     this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'bg_ork');
     this.hero = scene.add.image(this.heroX, groundY - 7, 'hero0').setScale(1.15);
     scene.tweens.add({ targets: this.hero, y: groundY - 10, duration: 700, yoyo: true, repeat: -1 });
@@ -339,6 +340,7 @@ class Battle {
   }
 
   fill(instant) {
+    if (this.bossActive) return;
     while (this.enemies.length < this.max) {
       const i = this.enemies.length;
       const key = 'en_' + Battle.TYPES[this.typeIndex];
@@ -529,6 +531,92 @@ class Battle {
   // time ran out: only the front monster attacks — one lethal blow
   defeat(done) {
     this.enemyStrike(true, done);
+  }
+
+  // --- boss fight: one giant monster of the current stage's type ---
+
+  spawnBoss() {
+    const s = this.scene;
+    this.enemies.forEach(e => { s.tweens.killTweensOf(e); e.destroy(); });
+    this.enemies = [];
+    this.bossActive = true;
+    const key = 'en_' + Battle.TYPES[this.typeIndex];
+    const b = s.add.image(620, this.groundY - 34, key)
+      .setScale(2.6).setAlpha(0);
+    s.tweens.add({ targets: b, alpha: 1, duration: 400 });
+    s.tweens.add({ targets: b, y: this.groundY - 38, duration: 800, yoyo: true, repeat: -1 });
+    this.enemies.push(b);
+  }
+
+  // a hit that hurts but does not kill: the boss flashes and staggers
+  bossHit() {
+    const b = this.enemies[0];
+    if (!b) return null;
+    const pos = { x: b.x, y: b.y };
+    const s = this.scene;
+    if (this.ranged) {
+      s.tweens.killTweensOf(this.hero);
+      this.hero.x = this.heroX;
+      s.tweens.add({ targets: this.hero, x: this.heroX - 6, duration: 60, yoyo: true });
+      const bolt = s.add.image(this.heroX + 34, this.groundY - 12, 'bolt').setDepth(6);
+      s.tweens.add({
+        targets: bolt, x: pos.x - 40, duration: 140,
+        onComplete: () => {
+          bolt.destroy();
+          this.slashAt(pos.x - 30, pos.y, 0, true);
+          this.bossFlinch(b);
+        }
+      });
+    } else {
+      s.tweens.killTweensOf(this.hero);
+      this.hero.x = this.heroX;
+      s.tweens.add({
+        targets: this.hero, x: pos.x - 80, duration: 140, yoyo: true,
+        ease: 'Quad.easeIn', hold: 60
+      });
+      this.slashAt(pos.x - 34, pos.y, 140, true);
+      this.scene.time.delayedCall(150, () => this.bossFlinch(b));
+    }
+    return pos;
+  }
+
+  bossFlinch(b) {
+    const s = this.scene;
+    b.setTint(0xff9999);
+    s.tweens.add({ targets: b, x: '+=10', duration: 70, yoyo: true });
+    s.time.delayedCall(180, () => b.clearTint());
+    s.add.particles(b.x - 20, b.y, 'pixel', {
+      speed: { min: 60, max: 150 }, lifespan: 300, quantity: 6, emitting: false
+    }).explode();
+  }
+
+  bossDie(done) {
+    const s = this.scene;
+    const b = this.enemies[0];
+    this.enemies = [];
+    const flash = s.add.rectangle(s.scale.width / 2, this.groundY,
+      s.scale.width, 130, 0xffffff, 0).setDepth(6);
+    s.tweens.add({
+      targets: flash, fillAlpha: 0.5, duration: 150, yoyo: true,
+      onComplete: () => flash.destroy()
+    });
+    if (b) {
+      for (let i = 0; i < 4; i++) {
+        this.slashAt(b.x - 30 + Phaser.Math.Between(-20, 20),
+          b.y + Phaser.Math.Between(-25, 25), i * 110, true);
+      }
+      s.tweens.killTweensOf(b);
+      s.tweens.add({
+        targets: b, y: '+=30', angle: 100, alpha: 0, duration: 700, delay: 380,
+        onComplete: () => b.destroy()
+      });
+    }
+    s.time.delayedCall(1200, done);
+  }
+
+  clearBoss() {
+    this.bossActive = false;
+    this.fill(false);
   }
 
   applyHeroTexture() {

@@ -50,12 +50,13 @@ const UI = {
       fontFamily: 'monospace', fontSize: '18px', color: '#9d9d9d'
     }).setOrigin(1, 0.5).setDepth(31).setInteractive({ useHandCursor: true });
 
-    const panel = scene.add.container(w - 106, 78).setDepth(31).setVisible(false);
-    panel.add(scene.add.rectangle(0, 0, 188, 78, IDE.panel).setStrokeStyle(1, IDE.border));
-    panel.add(scene.add.text(0, -22, 'SETTINGS', {
+    const panel = scene.add.container(w - 106, 92).setDepth(31).setVisible(false);
+    panel.add(scene.add.rectangle(0, 0, 188, 106, IDE.panel).setStrokeStyle(1, IDE.border));
+    panel.add(scene.add.text(0, -38, 'SETTINGS', {
       fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
     }).setOrigin(0.5));
-    const soundRow = scene.add.text(0, 8, '', {
+
+    const soundRow = scene.add.text(0, -12, '', {
       fontFamily: 'monospace', fontSize: '16px', color: IDE.keyword
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     const refresh = () => soundRow.setText('[ SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + ' ]');
@@ -69,6 +70,30 @@ const UI = {
       Sfx.blip();
     });
     panel.add(soundRow);
+
+    // volume stepper: ◀ 70% ▶
+    const volLabel = scene.add.text(0, 18, '', {
+      fontFamily: 'monospace', fontSize: '15px', color: IDE.text
+    }).setOrigin(0.5);
+    const refreshVol = () => volLabel.setText('VOLUME ' + Math.round(Sfx.master * 100) + '%');
+    refreshVol();
+    panel.add(volLabel);
+    const mkArrow = (x, txt, dir) => {
+      const a = scene.add.text(x, 18, txt, {
+        fontFamily: 'monospace', fontSize: '16px', color: IDE.keyword, fontStyle: 'bold'
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      a.on('pointerover', () => a.setColor(IDE.white));
+      a.on('pointerout', () => a.setColor(IDE.keyword));
+      a.on('pointerdown', () => {
+        Sfx.unlock();
+        Sfx.setVolume(Sfx.master + dir * 0.1);
+        refreshVol();
+        Sfx.blip();
+      });
+      panel.add(a);
+    };
+    mkArrow(-74, '◀', -1);
+    mkArrow(74, '▶', 1);
 
     gear.on('pointerover', () => gear.setColor('#ffffff'));
     gear.on('pointerout', () => gear.setColor('#9d9d9d'));
