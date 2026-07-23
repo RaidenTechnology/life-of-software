@@ -481,3 +481,71 @@ but-unbuilt ideas plus two game-feel bugs found while reading `battle.js`.
 - The boss's full-width lunge across the battlefield every 6s (`enemyStrike` moving
   it to `heroX+44`) is a lot of travel for a scale-2.6 sprite; a shorter telegraph
   might read better than a full charge.
+
+## Auto-dev log - 20260723-2256 pass 1
+
+Second active-development pass on Opus 4.8 (Fable 5 hit its usage limit again).
+Verified the whole game still passes `node --check` (10 files), then fixed a
+previously-unflagged correctness bug, shipped the most-flagged balance item plus
+one fresh readability feature, and cleared the pass-6-era perf leftover.
+
+**Bugs fixed**
+
+1. **Enemy strike-state flag leaked and permanently killed periodic strikes
+   (battle.js) — FIXED.** `enemyStrike()` only clears `striking`/`strikeTarget`
+   in the strike's own `onComplete`. But `ulti()` (fires every level-up) and
+   `spawnBoss()` both kill every enemy mid-strike, dropping that tween *without*
+   firing its `onComplete` — so `striking` stuck `true`, `strikeTarget` pointed
+   at a destroyed object, and the guard `(this.striking && !lethal)` early-
+   returned forever. The upshot: the very first time you cleared a level (or
+   entered a boss) during the ~800ms strike animation, the front monster's
+   periodic strikes silently stopped for the *rest of the run*. Lethal blows
+   bypass the guard, so death still worked and the bug was invisible. Added a
+   self-heal at the top of `enemyStrike`: if `strikeTarget !== enemies[0]` the
+   flag is stale (a real in-flight strike always tracks `enemies[0]`), so clear
+   it. This is a fresh area — none of passes 1-6 touched the strike state.
+
+**Feature / balance shipped**
+
+2. **Boss victory time cushion (pass-1 idea #1) — SHIPPED.** The single most-
+   flagged open item across passes 1, 4, 5. `beatBoss()` refilled no time, so
+   clearing a boss with ~1s left dumped you into a fresh stage (langIndex 0,
+   higher targets, new monster) at near-death — a frequent unfair instant loss.
+   New `BOSS_WIN_TIME = 25`; `beatBoss()` floors `timeLeft` to it (only ever
+   raises the clock, so a comfortable win keeps its surplus). Deferred for six
+   passes as a "balance call"; made the call.
+
+3. **Boss "N patterns left" HUD (pass-2 idea #3) — SHIPPED.** The boss HUD showed
+   HP but never how many un-typed patterns remained, so a thinning word pool was
+   invisible until you hit a wall of "already typed" rejections with the clock
+   draining. `refreshLangHud`'s boss branch now appends
+   `lang.words.length - found.size` to the stage line. (Pool can't truly starve —
+   max boss HP 27 < the smallest word list — but the count is honest feedback on
+   the game's tensest screen.)
+
+**Quality / perf**
+
+4. **Language badge no longer rebuilt every keystroke.** `refreshLangHud()` runs
+   on every correct word and each boss hit, and it destroyed + recreated
+   `langBadge` (a 3-object container: two circles + text) unconditionally, even
+   though the badge is identical within a level/boss — the exact pass-6 leftover.
+   New `updateLangBadge(key, lang)` rebuilds only when the shown language changes
+   (key = level index / boss lang name). `_badgeKey` is reset on scene init and
+   festival teardown so a destroyed badge always redraws. Removes steady per-word
+   GameObject allocation.
+
+**Leftover for next passes**
+
+- The menu/bag/shop still freezes the countdown (and boss strike timer, and death
+  check) for free while open — flagged in passes 2/3/5, still open. On a game
+  whose theme *is* the countdown, the bag is an unlimited free pause. Keep the
+  clock ticking while a menu is open, or block menu access during boss/festival.
+- Festivals both freeze the main countdown *and* still hand out `+2s` per answer
+  (pass-4 #2), so a festival is a cost-free net-positive clock event — decide that
+  deliberately.
+- SCORE is still decorative for ranking: the PB/daily keys rank by `progress` then
+  `words`, never `score`/`wpm`, and `score` resets each level anyway (pass-2 #4,
+  pass-4 #4). Either accumulate a run-total score into the tiebreak or stop
+  presenting SCORE as the headline number.
+- Boss's full-width 6s lunge is still a lot of travel for a scale-2.6 sprite; a
+  shorter telegraph might read better than a full charge.
