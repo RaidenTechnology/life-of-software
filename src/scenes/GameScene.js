@@ -72,6 +72,7 @@ class GameScene extends Phaser.Scene {
     this.lastTickSecond = -1;
     this.strikeTimer = 0;
     this._shaking = false;
+    this._timerLow = false;   // tracks the big timer's low-time recolor state
 
     // combo + run stats
     this.combo = 0;
@@ -1191,8 +1192,16 @@ class GameScene extends Phaser.Scene {
       this.menuClock.setText('⏱ CLOCK RUNNING · ' + s + 's')
         .setColor(s <= 10 ? IDE.error : '#dcdcaa');
     }
-    if (s <= 10) {
-      this.timerText.setColor(IDE.error);
+    // Phaser's Text.setColor re-renders the glyph texture on every call, even
+    // when the color is unchanged — so recolor the big timer only when it
+    // crosses the 10s line, not 60x/second for the whole (mostly >10s) run.
+    const low = s <= 10;
+    if (low !== this._timerLow) {
+      this._timerLow = low;
+      this.timerText.setColor(low ? IDE.error : IDE.text);
+      if (!low) { this.timerText.setScale(1); this.warnFrame.setAlpha(0); }
+    }
+    if (low) {
       this.timerText.setScale(1 + (this.timeLeft % 1) * 0.15);
       // edge frame ramps 0→1 over the last 10s, pulsing faster as it tightens
       const intensity = Phaser.Math.Clamp((10 - this.timeLeft) / 10, 0, 1);
@@ -1202,10 +1211,6 @@ class GameScene extends Phaser.Scene {
         this.lastTickSecond = s;
         Sfx.tick();
       }
-    } else {
-      this.timerText.setColor(IDE.text);
-      this.timerText.setScale(1);
-      this.warnFrame.setAlpha(0);
     }
   }
 }
