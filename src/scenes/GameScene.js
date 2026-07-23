@@ -52,7 +52,8 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.score = 0;          // resets every level — only credits carry over
+    this.score = 0;          // per-level score — drives the level target/progress bar, resets each level
+    this.runScore = 0;       // cumulative run score — the honest headline number, never resets mid-run
     this.credits = 0;
     this.wordsTyped = 0;
     this.langIndex = 0;
@@ -245,6 +246,15 @@ class GameScene extends Phaser.Scene {
     this.credits = Math.min(CREDIT_MAX, this.credits + base * this.creditMult);
   }
 
+  // Run-total score: the HUD SCORE and the End headline. this.score still tracks
+  // per-level progress toward the target (and resets each level); runScore keeps
+  // climbing across levels, bosses and festivals so the number you finish on is
+  // the whole run, not the last half-cleared level.
+  addScore(points) {
+    this.runScore += points;
+    this.scoreText.setText('SCORE ' + this.runScore);
+  }
+
   onKey(e) {
     if (this.over || this.dying) return;
     if (this.menuOpen) {
@@ -305,6 +315,7 @@ class GameScene extends Phaser.Scene {
     if (this.bossMode) {
       const bonus = (1.5 + 0.25 * w.length) * this.bossMode.lang.timeMult;
       this.timeLeft += bonus;
+      this.addScore(w.length * 15);   // boss hits are worth more than a plain word
       this.gainCredits(CREDIT_PER_WORD);
       this.tickMult();
       this.refreshCredits();
@@ -318,6 +329,7 @@ class GameScene extends Phaser.Scene {
 
     if (this.festival) {
       this.festival.count++;
+      this.addScore(w.length * 10);
       this.gainCredits(FESTIVAL_CREDIT);
       this.timeLeft += FESTIVAL_TIME_BONUS;
       this.tickMult();
@@ -332,11 +344,11 @@ class GameScene extends Phaser.Scene {
     const points = w.length * 10 * comboMult;
     const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult;
     this.score += points;
+    this.addScore(points);
     this.timeLeft += bonus;
     this.gainCredits(CREDIT_PER_WORD);
     this.tickMult();
 
-    this.scoreText.setText('SCORE ' + this.score);
     this.refreshCredits();
     this.pushRecent(w);
     this.floatText('+' + points + (comboMult > 1 ? ' (×' + comboMult + ')' : '') +
@@ -373,6 +385,7 @@ class GameScene extends Phaser.Scene {
     const pos = this.celebrate();
     const i = f.pool.indexOf(f.lang);
     this.tweens.add({ targets: f.badges[i], scale: 1.4, duration: 150, yoyo: true });
+    this.addScore(f.word.length * 10);
     this.gainCredits(FESTIVAL_CREDIT);
     this.timeLeft += FESTIVAL_TIME_BONUS;
     this.tickMult();
@@ -642,8 +655,7 @@ class GameScene extends Phaser.Scene {
   levelUp() {
     const fromIdx = this.langIndex;
     this.langIndex++;
-    this.score = 0;
-    this.scoreText.setText('SCORE 0');
+    this.score = 0;   // per-level progress resets; the HUD keeps showing runScore
     this.found.clear();
     this.recent = [];
     this.recentText.setText('');
@@ -947,7 +959,7 @@ class GameScene extends Phaser.Scene {
     // headline wpm that the daily/PB then surface. Only clamps sub-15s runs.
     const minutes = Math.max(this.elapsed / 60, 15 / 60);
     this.scene.start('End', {
-      score: this.score,
+      score: this.runScore,
       words: this.wordsTyped,
       langIndex: Math.min(this.langIndex, LANGUAGES.length - 1),
       stage: STAGES[this.stageIndex].name,

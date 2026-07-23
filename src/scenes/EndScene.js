@@ -41,10 +41,14 @@ class EndScene extends Phaser.Scene {
     const progress = (this.stageIndex + (this.lap > 0 ? this.lap : 0)) * LANGUAGES.length + this.langIndex;
     let best = null;
     try { best = JSON.parse(localStorage.getItem('los_best') || 'null'); } catch (e) {}
-    if (!this.daily && (!best || progress > best.p || (progress === best.p && this.words > best.words))) {
+    // rank by how far you got, then words typed, then run score as the final tiebreak
+    const beats = !best || progress > best.p ||
+      (progress === best.p && this.words > best.words) ||
+      (progress === best.p && this.words === best.words && this.finalScore > (best.score || 0));
+    if (!this.daily && beats) {
       try {
         localStorage.setItem('los_best', JSON.stringify({
-          p: progress, words: this.words, wpm: this.wpm,
+          p: progress, words: this.words, wpm: this.wpm, score: this.finalScore,
           stage: this.stage, level: this.langIndex + 1
         }));
       } catch (e) {}
