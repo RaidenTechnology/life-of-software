@@ -549,3 +549,61 @@ one fresh readability feature, and cleared the pass-6-era perf leftover.
   presenting SCORE as the headline number.
 - Boss's full-width 6s lunge is still a lot of travel for a scale-2.6 sprite; a
   shorter telegraph might read better than a full charge.
+
+## Auto-dev log - 20260723-2311 pass 1
+
+Third active-development pass on Opus 4.8. Read the whole game again (10 files
+still pass `node --check`), then went after the shop/menu economy — a fresh area
+none of passes 1-6 or the two prior auto-dev passes had touched in code.
+
+**Bug fixed**
+
+1. **Buying with a full bag silently wasted credits (GameScene `openShop`) —
+   FIXED.** A purchase routed through `addItem`, which *auto-salvages* an
+   incoming item when `inventory.length >= INV_MAX`. So clicking BUY on a full
+   bag charged the full price and refunded only the salvage crumbs — e.g. 80
+   credits for an EPIC, ~15 back, no item, no warning. The BUY button now reads
+   `BAG FULL` (red, non-interactive) whenever the bag is at INV_MAX, so credits
+   are never burned for nothing. Auto-salvage on random *loot* drops is
+   unchanged — that path is intentional; only paid purchases were wrong.
+
+**Feature / balance shipped**
+
+2. **The bag/shop no longer freezes the countdown — the single most-flagged open
+   item (passes 2/3/5, and both prior auto-dev logs).** On a game whose theme
+   *is* Count Down, opening the bag was an unlimited free pause that also let you
+   heal (potion), arm a sword, and shop at zero time cost. `update()` now keeps
+   draining `timeLeft` while a menu is open: the cosmetic front-monster strikes
+   are held (the field is hidden behind the modal, so they'd play out of sight
+   and desync the strike-state machine), a live `⏱ CLOCK RUNNING · Ns` readout
+   sits in the menu header and recolors red under 10s, and a timeout closes the
+   menu *before* the armor-save/death path runs so the outcome is visible.
+   Menus are now blocked during festivals (they own the timer + prompt UI).
+   ESC-pause is untouched: it stays a true freeze, but it already blocks every
+   action, so the split is now clean — **pause = no clock but no acting; bag =
+   act freely, but the clock keeps running.**
+
+**Quality / perf**
+
+3. **One reusable burst emitter for the correct-word pop.** `celebrate()` fires
+   on every landed word and was allocating a fresh particle emitter (a
+   GameObject) *plus* a 500 ms `delayedCall` to tear it down, every single time —
+   steady churn during fast typing, which is the whole game. Now a single
+   `this.burstFx` emitter is built once at the panel in `create()` and
+   `explode(14)`'d per word; Phaser recycles the dead particles internally, so
+   there is nothing to destroy and no per-word timer.
+
+**Leftover for next passes**
+
+- Festivals still freeze the main countdown *and* hand out `+2s` per answer, so a
+  festival remains a cost-free net-positive clock event (pass-4 #2). Now that the
+  bag no longer freezes time, the festival is the last free-pause surface — decide
+  it deliberately (e.g. let the main clock keep ticking under the festival too, or
+  drop the per-answer `+2s`).
+- SCORE is still decorative for ranking: PB/daily keys rank by `progress` then
+  `words`, never `score`/`wpm`, and `score` resets each level (pass-2 #4, pass-4
+  #4). Accumulate a run-total into the tiebreak, or stop headlining SCORE.
+- Boss's full-width 6s lunge is still a lot of travel for a scale-2.6 sprite; a
+  shorter telegraph might read better than a full charge.
+- The in-menu clock readout is text-only; a thin draining bar in the menu header
+  might read the tension better while shopping.
