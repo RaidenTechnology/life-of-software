@@ -251,8 +251,11 @@ class GameScene extends Phaser.Scene {
     this.refreshCredits();
     this.refreshBag();
 
-    // a nudge for first-time players; the first correct word clears it
-    this.hintText.setText('// try typing "body" then ENTER — every word buys time!');
+    // a nudge for first-time players; the first correct word clears it. Use a
+    // word from the CURRENT language — hardcoding "body" (HTML) was wrong when
+    // resuming a run at CSS/JS/etc. from a checkpoint.
+    const sample = this.lang.words[0];
+    this.hintText.setText('// try typing "' + sample + '" then ENTER — every word buys time!');
   }
 
   get lang() {
