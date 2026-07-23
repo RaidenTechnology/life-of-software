@@ -34,11 +34,14 @@ class EndScene extends Phaser.Scene {
       color: this.win ? IDE.comment : IDE.error, fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // personal best bookkeeping (progress = total levels cleared overall)
+    // personal best bookkeeping (progress = total levels cleared overall).
+    // Daily runs are excluded from the global PB: they load the shared bag and
+    // can post an inflated progress, so a daily must not stomp the normal-mode
+    // best (it has its own per-day key below).
     const progress = (this.stageIndex + (this.lap > 0 ? this.lap : 0)) * LANGUAGES.length + this.langIndex;
     let best = null;
     try { best = JSON.parse(localStorage.getItem('los_best') || 'null'); } catch (e) {}
-    if (!best || progress > best.p || (progress === best.p && this.words > best.words)) {
+    if (!this.daily && (!best || progress > best.p || (progress === best.p && this.words > best.words))) {
       localStorage.setItem('los_best', JSON.stringify({
         p: progress, words: this.words, wpm: this.wpm,
         stage: this.stage, level: this.langIndex + 1

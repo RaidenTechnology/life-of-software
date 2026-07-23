@@ -319,3 +319,51 @@ hints stay consistent for free.
    affects what counts as a "personal best" and isn't comparable across runs. Either
    accumulate a run-total score and factor it into the PB tiebreak, or stop
    presenting SCORE as the headline number. Effort: low; confirm intent first.
+
+---
+
+## Auto-review ideas - 20260723 pass 5
+
+Verified pass-4's change (sw-festival per-language dedupe): `activeFound` returns
+`festival.usedByLang.get(activeLang.name)` for `sw` (GameScene.js:208), and
+`usedByLang` is seeded with an entry for every pooled language at startFestival
+(`new Map(pool.map(l => [l.name, new Set()]))`, GameScene.js:807). `activeLang`
+for a festival is always `festival.lang`, which is drawn from `pool`, so the
+`.get()` can never miss and return `undefined` — no crash path on `.has()`/`.add()`
+at :264/:278. Growth rounds correctly still use the shared `f.used` set (:842/:848).
+Sound.
+
+Code fix this pass (pass-4 idea #1 — daily runs stomping the global PB). EndScene
+wrote `los_best` unconditionally for *every* run (EndScene.js:41), while the
+per-day `los_daily_<date>` write (:51-58) was additional, not exclusive. Because a
+daily loads the shared persistent bag (pass-3 #2) and can post an inflated
+`progress`, a daily attempt could silently overwrite the normal-mode PB banner the
+menu shows. The global write (and its "NEW PERSONAL BEST" banner) is now gated
+behind `!this.daily`; the daily keeps its own per-day key. One-line predicate
+change, no behavior change for normal runs.
+
+1. **Boss victory still refills no time (pass-1 #1 / pass-4 #3, still open).**
+   `beatBoss()` (GameScene.js:660) adds no time, so clearing a boss near-empty
+   drops you into a fresh, harder stage at near-death — an unfair-feeling instant
+   loss. Floor it (`timeLeft = Math.max(timeLeft, 20)`) or a fixed bonus. This is
+   the most-flagged open item; ~1 line + a pacing playtest. Not fixed here because
+   it's a deliberate balance call, unlike this pass's pure correctness fix.
+
+2. **WPM inflates on very short runs (pass-3 #3, still open).** `finish()` floors
+   the divisor at one second (`Math.max(this.elapsed/60, 1/60)`, GameScene.js:900),
+   so a ~3s death posts an absurd headline wpm that the daily/PB then surface.
+   Floor `minutes` at ~10-15s or clamp displayed WPM. ~1 line.
+
+3. **`los_daily_<date>` stores no wpm/score, so a daily leaderboard can't show
+   them.** The per-day write persists only `{p, words}` (EndScene.js:56) while the
+   global PB stores wpm/stage/level. If the daily is ever surfaced as a shareable
+   result (pass-1 idea #4's result card), it can't display speed or score without a
+   re-run. Cheap to widen the stored object now. Effort: ~1 line; do it alongside
+   the result-card work.
+
+4. **Menu still freezes the countdown for free during boss/festival (pass-2 #2,
+   pass-3 #4, still open).** `toggleMenu()` doesn't guard `bossMode`/`festival`
+   (GameScene.js:463) and `update()` early-returns on `menuOpen`, so the bag is an
+   unlimited free pause of the clock, boss strike timer, and death check — on a
+   game whose theme *is* the countdown. Keep the clock ticking while a menu is open,
+   or block menu access during boss/festival. Effort: low.
