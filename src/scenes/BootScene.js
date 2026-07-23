@@ -23,6 +23,16 @@ class BootScene extends Phaser.Scene {
       this.load.image('scene_' + t, 'assets/scene_' + t + '.png');  // full-screen atmosphere
     });
     this.load.image('pause_panel', 'assets/pause_panel.png');       // ESC/pause window
+
+    // characters — Blender-rendered 3D pixel-art figurines (same keys as the
+    // code placeholders). hero tiers 0-5 (sword + crossbow 'x') and 6 monsters.
+    for (let t = 0; t < 6; t++) {
+      this.load.image('hero' + t, 'assets/hero' + t + '.png');
+      this.load.image('hero' + t + 'x', 'assets/hero' + t + 'x.png');
+    }
+    ['ork', 'skeleton', 'elf', 'goblin', 'vampire', 'demon'].forEach(t => {
+      this.load.image('en_' + t, 'assets/en_' + t + '.png');
+    });
   }
 
   create() {
