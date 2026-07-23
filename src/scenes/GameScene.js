@@ -847,10 +847,16 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '16px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(0.5);
     c.add(prompt);
+    // the main clock keeps draining under the festival now (see update) — this
+    // in-banner readout warns that, and shows how long the round itself lasts.
+    const clock = this.add.text(cx, 262, '', {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.error, fontStyle: 'bold'
+    }).setOrigin(0.5);
+    c.add(clock);
     this.tweens.add({ targets: c, alpha: 1, duration: 300 });
 
     this.festival = {
-      type, pool, badges, prompt, container: c,
+      type, pool, badges, prompt, clock, container: c,
       lang: null, word: null, used: new Set(),
       usedByLang: new Map(pool.map(l => [l.name, new Set()])),
       timeLeft: FESTIVAL_TIME, count: 0
@@ -901,7 +907,10 @@ class GameScene extends Phaser.Scene {
     this.refreshInput();
   }
 
-  endFestival() {
+  // silent=true when the festival is torn down because the main clock ran out
+  // (see update's death path): skip the celebratory summary + jingle, just
+  // restore the battle strip for the killing blow.
+  endFestival(silent) {
     const f = this.festival;
     this.festival = null;
     this.battle.setVisible(true);
@@ -909,13 +918,14 @@ class GameScene extends Phaser.Scene {
       targets: f.container, alpha: 0, duration: 300,
       onComplete: () => f.container.destroy()
     });
-    this.feedback('festival over — ' + f.count + ' answers, +' +
-      (f.count * FESTIVAL_CREDIT) + ' credits', '#dcdcaa');
     this.strikeTimer = 0;
     this.typed = '';
     this.refreshInput();
     this.refreshLangHud();
     this.refreshCredits();
+    if (silent) return;
+    this.feedback('festival over — ' + f.count + ' answers, +' +
+      (f.count * FESTIVAL_CREDIT) + ' credits', '#dcdcaa');
     Sfx.hint();
   }
 
@@ -1122,20 +1132,25 @@ class GameScene extends Phaser.Scene {
     // strikes (they'd play out of sight and desync) and mirror the clock in-menu.
     const inMenu = !!this.menuOpen;
 
+    // A festival is a bounded bonus ROUND, not a free pause. Its own short timer
+    // decides when it ends, but the main countdown keeps draining underneath
+    // (the big timer below shows it with the usual low-time warnings), so the
+    // +2s/answer is now a real race to offset the drain instead of pure upside —
+    // and you can die mid-festival if you stall. Its own remaining time and a
+    // "clock runs" warning sit in the banner.
     if (this.festival) {
-      this.warnFrame.setAlpha(0);
       this.festival.timeLeft -= delta / 1000;
-      if (this.festival.timeLeft <= 0) {
-        this.endFestival();
-      } else {
-        this.timerText.setText(String(Math.ceil(this.festival.timeLeft)))
-          .setColor('#dcdcaa').setScale(1);
-      }
-      return;
+      if (this.festival.timeLeft <= 0) { this.endFestival(); return; }
+      this.festival.clock.setText('⏱ clock runs — festival ends in ' +
+        Math.ceil(this.festival.timeLeft) + 's');
     }
 
-    // every few seconds the front monster lands a (non-lethal) hit
-    if (!inMenu) {
+    // every few seconds the front monster lands a (non-lethal) hit — but hold
+    // these while the field is covered (behind a menu, or under the festival
+    // banner where the battle strip is hidden), so they don't play out of sight
+    // and desync the strike-state machine.
+    const holdStrikes = inMenu || !!this.festival;
+    if (!holdStrikes) {
       this.strikeTimer += delta / 1000;
       if (this.strikeTimer >= (this.bossMode ? 6 : ENEMY_STRIKE_EVERY)) {
         this.strikeTimer = 0;
@@ -1157,6 +1172,9 @@ class GameScene extends Phaser.Scene {
         return;
       }
       if (inMenu) this.closeMenu();
+      // the festival can no longer hide death: tear its banner down (quietly)
+      // so the battle strip is back on screen for the killing blow.
+      if (this.festival) this.endFestival(true);
       this.timeLeft = 0;
       this.timerText.setText('0');
       this.dying = true;
