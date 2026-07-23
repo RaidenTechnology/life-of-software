@@ -13,6 +13,7 @@ const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
 const START_TIME = 75;
 const LEVELUP_TIME_BONUS = 10;
+const BOSS_WIN_TIME = 25;        // clock floor after clearing a boss (fresh stage)
 const MAX_TYPED = 24;
 const FESTIVAL_CHANCE = 0.35;
 const FESTIVAL_TIME = 20;
@@ -670,6 +671,11 @@ class GameScene extends Phaser.Scene {
     this.bossMode = null;
     this.langIndex = 0;
     this.found.clear();   // boss words must not carry into the fresh level
+    // Cushion the victory: a boss can be beaten with ~1s left, and the next
+    // stage restarts at langIndex 0 with higher targets and a new monster — so
+    // without a floor you're dumped into a harder stage at near-death, an
+    // instant, unfair-feeling loss. Give at least BOSS_WIN_TIME to settle in.
+    if (this.timeLeft < BOSS_WIN_TIME) this.timeLeft = BOSS_WIN_TIME;
     if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
     else this.survivalLap++;
     this.cameras.main.shake(350, 0.01);
