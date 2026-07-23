@@ -22,6 +22,7 @@ class BootScene extends Phaser.Scene {
       this.load.image('bg_' + t, 'assets/bg_' + t + '.png');        // battle-strip backdrop
       this.load.image('scene_' + t, 'assets/scene_' + t + '.png');  // full-screen atmosphere
     });
+    this.load.image('pause_panel', 'assets/pause_panel.png');       // ESC/pause window
   }
 
   create() {
