@@ -539,9 +539,18 @@ class Battle {
             if (done) done();
           });
         } else {
-          this.hero.setTint(0xff8888);
-          s.tweens.add({ targets: this.hero, x: this.heroX - 14, duration: 90, yoyo: true });
-          s.time.delayedCall(260, () => this.hero.clearTint());
+          // The grunt strike closes to the hero, so the hero flinching (red tint
+          // + knockback) reads as a real poke. The boss JAB, however, only lunges
+          // ~110px and halts mid-field, hundreds of px short of the hero — so
+          // flinching the hero there looks like it reacts to a hit that never
+          // arrives. Skip the hero recoil for the jab; the big slash bursting at
+          // the boss's reach is the telegraph. (Non-lethal strikes deal no time
+          // damage either way — this is pure feedback readability.)
+          if (!bossJab) {
+            this.hero.setTint(0xff8888);
+            s.tweens.add({ targets: this.hero, x: this.heroX - 14, duration: 90, yoyo: true });
+            s.time.delayedCall(260, () => this.hero.clearTint());
+          }
           s.tweens.add({
             targets: e, x: back, duration: 320, delay: 160, ease: 'Quad.easeOut',
             onComplete: () => {
