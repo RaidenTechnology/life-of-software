@@ -129,6 +129,7 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(1, 0);
     this.langBadge = null;
+    this._badgeKey = null;
     this.progressTrack = this.add.rectangle(this.scale.width - 16, 76, 180, 6, IDE.border).setOrigin(1, 0.5);
     this.progressFill = this.add.rectangle(this.scale.width - 196, 76, 0, 6, IDE.statusbar).setOrigin(0, 0.5);
     this.comboText = this.add.text(this.scale.width - 16, 96, '', {
@@ -825,7 +826,7 @@ class GameScene extends Phaser.Scene {
     this.battle.setVisible(false);
     this.langText.setText(type === 'sw' ? 'SOFTWARE FESTIVAL' : 'GROWTH FESTIVAL')
       .setColor('#dcdcaa');
-    if (this.langBadge) { this.langBadge.destroy(); this.langBadge = null; }
+    if (this.langBadge) { this.langBadge.destroy(); this.langBadge = null; this._badgeKey = null; }
     this.progressFill.width = 0;
     this.typed = '';
     this.refreshInput();
@@ -976,9 +977,7 @@ class GameScene extends Phaser.Scene {
         ' · ' + left + ' patterns left');
       this.progressFill.width = 180 * Math.max(0, this.bossMode.hp / this.bossMode.max);
       this.progressFill.fillColor = 0xf44747;
-      if (this.langBadge) this.langBadge.destroy();
-      this.langBadge = UI.badge(this,
-        this.scale.width - 30 - this.langText.width, 54, this.bossMode.lang, 13);
+      this.updateLangBadge('boss:' + this.bossMode.lang.name, this.bossMode.lang);
       return;
     }
     this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
@@ -992,9 +991,19 @@ class GameScene extends Phaser.Scene {
       this.battle.setTier(Math.floor(this.langIndex / 5));
       this.battle.setStage(this.stageIndex);
     }
+    this.updateLangBadge('lvl:' + this.langIndex, this.lang);
+  }
+
+  // The language badge is identical within a level/boss, but refreshLangHud
+  // runs on every correct word — recreating a 3-object container each keystroke
+  // just churns GameObjects. Rebuild only when the shown language changes; the
+  // key encodes level index / boss lang so a new level or boss forces a redraw.
+  updateLangBadge(key, lang) {
+    if (this._badgeKey === key && this.langBadge) return;
     if (this.langBadge) this.langBadge.destroy();
     this.langBadge = UI.badge(this,
-      this.scale.width - 30 - this.langText.width, 54, this.lang, 13);
+      this.scale.width - 30 - this.langText.width, 54, lang, 13);
+    this._badgeKey = key;
   }
 
   refreshCredits() {
