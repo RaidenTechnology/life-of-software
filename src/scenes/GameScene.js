@@ -180,6 +180,14 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '48px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(0.5).setVisible(false).setDepth(10);
 
+    // silent low-time warning: a red edge frame that intensifies as the clock
+    // runs out, so the countdown tension reads even with sound muted. A full-
+    // screen rect with a thick stroke shows only as an inner border band, so it
+    // never covers the play area — one always-on object, alpha driven per frame.
+    this.warnFrame = this.add.rectangle(cx, this.scale.height / 2,
+      this.scale.width, this.scale.height, 0xff2233, 0)
+      .setStrokeStyle(64, 0xff2233).setDepth(8).setAlpha(0);
+
     this.input.keyboard.on('keydown', (e) => this.onKey(e));
 
     this.refreshLangHud();
@@ -1046,6 +1054,7 @@ class GameScene extends Phaser.Scene {
     this.elapsed += delta / 1000;
 
     if (this.festival) {
+      this.warnFrame.setAlpha(0);
       this.festival.timeLeft -= delta / 1000;
       if (this.festival.timeLeft <= 0) {
         this.endFestival();
@@ -1090,6 +1099,10 @@ class GameScene extends Phaser.Scene {
     if (s <= 10) {
       this.timerText.setColor(IDE.error);
       this.timerText.setScale(1 + (this.timeLeft % 1) * 0.15);
+      // edge frame ramps 0→1 over the last 10s, pulsing faster as it tightens
+      const intensity = Phaser.Math.Clamp((10 - this.timeLeft) / 10, 0, 1);
+      const pulse = 0.7 + 0.3 * Math.sin(this.time.now / (70 + s * 12));
+      this.warnFrame.setAlpha(intensity * 0.55 * pulse);
       if (s !== this.lastTickSecond) {
         this.lastTickSecond = s;
         Sfx.tick();
@@ -1097,6 +1110,7 @@ class GameScene extends Phaser.Scene {
     } else {
       this.timerText.setColor(IDE.text);
       this.timerText.setScale(1);
+      this.warnFrame.setAlpha(0);
     }
   }
 }
