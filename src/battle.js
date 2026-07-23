@@ -495,6 +495,17 @@ class Battle {
   // lethal=true: the killing blow — the hero falls.
   enemyStrike(lethal, done) {
     const s = this.scene;
+    // Self-heal a stale strike flag. A strike only clears `striking` in its own
+    // onComplete; but ulti() (each level-up) and spawnBoss() kill every enemy
+    // mid-strike, dropping that tween WITHOUT firing onComplete. The flag then
+    // sticks true and strikeTarget points at a destroyed object, so this guard
+    // early-returns forever and the periodic strikes silently stop for the rest
+    // of the run. During a real in-flight strike the target IS enemies[0], so
+    // this only fires when the tracked monster is gone.
+    if (this.striking && this.strikeTarget !== this.enemies[0]) {
+      this.striking = false;
+      this.strikeTarget = null;
+    }
     if (!this.enemies.length || (this.striking && !lethal)) { if (done) done(); return; }
     const e = this.enemies[0];
     const back = e.x;
