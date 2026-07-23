@@ -509,17 +509,25 @@ class Battle {
     if (!this.enemies.length || (this.striking && !lethal)) { if (done) done(); return; }
     const e = this.enemies[0];
     const back = e.x;
+    // A boss is a scale-2.6 sprite resting mid-field; charging it all the way to
+    // the hero and back every 6s reads as a shuttle, not a threat. For the
+    // periodic (non-lethal) boss strike, do a short forward jab and burst a big
+    // slash at its reach instead. Grunts — and any lethal blow, including the
+    // boss's own killing charge — still close the full distance to the hero.
+    const bossJab = this.bossActive && !lethal;
+    const lungeX = bossJab ? back - 110 : this.heroX + 44;
     this.striking = true;
     this.strikeTarget = e;
     s.tweens.killTweensOf(e);
     s.tweens.add({
-      targets: e, x: this.heroX + 44, duration: 260, ease: 'Quad.easeIn',
+      targets: e, x: lungeX, duration: bossJab ? 200 : 260, ease: 'Quad.easeIn',
       onComplete: () => {
         if (e !== this.strikeTarget) return;   // it died mid-charge
-        const sl = s.add.image(this.heroX + 14, this.groundY - 14, 'slash')
+        const slX = bossJab ? e.x - 30 : this.heroX + 14;
+        const sl = s.add.image(slX, this.groundY - 14, 'slash')
           .setBlendMode(Phaser.BlendModes.ADD).setTint(0xff6655)
-          .setScale(0.7).setAngle(Phaser.Math.Between(150, 210)).setDepth(7);
-        s.tweens.add({ targets: sl, scale: 1.5, alpha: 0, duration: 200, onComplete: () => sl.destroy() });
+          .setScale(bossJab ? 1.1 : 0.7).setAngle(Phaser.Math.Between(150, 210)).setDepth(7);
+        s.tweens.add({ targets: sl, scale: bossJab ? 2 : 1.5, alpha: 0, duration: 200, onComplete: () => sl.destroy() });
         Sfx.hit();
         if (lethal) {
           s.tweens.killTweensOf(this.hero);
