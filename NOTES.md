@@ -417,3 +417,67 @@ stays deferred because it's a deliberate balance change, not a correctness fix.
    silent visual cue under 10s (a red screen-edge vignette that intensifies as
    `timeLeft` drops, or a full-panel flash on each tick). Effort: low (one always-on
    overlay whose alpha tracks `timeLeft`); direct Theme/Presentation payoff.
+
+## Auto-dev log - 20260723-2214 pass 1
+
+First active-development pass on Opus 4.8 (Fable 5 hit its usage limit, so the
+review-jam loop fell through). This pass **shipped** three of pass-6's recorded-
+but-unbuilt ideas plus two game-feel bugs found while reading `battle.js`.
+
+**Bugs fixed**
+
+1. **Unguarded `localStorage` writes (pass-6 idea #1) — FIXED.** Wrapped every
+   `setItem` in `try/catch`, mirroring the reads: `Items.save`/`markSold`
+   (items.js), `Sfx.setMuted`/`setVolume` (sfx.js), and both EndScene writes
+   (`los_best`, `los_daily_<date>`). EndScene's PB write runs inside `create()`
+   *before* the `[ RECOMPILE ]` button, so a throwing `setItem` (Safari private
+   mode, storage disabled, `QuotaExceededError`) previously aborted the build and
+   stranded the player on a dead end screen — the exact thing a judge in an
+   incognito window reads as "crashed." Now writes fail silently and play continues.
+
+2. **Per-day keys accreted forever (pass-6 idea #2) — FIXED.** Added
+   `Items.pruneOld(keepDays=7)`, called once from `BootScene.create()`. It
+   enumerates `localStorage` and drops `los_daily_<date>` / `los_shop_<date>` keys
+   older than 7 days (ISO dates sort lexicographically = chronologically). Removes
+   the slow monotonic drift across the multi-week voting window that fed idea #1's
+   quota risk. Guarded in `try/catch` like the rest.
+
+3. **Hero stopped idle-bobbing after the first attack — FIXED (battle.js).** Every
+   `attack()`/`bossHit()` called `killTweensOf(this.hero)` to reset an in-flight
+   dash, but that also killed the constructor's forever y-bob tween, which was never
+   re-added — so the hero froze stiff from word one onward. Introduced `dashHero()`,
+   which stores/stops only the tracked x-dash tween and leaves the y-bob running
+   (dash animates x, bob animates y — no conflict). Routed all four dash sites plus
+   the level-up `ulti()` lunge through it.
+
+4. **Boss sank to grunt hover-height after it struck (battle.js) — FIXED.** In the
+   boss fight the front "monster" is the giant boss (rest y ≈ groundY-38). After its
+   6-second lunge, `enemyStrike()` re-added the idle hover at the rank-and-file
+   `groundY-10`, visibly dropping the boss ~28px. Now restores the correct height
+   based on `bossActive`.
+
+**Feature shipped**
+
+- **Silent low-time warning frame (pass-6 idea #3) — SHIPPED.** A full-screen
+  rectangle with a thick red stroke (shows only as an inner edge band, never covers
+  the play area) at depth 8 — under the HUD. Its alpha ramps 0→~0.55 over the last
+  10 seconds and pulses faster as the clock tightens; zeroed above 10s and during
+  festivals. Now the "Count Down" tension reads even with sound muted — a direct
+  Theme/Presentation payoff on axes judges score.
+
+**Quality / perf**
+
+- The `dashHero()` refactor also removes four `killTweensOf` calls per combat beat
+  and keeps a single reusable dash-tween handle instead of spawning/orphaning
+  tweens. The warning frame is one always-on object whose alpha is set per frame —
+  no per-frame allocation.
+
+**Leftover for next passes**
+
+- `refreshLangHud()` destroys + recreates `this.langBadge` (a container) on every
+  boss hit — cheap but avoidable; could update the existing badge in place.
+- Consider extending the low-time warning to festival timers (currently zeroed
+  during festivals) if the festival countdown deserves the same tension read.
+- The boss's full-width lunge across the battlefield every 6s (`enemyStrike` moving
+  it to `heroX+44`) is a lot of travel for a scale-2.6 sprite; a shorter telegraph
+  might read better than a full charge.
