@@ -1,5 +1,6 @@
-# review-jam.ps1 - Life of Software'i Claude'a surekli incelet (DONGULU).
-# Her tur: oku -> debug -> kucuk duzeltme + commit -> NOTES.md'ye yeni fikir.
+# review-jam.ps1 - Life of Software'i Claude'a surekli GELISTIRT (DONGULU).
+# Her tur: oku -> bug bul+DIREKT DUZELT -> yeni fikir ENTEGRE ET ->
+#          karakter/oynanis kalite+optimizasyon -> her adimda commit.
 # Model zinciri her turda: Fable 5 -> limit dolarsa Opus 4.8.
 # Her iki model de limitli/hatali olursa dongu durur.
 # Kullanim:  powershell -File review-jam.ps1
@@ -14,36 +15,49 @@ You are reviewing "Life of Software", a GMTK 2026 jam game (Phaser 3, plain JS,
 no build step) in the current directory. Jam rule: NO AI-generated art/audio -
 all visuals are code-drawn, sfx procedural; keep it that way.
 
-Do these in order:
+This is an ACTIVE DEVELOPMENT pass, not just a review. You will fix bugs,
+implement new features, and improve the game for real - committing after every
+step. Do these in order:
 
 1) READ the whole game: index.html, src/*.js, src/scenes/*.js,
    src/data/languages.js, README.md, and the existing NOTES.md (so you do not
-   repeat earlier ideas). Understand the loop: typing patterns vs countdown,
+   repeat earlier work). Understand the loop: typing patterns vs countdown,
    battle strip, stages, festivals, boss fights, loot/inventory/shop, daily.
 
-2) DEBUG: run `node --check` on every js file. Then hunt real logic bugs:
-   state flags that can deadlock (transitioning/dying/festival/bossMode/menuOpen),
-   tween/timer leaks, localStorage edge cases, credits overflow, festival+boss
-   interactions, death-save timing, panel/UI overlap at 960x540. List each
-   suspected bug with file:line and severity. Focus on a DIFFERENT area than
-   any earlier pass recorded in NOTES.md if possible.
+2) DEBUG + FIX DIRECTLY: run `node --check` on every js file, then hunt real
+   logic bugs: state flags that can deadlock (transitioning/dying/festival/
+   bossMode/menuOpen), tween/timer leaks, localStorage edge cases, credits
+   overflow, festival+boss interactions, death-save timing, panel/UI overlap at
+   960x540. Do not just list them - FIX each bug you find right away. After each
+   fix re-run node --check on the touched file and make a SEPARATE git commit.
+   Focus on a DIFFERENT area than earlier passes recorded in NOTES.md if possible.
 
-3) FIX: apply only small, safe fixes (no refactors, no balance changes unless
-   clearly broken). After each fix re-run node --check on the touched file and
-   make a separate git commit. End every commit message with:
-   Co-Authored-By: Claude <noreply@anthropic.com>
+3) IMPLEMENT NEW FEATURES: pick 1-2 FRESH jam-scoped feature ideas (from NOTES.md
+   or your own) that raise the jury score, and actually BUILD them this pass -
+   do not just write them down. Keep each feature small and self-contained so the
+   game stays playable. After each feature: node --check the touched files, play
+   through the affected flow in your head to confirm it works, and make a
+   SEPARATE git commit. Record what you shipped in NOTES.md.
 
-4) IDEAS: append a section to NOTES.md titled exactly:
-   "## Auto-review ideas - PASS_TAG"
-   with 3-5 FRESH jam-scoped ideas not already in NOTES.md (each 2-3 sentences:
-   what, why it helps the jury score, rough effort). Do NOT implement them.
-   Commit NOTES.md.
+4) GAMEPLAY QUALITY + OPTIMIZATION: improve the moment-to-moment character/play
+   feel (input responsiveness, game-feel, juice, readability, pacing, difficulty
+   curve) AND optimize performance (kill tween/timer/object leaks, cut per-frame
+   allocations, reuse objects, trim redundant redraws, keep it smooth at 960x540).
+   Make concrete edits, not suggestions. node --check + a SEPARATE git commit for
+   each improvement.
 
-5) SUMMARY: finish with a short report: bugs found/fixed, commits made, ideas added.
+5) NOTES + SUMMARY: append a section to NOTES.md titled exactly
+   "## Auto-dev log - PASS_TAG" summarizing what you fixed, what features you
+   shipped, and what quality/perf changes you made this pass, plus any leftover
+   ideas for next passes. Commit NOTES.md. Finish with a short report: bugs fixed,
+   features shipped, quality/perf changes, commits made.
 
-Hard rules: never delete files, never rewrite whole files for small edits,
-never touch .git config, keep the game playable at all times. If you find no new
-bugs this pass, say so and still add fresh ideas.
+Hard rules: JAM RULE - no AI-generated art/audio, all visuals code-drawn and sfx
+procedural; keep it that way. Never delete files, never rewrite a whole file for
+a small edit (use targeted edits), never touch .git config, keep the game
+playable at all times and never commit a file that fails node --check. End every
+commit message with:
+Co-Authored-By: Claude <noreply@anthropic.com>
 '@
 
 $models = @(
@@ -69,7 +83,7 @@ while ($pass -lt $maxPass) {
     Write-Host (">> [Pass $pass] " + $m.name + " ile inceleme...") -ForegroundColor Cyan
     ("`n===== PASS $pass / " + $m.name + " / " + (Get-Date -Format "HH:mm:ss") + " =====") | Out-File -FilePath $log -Append -Encoding utf8
 
-    & claude -p $prompt --model $m.id --permission-mode acceptEdits --max-turns 60 *>> $log
+    & claude -p $prompt --model $m.id --permission-mode acceptEdits --max-turns 100 *>> $log
     $code = $LASTEXITCODE
     $tail = ""
     if (Test-Path $log) { $tail = (Get-Content $log -Tail 40 | Out-String) }
