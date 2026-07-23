@@ -106,7 +106,7 @@ const LANGUAGES = [
       'this', 'super', 'if', 'else', 'for', 'while', 'do', 'switch', 'case',
       'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw',
       'async', 'await', 'future', 'stream', 'yield', 'null', 'true', 'false',
-      'print', 'late', 'required', 'get', 'set', 'is', 'as',
+      'print', 'late', 'required', 'get', 'is', 'as',
       '=>', '??', '?.', '..'
     ]
   },
