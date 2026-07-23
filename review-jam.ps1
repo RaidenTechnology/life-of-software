@@ -1,7 +1,7 @@
-# review-jam.ps1 — Life of Software'i Claude'a incelet: fikir + debug + küçük düzeltmeler.
-# Model zinciri: Fable 5 → limit dolarsa Opus 4.8 → o da dolarsa durur.
-# Kullanım:  powershell -File review-jam.ps1
-# Not: Her çalıştırma tam bir Claude oturumu harcar (Max abonelik kotasından düşer).
+# review-jam.ps1 - Life of Software'i Claude'a incelet: fikir + debug + kucuk duzeltmeler.
+# Model zinciri: Fable 5 -> limit dolarsa Opus 4.8 -> o da dolarsa durur.
+# Kullanim:  powershell -File review-jam.ps1
+# Not: Her calistirma tam bir Claude oturumu harcar (Max abonelik kotasindan duser).
 
 $proj = Split-Path -Parent $MyInvocation.MyCommand.Path
 $stamp = Get-Date -Format "yyyyMMdd-HHmm"
@@ -9,14 +9,15 @@ $log = Join-Path $proj "review-$stamp.log"
 
 $prompt = @'
 You are reviewing "Life of Software", a GMTK 2026 jam game (Phaser 3, plain JS,
-no build step) in the current directory. Jam rule: NO AI-generated art/audio —
+no build step) in the current directory. Jam rule: NO AI-generated art/audio -
 all visuals are code-drawn, sfx procedural; keep it that way.
 
 Do these in order:
 
-1) READ the whole game: index.html, src/*.js, src/scenes/*.js, src/data/languages.js,
-   README.md. Understand the loop: typing patterns vs countdown, battle strip,
-   stages, festivals, boss fights, loot/inventory/shop, daily challenge.
+1) READ the whole game: index.html, src/*.js, src/scenes/*.js,
+   src/data/languages.js, README.md. Understand the loop: typing patterns vs
+   countdown, battle strip, stages, festivals, boss fights, loot/inventory/shop,
+   daily challenge.
 
 2) DEBUG: run `node --check` on every js file. Then hunt real logic bugs:
    state flags that can deadlock (transitioning/dying/festival/bossMode/menuOpen),
@@ -74,7 +75,7 @@ foreach ($m in $models) {
 
 if (-not $ok) {
   Write-Host ""
-  Write-Host ">> Tum modeller limitli/hatali — duruldu. Log: $log" -ForegroundColor Red
+  Write-Host (">> Tum modeller limitli/hatali - duruldu. Log: " + $log) -ForegroundColor Red
   exit 1
 }
 
@@ -82,4 +83,4 @@ Write-Host ""
 Write-Host ">> Son commitler:" -ForegroundColor Cyan
 git log --oneline -8
 Write-Host ""
-Write-Host ">> Rapor icin log dosyasina bak: $log"
+Write-Host (">> Rapor icin log dosyasina bak: " + $log)
