@@ -94,6 +94,11 @@ class GameScene extends Phaser.Scene {
 
     const cx = this.scale.width / 2;
 
+    // full-screen Blender atmosphere behind everything, swapped per stage in
+    // refreshLangHud(). Dark + themed so HUD/editor stay readable.
+    this.sceneBg = this.add.image(cx, this.scale.height / 2,
+      'scene_' + Battle.TYPES[0]).setDepth(-1000);
+
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
@@ -1063,6 +1068,7 @@ class GameScene extends Phaser.Scene {
       this.battle.setTier(Math.floor(this.langIndex / 5));
       this.battle.setStage(this.stageIndex);
     }
+    if (this.sceneBg) this.sceneBg.setTexture('scene_' + Battle.TYPES[this.stageIndex]);
     this.updateLangBadge('lvl:' + this.langIndex, this.lang);
   }
 
