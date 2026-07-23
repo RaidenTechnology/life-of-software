@@ -87,6 +87,7 @@ class GameScene extends Phaser.Scene {
     this.strikeTimer = 0;
     this._shaking = false;
     this._timerLow = false;   // tracks the big timer's low-time recolor state
+    this._lastShownSec = -1;  // last integer second painted to the timer text
 
     // combo + run stats
     this.combo = 0;
@@ -598,9 +599,11 @@ class GameScene extends Phaser.Scene {
     c.add(close);
     // the countdown does NOT stop for the menu — show it here so the cost of
     // browsing is honest (update() keeps this in sync each frame)
+    const mcs = Math.ceil(this.timeLeft);
     this.menuClock = this.add.text(cx - 340, cy - 195,
-      '⏱ CLOCK RUNNING · ' + Math.ceil(this.timeLeft) + 's', {
-        fontFamily: 'monospace', fontSize: '13px', color: IDE.error, fontStyle: 'bold'
+      '⏱ CLOCK RUNNING · ' + mcs + 's', {
+        fontFamily: 'monospace', fontSize: '13px',
+        color: mcs <= 10 ? IDE.error : '#dcdcaa', fontStyle: 'bold'
       }).setOrigin(0, 0.5);
     c.add(this.menuClock);
     this.menuC = c;
@@ -1268,10 +1271,18 @@ class GameScene extends Phaser.Scene {
     }
 
     const s = Math.ceil(this.timeLeft);
-    this.timerText.setText(String(s));
-    if (inMenu && this.menuClock) {
-      this.menuClock.setText('⏱ CLOCK RUNNING · ' + s + 's')
-        .setColor(s <= 10 ? IDE.error : '#dcdcaa');
+    // setText re-renders the glyph texture on every call, but the shown integer
+    // only changes once per second — so skip the ~59/60 frames where it's
+    // unchanged (same reasoning as the low-time recolor gate below). The
+    // per-frame scale pulse still runs while low; setScale only transforms, it
+    // doesn't re-raster the text.
+    if (s !== this._lastShownSec) {
+      this._lastShownSec = s;
+      this.timerText.setText(String(s));
+      if (inMenu && this.menuClock) {
+        this.menuClock.setText('⏱ CLOCK RUNNING · ' + s + 's')
+          .setColor(s <= 10 ? IDE.error : '#dcdcaa');
+      }
     }
     // Phaser's Text.setColor re-renders the glyph texture on every call, even
     // when the color is unchanged — so recolor the big timer only when it
