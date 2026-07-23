@@ -607,3 +607,53 @@ none of passes 1-6 or the two prior auto-dev passes had touched in code.
   shorter telegraph might read better than a full charge.
 - The in-menu clock readout is text-only; a thin draining bar in the menu header
   might read the tension better while shopping.
+
+## Auto-dev log - 20260723-2313 pass 1
+
+Fourth active-development pass on Opus 4.8. Re-read the whole game (10 files pass
+`node --check`), then went after two fresh areas no prior pass had touched in
+code: the language **data** and the long-standing **decorative-SCORE** debt.
+
+**Bug fixed**
+
+1. **DART listed `'set'` twice (src/data/languages.js) — FIXED.** A scripted scan
+   of all 25 word lists for duplicates / untypeable entries flagged exactly one:
+   DART had `set` on two lines. `activeLang.words.length` therefore overcounted
+   the pool by one, inflating the boss "N patterns left" readout and the hint
+   pool size (`includes`/dedupe still worked, so it was invisible in play).
+   Removed the second occurrence; re-ran the scan → 0 duplicates. Fresh area:
+   no earlier pass touched the language data.
+
+**Feature shipped**
+
+2. **Real run-total SCORE — the single longest-standing open item (flagged in
+   passes 2 & 4 and all three prior auto-dev logs).** `this.score` reset to 0
+   every level, so the End screen headlined only the last, often half-cleared
+   level, and the PB/daily keys ranked by `progress` then `words`, never score.
+   Added `this.runScore` plus an `addScore()` helper wired into every earn site
+   (normal words with their combo multiplier, boss hits ×15/char, and both
+   sw + growth festival answers). `this.score` still drives the per-level target
+   and progress bar (and resets each level); the HUD SCORE and the End headline
+   now show the cumulative run total. The PB persists `score` and uses it as the
+   final tiebreak after progress and words, and the menu BEST line surfaces it.
+   SCORE is now a meaningful, rankable number instead of decoration.
+
+**Gameplay quality**
+
+3. **Periodic boss strike shortened into a forward jab (battle.js) — flagged in
+   three prior logs.** The 6s non-lethal boss strike charged a scale-2.6 sprite
+   the full width of the field to the hero and back, reading as a shuttle. It now
+   does a short ~110px forward jab with a big slash bursting at the boss's reach.
+   Grunts and every *lethal* blow (including the boss's own killing charge) still
+   close the full distance, so the death drama is untouched; only the repeating
+   telegraph got tighter. Return/hover-restore/strike-state handling unchanged.
+
+**Leftover for next passes**
+
+- Festivals still freeze the main countdown *and* hand out `+2s`/answer, so a
+  festival remains a cost-free net-positive clock event (pass-4 #2). It is now the
+  last free-pause surface — decide it deliberately.
+- The in-menu clock readout is still text-only; a thin draining bar in the menu
+  header would read the tension better while shopping.
+- With run-total SCORE now ranked, consider showing a live run-best "beat N pts"
+  target on the HUD, or a small end-screen delta vs. the previous best.
