@@ -575,6 +575,11 @@ class GameScene extends Phaser.Scene {
     const stock = Items.shopStock();
     const c = this.menuShell('SHOP — ' + stock.day, 'new stock every day · bought items go to your bag · ESC closes');
 
+    // A full bag auto-salvages incoming loot for a fraction of its value — fine
+    // for a random drop, but a paid purchase would then charge full price and
+    // hand back only the salvage crumbs. Block BUY when the bag is full instead.
+    const full = this.inventory.length >= INV_MAX;
+
     stock.items.forEach((item, i) => {
       const x = cx - 255 + i * 170, y = cy - 40;
       const sold = stock.sold.includes(i);
@@ -595,11 +600,11 @@ class GameScene extends Phaser.Scene {
       const price = RARITIES[item.r].price;
       const afford = this.credits >= price;
       const btn = this.add.text(x, y + 74,
-        sold ? 'SOLD' : '[ BUY ' + price + ' ]', {
+        sold ? 'SOLD' : (full ? 'BAG FULL' : '[ BUY ' + price + ' ]'), {
           fontFamily: 'monospace', fontSize: '15px', fontStyle: 'bold',
-          color: sold ? IDE.dim : (afford ? IDE.comment : IDE.error)
+          color: sold ? IDE.dim : (full || !afford ? IDE.error : IDE.comment)
         }).setOrigin(0.5);
-      if (!sold && afford) {
+      if (!sold && !full && afford) {
         btn.setInteractive({ useHandCursor: true });
         btn.on('pointerdown', () => {
           this.credits -= price;
