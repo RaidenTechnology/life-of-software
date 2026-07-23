@@ -12,8 +12,12 @@ $log = Join-Path $proj "review-$stamp.log"
 
 $basePrompt = @'
 You are reviewing "Life of Software", a GMTK 2026 jam game (Phaser 3, plain JS,
-no build step) in the current directory. Jam rule: NO AI-generated art/audio -
-all visuals are code-drawn, sfx procedural; keep it that way.
+no build step) in the current directory. Jam rule: NO AI-generated art/audio.
+Visuals are Blender-rendered pixel-art PNGs (assets/*.png, built by the scripts
+in blender/, hand-modeled — NOT AI) PLUS code-drawn UI; sfx procedural. This is
+intentional and owner-approved. DO NOT remove, revert, or "restore code-drawn"
+the Blender assets or their BootScene loading / blender/ pipeline — treat them as
+first-class art. You MAY improve code that uses them, but keep them in place.
 
 This is an ACTIVE DEVELOPMENT pass, not just a review. You will fix bugs,
 implement new features, and improve the game for real - committing after every
@@ -52,8 +56,8 @@ step. Do these in order:
    ideas for next passes. Commit NOTES.md. Finish with a short report: bugs fixed,
    features shipped, quality/perf changes, commits made.
 
-Hard rules: JAM RULE - no AI-generated art/audio, all visuals code-drawn and sfx
-procedural; keep it that way. Never delete files, never rewrite a whole file for
+Hard rules: JAM RULE - no AI-generated art/audio (Blender-rendered PNGs + code UI
+are fine and must be preserved), sfx procedural. Never delete files, never rewrite a whole file for
 a small edit (use targeted edits), never touch .git config, keep the game
 playable at all times and never commit a file that fails node --check. End every
 commit message with:
