@@ -2,11 +2,20 @@
 // Sfx.blip() etc for effects; Sfx.startMusic(bpm) runs a procedural
 // chiptune loop (Am-F-C-G, bass + arpeggio) whose tempo rises per stage.
 
+// Read a persisted setting without ever letting a throwing localStorage crash
+// module load: a sandboxed itch.io iframe or a private window can throw on ANY
+// access, and since this object is built at eval time, an unguarded read here
+// would leave Sfx undefined and black-screen the whole game (every scene calls
+// Sfx.*). Mirrors the try/catch reads used everywhere else (items.js, EndScene).
+const readStore = (key) => {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+};
+
 const Sfx = {
   ctx: null,
-  muted: localStorage.getItem('los_muted') === '1',
+  muted: readStore('los_muted') === '1',
   master: (() => {
-    const v = parseFloat(localStorage.getItem('los_vol'));
+    const v = parseFloat(readStore('los_vol'));
     return isNaN(v) ? 1 : Math.min(1, Math.max(0, v));
   })(),
   music: null,
