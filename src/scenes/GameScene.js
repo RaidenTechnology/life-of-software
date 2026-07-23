@@ -154,6 +154,14 @@ class GameScene extends Phaser.Scene {
     this.cursor = this.add.rectangle(this.inputText.x + 2, panelY, 3, 36, 0xaeafad);
     this.tweens.add({ targets: this.cursor, alpha: 0, duration: 400, yoyo: true, repeat: -1 });
 
+    // one reusable burst emitter for the correct-word pop — explode() from here
+    // each word instead of creating + destroying an emitter (and a delayedCall)
+    // on every keystroke-that-lands.
+    this.burstFx = this.add.particles(cx, panelY, 'pixel', {
+      speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
+      scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
+    });
+
     // credits + hint + active effects — top-right corner of the input panel
     const panelRight = cx + panelW / 2, panelTop = panelY - panelH / 2;
     this.creditText = this.add.text(panelRight, panelTop - 22, '', {
@@ -389,13 +397,7 @@ class GameScene extends Phaser.Scene {
     this.hintText.setText('');
     this.flashPanel(IDE.greenHex);
     Sfx.pickup();
-    const burst = this.add.particles(this.panel.x, this.panel.y, 'pixel', {
-      speed: { min: 80, max: 200 }, lifespan: 400, quantity: 14,
-      scale: { start: 1.5, end: 0 }, tint: IDE.greenHex, emitting: false
-    });
-    burst.explode();
-    // one-shot emitter; free the GameObject once its particles have died
-    this.time.delayedCall(500, () => burst.destroy());
+    this.burstFx.explode(14);
     if (this.bossMode) return this.battle.bossHit();
     return this.festival ? null : this.battle.attack();
   }
