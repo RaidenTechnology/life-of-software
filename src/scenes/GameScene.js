@@ -113,6 +113,19 @@ class GameScene extends Phaser.Scene {
     this.scoreText = this.add.text(16, 40, 'SCORE 0', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.text
     });
+    // live PB target: the run-total SCORE to beat, so the now-rankable number
+    // has an in-run goal. Normal mode only — dailies load the shared bag and
+    // rank on a separate per-day key, so they don't chase the global best.
+    this.bestScore = 0;
+    try {
+      const b = JSON.parse(localStorage.getItem('los_best') || 'null');
+      if (b && b.score) this.bestScore = b.score;
+    } catch (e) {}
+    this.beatBest = false;
+    this.pbText = this.add.text(180, 50, '', {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
+    }).setOrigin(0, 0.5);
+    this.refreshPB();
     this.stageText = this.add.text(16, 66, '', {
       fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
     });
@@ -255,6 +268,21 @@ class GameScene extends Phaser.Scene {
   addScore(points) {
     this.runScore += points;
     this.scoreText.setText('SCORE ' + this.runScore);
+    if (!this.beatBest && !this.daily && this.bestScore > 0 &&
+        this.runScore > this.bestScore) {
+      this.beatBest = true;
+      this.refreshPB();
+      this.tweens.add({ targets: this.pbText, scale: 1.4, duration: 200, yoyo: true });
+      this.floatText('NEW RECORD!');
+      Sfx.win();
+    }
+  }
+
+  refreshPB() {
+    if (!this.pbText) return;
+    if (this.daily || this.bestScore <= 0) { this.pbText.setText(''); return; }
+    this.pbText.setText(this.beatBest ? '★ RECORD ★' : 'PB ' + this.bestScore)
+      .setColor(this.beatBest ? '#ff9800' : IDE.dim);
   }
 
   onKey(e) {
