@@ -22,10 +22,11 @@ class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
     }
 
-    // soft color glow behind the title — brighter, warmer menu lighting
-    this.add.circle(cx - 150, cy - 140, 150, 0x569cd6, 0.10);
-    this.add.circle(cx + 150, cy - 140, 150, 0xce9178, 0.10);
-    this.add.circle(cx, cy - 140, 220, 0xffffff, 0.05);
+    // Blender key-art splash behind everything (hero facing the monster horde
+    // at dusk), with a dark scrim so the title/menu text stays readable.
+    this.add.image(cx, cy, 'menu_splash').setDepth(-100);
+    this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x0a0812, 0.42)
+      .setDepth(-99);
 
     // two-tone title, like syntax highlighting
     const t1 = this.add.text(0, 0, 'LIFE OF', {

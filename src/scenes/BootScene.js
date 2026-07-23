@@ -23,6 +23,7 @@ class BootScene extends Phaser.Scene {
       this.load.image('scene_' + t, 'assets/scene_' + t + '.png');  // full-screen atmosphere
     });
     this.load.image('pause_panel', 'assets/pause_panel.png');       // ESC/pause window
+    this.load.image('menu_splash', 'assets/menu_splash.png');       // title-screen key art
 
     // characters — Blender-rendered 3D pixel-art figurines (same keys as the
     // code placeholders). hero tiers 0-5 (sword + crossbow 'x') and 6 monsters.

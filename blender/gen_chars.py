@@ -27,13 +27,14 @@ def shade(c, f):
     r=min(255,int(((c>>16)&255)*f)); g=min(255,int(((c>>8)&255)*f)); b=min(255,int((c&255)*f))
     return (r<<16)|(g<<8)|b
 
+SS = 3          # supersample factor: render at SSx, downscale -> crisp detail, same size
 _canvasW = 40
 def reset(canvasW):
     global _canvasW; _canvasW = canvasW
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
     sc.render.engine = 'BLENDER_EEVEE'
-    sc.render.resolution_x = canvasW; sc.render.resolution_y = PXH
+    sc.render.resolution_x = canvasW * SS; sc.render.resolution_y = PXH * SS
     sc.render.film_transparent = True
     sc.render.filter_size = 1.3
     try:
@@ -195,19 +196,39 @@ def m_demon():
 
 MONSTERS = {'ork':m_ork,'skeleton':m_skeleton,'elf':m_elf,'goblin':m_goblin,'vampire':m_vampire,'demon':m_demon}
 
+def downscale(src, dst, w, h):
+    """area-average the SSx render down to native w x h — supersampled crispness."""
+    import numpy as np
+    img = bpy.data.images.load(src)
+    W2, H2 = img.size
+    px = np.array(img.pixels[:]).reshape(H2, W2, 4)
+    fy, fx = H2 // h, W2 // w
+    px = px.reshape(h, fy, w, fx, 4).mean(axis=(1, 3))
+    out = bpy.data.images.new("o", width=w, height=h, alpha=True)
+    out.pixels = px.reshape(-1).tolist()
+    out.filepath_raw = dst; out.file_format = 'PNG'; out.save()
+    bpy.data.images.remove(img); bpy.data.images.remove(out)
+
 def render(name):
     _mats.clear()
     if name.startswith('hero'):
         base=name[4:]
         if base.endswith('x'):
-            t=int(base[:-1]); reset(58); build_herox(t)
+            t=int(base[:-1]); reset(58); build_herox(t); w=58
         else:
-            t=int(base); reset(60+t*3); build_hero(t)
+            t=int(base); reset(60+t*3); build_hero(t); w=60+t*3
         fname = name + ".png"
     else:
-        reset(40); MONSTERS[name](); fname = "en_" + name + ".png"
-    bpy.context.scene.render.filepath=os.path.join(ASSETS, fname)
+        reset(40); MONSTERS[name](); fname = "en_" + name + ".png"; w=40
+    dst = os.path.join(ASSETS, fname)
+    tmp = dst + ".ss.png"
+    bpy.context.scene.render.filepath = tmp
     bpy.ops.render.render(write_still=True)
+    # Blender appends nothing when filepath has an extension via write_still; the
+    # actual file is exactly `tmp`. Downscale it to the native texture size.
+    downscale(tmp, dst, w, PXH)
+    try: os.remove(tmp)
+    except Exception: pass
     print("WROTE", fname)
 
 def all_names():
