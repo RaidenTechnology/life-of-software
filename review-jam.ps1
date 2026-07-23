@@ -83,11 +83,13 @@ while ($pass -lt $maxPass) {
     Write-Host (">> [Pass $pass] " + $m.name + " ile inceleme...") -ForegroundColor Cyan
     ("`n===== PASS $pass / " + $m.name + " / " + (Get-Date -Format "HH:mm:ss") + " =====") | Out-File -FilePath $log -Append -Encoding utf8
 
-    & claude -p $prompt --model $m.id --permission-mode acceptEdits --max-turns 100 *>> $log
+    # bypassPermissions: headless turda node --check ve git commit'in reddedilmemesi icin sart
+    # (acceptEdits sadece dosya duzenlemesini onayliyordu, Bash komutlari bloklaniyordu -> hic commit atilamiyordu)
+    & claude -p $prompt --model $m.id --permission-mode bypassPermissions --max-turns 100 *>> $log
     $code = $LASTEXITCODE
     $tail = ""
     if (Test-Path $log) { $tail = (Get-Content $log -Tail 40 | Out-String) }
-    $limitHit = $tail -match '(?i)(usage limit|rate.?limit|limit (reached|exceeded)|out of (usage|quota)|quota|insufficient)'
+    $limitHit = $tail -match '(?i)(usage limit|rate.?limit|limit (reached|exceeded)|reached your .*limit|out of (usage|quota)|quota|insufficient)'
 
     if ($code -eq 0 -and -not $limitHit) {
       Write-Host (">> [Pass $pass] " + $m.name + " tamamlandi.") -ForegroundColor Green
