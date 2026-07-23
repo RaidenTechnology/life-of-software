@@ -94,6 +94,11 @@ class GameScene extends Phaser.Scene {
 
     const cx = this.scale.width / 2;
 
+    // full-screen Blender atmosphere behind everything, swapped per stage in
+    // refreshLangHud(). Dark + themed so HUD/editor stay readable.
+    this.sceneBg = this.add.image(cx, this.scale.height / 2,
+      'scene_' + Battle.TYPES[0]).setDepth(-1000);
+
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
@@ -203,9 +208,20 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
 
-    this.pauseText = this.add.text(cx, this.scale.height / 2, 'PAUSED', {
-      fontFamily: 'monospace', fontSize: '48px', color: IDE.text, fontStyle: 'bold'
-    }).setOrigin(0.5).setVisible(false).setDepth(10);
+    // ESC/pause overlay — a Blender-rendered retro IDE window (pause_panel)
+    // over a dim, with PAUSED + resume hint drawn on top. Toggled in togglePause().
+    const pcy = this.scale.height / 2;
+    const pDim = this.add.rectangle(cx, pcy, this.scale.width, this.scale.height, 0x0a0a0f, 0.66);
+    const pPanel = this.add.image(cx, pcy, 'pause_panel');
+    const pTitle = this.add.text(cx, pcy - 18, 'PAUSED', {
+      fontFamily: 'monospace', fontSize: '46px', color: IDE.white, fontStyle: 'bold'
+    }).setOrigin(0.5);
+    const pHint = this.add.text(cx, pcy + 40,
+      'ESC to resume   ·   type + ENTER to fight the countdown', {
+        fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
+      }).setOrigin(0.5);
+    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, pHint])
+      .setDepth(50).setVisible(false);
 
     // silent low-time warning: a red edge frame that intensifies as the clock
     // runs out, so the countdown tension reads even with sound muted. A full-
@@ -1063,6 +1079,7 @@ class GameScene extends Phaser.Scene {
       this.battle.setTier(Math.floor(this.langIndex / 5));
       this.battle.setStage(this.stageIndex);
     }
+    if (this.sceneBg) this.sceneBg.setTexture('scene_' + Battle.TYPES[this.stageIndex]);
     this.updateLangBadge('lvl:' + this.langIndex, this.lang);
   }
 
@@ -1147,7 +1164,7 @@ class GameScene extends Phaser.Scene {
   togglePause() {
     if (this.over || this.transitioning || this.menuOpen) return;
     this.paused = !this.paused;
-    this.pauseText.setVisible(this.paused);
+    this.pauseUI.setVisible(this.paused);
     this.time.paused = this.paused;
     this.tweens.timeScale = this.paused ? 0 : 1;
   }
