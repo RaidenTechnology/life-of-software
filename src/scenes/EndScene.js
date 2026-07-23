@@ -94,9 +94,24 @@ class EndScene extends Phaser.Scene {
       targets: again, alpha: 0.3, duration: 600, yoyo: true, repeat: -1
     });
 
+    // show where RECOMPILE will drop you back in (the saved checkpoint)
+    if (!this.daily) {
+      let ck = null;
+      try { ck = JSON.parse(localStorage.getItem('los_ckpt') || 'null'); } catch (e) {}
+      if (ck) {
+        const st = STAGES[Math.min(ck.stageIndex || 0, STAGES.length - 1)];
+        const ln = LANGUAGES[Math.min(ck.langIndex || 0, LANGUAGES.length - 1)];
+        this.add.text(cx, cy + 132, 'resumes at STAGE ' + st.name + ' · ' + ln.name, {
+          fontFamily: 'monospace', fontSize: '13px', color: IDE.stringy
+        }).setOrigin(0.5);
+      }
+    }
+
+    // RECOMPILE resumes from the checkpoint (furthest section cleared) instead of
+    // dumping you back at HTML. Daily runs always restart their fixed seed fresh.
     again.on('pointerdown', () => {
       Sfx.blip();
-      this.scene.start('Game');
+      this.scene.start('Game', this.daily ? { daily: true } : { resume: true });
     });
   }
 }

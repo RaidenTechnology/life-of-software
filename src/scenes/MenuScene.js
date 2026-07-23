@@ -51,9 +51,28 @@ class MenuScene extends Phaser.Scene {
         align: 'center', lineSpacing: 8
       }).setOrigin(0.5);
 
-    const start = this.add.text(cx, cy + 58, '[ CLICK TO START ]', {
-      fontFamily: 'monospace', fontSize: '24px', color: IDE.white
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    // CONTINUE — resume from the checkpoint (furthest section cleared), if any
+    let ckpt = null;
+    try { ckpt = JSON.parse(localStorage.getItem('los_ckpt') || 'null'); } catch (e) {}
+    if (ckpt) {
+      const st = STAGES[Math.min(ckpt.stageIndex || 0, STAGES.length - 1)];
+      const ln = LANGUAGES[Math.min(ckpt.langIndex || 0, LANGUAGES.length - 1)];
+      const cont = this.add.text(cx, cy + 30,
+        '[ CONTINUE — STAGE ' + st.name + ' · ' + ln.name + ' ]', {
+          fontFamily: 'monospace', fontSize: '16px', color: IDE.stringy, fontStyle: 'bold'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      cont.on('pointerover', () => cont.setColor(IDE.white));
+      cont.on('pointerout', () => cont.setColor(IDE.stringy));
+      cont.on('pointerdown', () => {
+        Sfx.unlock(); Sfx.blip();
+        this.scene.start('Game', { resume: true });
+      });
+    }
+
+    const start = this.add.text(cx, cy + 58,
+      ckpt ? '[ NEW GAME ]' : '[ CLICK TO START ]', {
+        fontFamily: 'monospace', fontSize: '24px', color: IDE.white
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.tweens.add({
       targets: start, alpha: 0.3, duration: 600, yoyo: true, repeat: -1
     });
@@ -81,7 +100,9 @@ class MenuScene extends Phaser.Scene {
     start.on('pointerdown', () => {
       Sfx.unlock();          // first user gesture → audio allowed from here on
       Sfx.blip();
-      this.scene.start('Game');
+      // pass resume:false explicitly — Phaser keeps the previous scene data when
+      // start() is called with none, which would silently resume a NEW GAME.
+      this.scene.start('Game', { resume: false });
     });
     daily.on('pointerdown', () => {
       Sfx.unlock();

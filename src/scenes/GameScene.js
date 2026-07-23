@@ -37,6 +37,9 @@ class GameScene extends Phaser.Scene {
 
   init(data) {
     this.daily = !!(data && data.daily);
+    // resume from the furthest section cleared (checkpoint). Never for daily —
+    // the daily is a fixed seeded challenge and always starts fresh.
+    this.resumeRun = !!(data && data.resume) && !this.daily;
     if (this.daily) {
       const day = new Date().toISOString().slice(0, 10);
       let s = 0;
@@ -59,6 +62,17 @@ class GameScene extends Phaser.Scene {
     this.langIndex = 0;
     this.stageIndex = 0;
     this.survivalLap = 0;
+    // resume position from the checkpoint (furthest section cleared). Score,
+    // clock and per-level state stay fresh — only the road position is restored.
+    if (this.resumeRun) {
+      let ck = null;
+      try { ck = JSON.parse(localStorage.getItem('los_ckpt') || 'null'); } catch (e) {}
+      if (ck) {
+        this.stageIndex = Math.min(ck.stageIndex || 0, STAGES.length - 1);
+        this.survivalLap = Math.max(0, ck.lap || 0);
+        this.langIndex = Math.min(ck.langIndex || 0, LANGUAGES.length - 1);
+      }
+    }
     this.timeLeft = START_TIME;
     this.typed = '';
     this.found = new Set();
@@ -698,9 +712,27 @@ class GameScene extends Phaser.Scene {
 
   // --- level flow ---
 
+  // Persist the furthest section reached so a later run can resume from it.
+  // Monotonic: never moves the checkpoint backward. Skipped for daily runs and
+  // for the post-final index (langIndex === LANGUAGES.length, i.e. boss pending).
+  saveCheckpoint() {
+    if (this.daily) return;
+    if (this.langIndex >= LANGUAGES.length) return;
+    const p = (this.stageIndex + this.survivalLap) * LANGUAGES.length + this.langIndex;
+    let prev = null;
+    try { prev = JSON.parse(localStorage.getItem('los_ckpt') || 'null'); } catch (e) {}
+    if (prev && (prev.p || 0) >= p) return;
+    try {
+      localStorage.setItem('los_ckpt', JSON.stringify({
+        p, stageIndex: this.stageIndex, lap: this.survivalLap, langIndex: this.langIndex
+      }));
+    } catch (e) {}
+  }
+
   levelUp() {
     const fromIdx = this.langIndex;
     this.langIndex++;
+    this.saveCheckpoint();   // clearing a language (e.g. HTML -> CSS) is a checkpoint
     this.score = 0;   // per-level progress resets; the HUD keeps showing runScore
     this.found.clear();
     this.recent = [];
@@ -757,6 +789,7 @@ class GameScene extends Phaser.Scene {
     if (this.timeLeft < BOSS_WIN_TIME) this.timeLeft = BOSS_WIN_TIME;
     if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
     else this.survivalLap++;
+    this.saveCheckpoint();   // reaching a new stage is a checkpoint
     this.cameras.main.shake(350, 0.01);
     Sfx.win();
     this.battle.bossDie(() => {
