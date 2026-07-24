@@ -1081,6 +1081,10 @@ class GameScene extends Phaser.Scene {
       type, pool, badges, prompt, clock, container: c,
       lang: null, word: null, used: new Set(),
       usedByLang: new Map(pool.map(l => [l.name, new Set()])),
+      // the growth festival's typedColor() matches what you type against every
+      // pooled language's name/abbr; the pool is fixed for the round, so build
+      // the lookup once here instead of flatMap-ing a fresh array each keystroke.
+      names: pool.flatMap(l => [l.name.toLowerCase(), l.abbr.toLowerCase()]),
       timeLeft: FESTIVAL_TIME, count: 0, clockSec: -1
     };
 
@@ -1218,7 +1222,7 @@ class GameScene extends Phaser.Scene {
     if (!this.typed) return IDE.text;
     const f = this.festival;
     if (f && f.type === 'growth') {
-      const names = f.pool.flatMap(l => [l.name.toLowerCase(), l.abbr.toLowerCase()]);
+      const names = f.names;   // precomputed once at startFestival (fixed pool)
       if (names.includes(this.typed)) return IDE.keyword;
       if (names.some(n => n.startsWith(this.typed))) return IDE.text;
       return IDE.error;
