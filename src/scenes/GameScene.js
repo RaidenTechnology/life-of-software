@@ -50,6 +50,26 @@ const ENEMY_STRIKE_EVERY = 10;   // seconds between the front monster's hits
 // Waiting for the next rope costs 40 seconds of clock and returns about two.
 // Nobody farms that. It exists so a player who cannot produce a single Haskell
 // keyword still gets shown one, occasionally, instead of dying blind.
+// DEPRECATION — the theme, inside the mechanic instead of next to it.
+//
+// A countdown clock is the most literal reading of "Count Down" there is. This
+// is the other one: the POOL counts down too. Every DEPRECATE_EVERY seconds one
+// pattern you haven't written yet is put on notice, and DEPRECATE_WARN seconds
+// later it is gone — permanently unwritable for the rest of the level. The game
+// is called Life of Software; software's actual countdown is the one running
+// under every API you rely on. Write it before it's deprecated.
+//
+// Two rules keep it fair. It NEVER kills a pattern the level still needs (see
+// canDeprecate): the remaining pool always stays a comfortable margin above the
+// points you still owe, so this can't recreate the unreachable-target dead end.
+// And it announces itself loudly, twice — a gold warning with a countdown, then
+// a red obituary — because the player can't see the word list, so a silent kill
+// would just be an unexplained rejection later.
+const DEPRECATE_EVERY = 14;    // seconds between notices at stage 0
+const DEPRECATE_FLOOR = 6;     // fastest it ever gets (SURVIVAL + laps)
+const DEPRECATE_WARN = 3.5;    // grace period — type it now and it's yours
+const DEPRECATE_MARGIN = 1.15; // pool must stay this many x the points still owed
+
 const SOS_TIME = 20;       // clock at or below this = in trouble
 const SOS_IDLE = 8;        // seconds since your last correct pattern
 const SOS_LEN = 4;         // prefer patterns this short
@@ -123,6 +143,11 @@ class GameScene extends Phaser.Scene {
     this.timeLeft = START_TIME;
     this.typed = '';
     this.found = new Set();
+    this.dead = new Set();      // patterns deprecated this level — unwritable
+    this.eol = null;            // the one currently on notice, if any
+    this.eolTimer = 0;
+    this.deprecatedCount = 0;   // run total, for the End screen
+    this.rescuedCount = 0;      // patterns written while on notice
     this.recent = [];
     this.paused = false;
     this.over = false;
@@ -308,6 +333,11 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa'
     }).setOrigin(1, 0.5);
 
+    // deprecation notices — directly above the input panel, the one place the
+    // player is already looking, and clear of the hint/feedback lines below it.
+    this.eolText = this.add.text(cx, panelY - panelH / 2 - 26, '', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#dcdcaa', fontStyle: 'bold'
+    }).setOrigin(0.5).setVisible(false);
     this.hintText = this.add.text(cx, panelY + 62, '', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.stringy
     }).setOrigin(0.5);
@@ -475,9 +505,107 @@ class GameScene extends Phaser.Scene {
     // message explaining it, and just watch the clock kill them. Cap the target
     // at 80% of the no-combo pool total: combo multipliers make that comfortable,
     // and the dead end can't exist at any stage or lap.
-    const ceiling = Math.round(
-      this.lang.words.reduce((s, w) => s + w.length * 10, 0) * 0.8 / 10) * 10;
+    // 0.7, not 0.8: deprecation needs headroom to exist at all. With the ceiling
+    // at 80% of the pool, a level where it binds (late laps, where the raw target
+    // outruns the word list) leaves only 80% x 1.15 = 92% of the pool spoken for
+    // — but the fairness check needs the pool ABOVE that, so nothing could ever
+    // be deprecated on exactly the hardest content. At 0.7 there's room for the
+    // theme to keep working everywhere, and the target stays comfortably reachable.
+    const ceiling = Math.round(this.livePool() * 0.7 / 10) * 10;
     return Math.min(raw, ceiling);
+  }
+
+  // Base points left on the table this level: every pattern not yet written and
+  // not deprecated. Feeds both the target ceiling above and deprecation's
+  // fairness check, so the two can never disagree about what's still reachable.
+  livePool() {
+    let total = 0;
+    for (const w of this.lang.words) {
+      if (!this.dead.has(w)) total += w.length * 10;
+    }
+    return total;
+  }
+
+  // Would killing `word` leave the level unwinnable? The pool that remains has to
+  // stay DEPRECATE_MARGIN times the points still owed — a margin, not a knife
+  // edge, since the player also has to FIND those patterns under a clock.
+  canDeprecate(word) {
+    const owed = this.targetScore() - this.score;
+    if (owed <= 0) return false;
+    let left = 0;
+    for (const w of this.lang.words) {
+      if (!this.dead.has(w) && !this.found.has(w) && w !== word) left += w.length * 10;
+    }
+    return left >= owed * DEPRECATE_MARGIN;
+  }
+
+  // Put one unwritten pattern on notice. Picks from the LONG end of what's left:
+  // long patterns are worth the most points, so the threat is real, and it can't
+  // quietly delete the two-letter filler the player was never going to miss.
+  startDeprecation() {
+    const pool = this.lang.words
+      .filter(w => !this.dead.has(w) && !this.found.has(w) && this.canDeprecate(w));
+    if (!pool.length) return;
+    pool.sort((a, b) => b.length - a.length);
+    const word = this.pickFrom(pool.slice(0, Math.max(3, Math.ceil(pool.length / 3))));
+    this.eol = { word, left: DEPRECATE_WARN };
+    this.eolText.setText('⚠ "' + word + '" is being deprecated — write it now!')
+      .setColor('#dcdcaa').setVisible(true);
+    this.tweens.killTweensOf(this.eolText);
+    this.eolText.setAlpha(1);
+    this.tweens.add({ targets: this.eolText, alpha: 0.45, duration: 400, yoyo: true, repeat: -1 });
+    Sfx.hint();
+  }
+
+  // The notice expired: the pattern is gone for the rest of the level.
+  finishDeprecation() {
+    const word = this.eol.word;
+    this.eol = null;
+    this.dead.add(word);
+    this.deprecatedCount++;
+    this.tweens.killTweensOf(this.eolText);
+    this.eolText.setText('✖ "' + word + '" DEPRECATED — no longer accepted')
+      .setColor(IDE.error).setAlpha(1).setVisible(true);
+    this.tweens.add({ targets: this.eolText, alpha: 0, duration: 2200, delay: 1200,
+      onComplete: () => this.eolText.setVisible(false) });
+    this.flashPanel(0xf44747);
+    Sfx.wrong();
+    // the target ceiling is derived from the live pool, so it may have just
+    // dropped — repaint the HUD's target/progress rather than let it lie.
+    this.refreshLangHud();
+  }
+
+  // Wipe the level's deprecation state. Called on every level change and on both
+  // ends of a boss fight: `dead` is scoped to one language's pool, and a notice
+  // left standing would tick down over a screen whose word list it no longer
+  // belongs to.
+  clearDeprecation() {
+    this.dead.clear();
+    this.eol = null;
+    this.eolTimer = 0;
+    if (this.eolText) {
+      this.tweens.killTweensOf(this.eolText);
+      this.eolText.setVisible(false);
+    }
+  }
+
+  // Deprecation runs during ordinary level play only: a boss or festival is an
+  // interstitial on someone else's word list, and the transition/pause states
+  // aren't play at all.
+  tickDeprecation(dt) {
+    if (this.bossMode || this.festival || this.transitioning || this.menuOpen) return;
+    if (this.eol) {
+      this.eol.left -= dt;
+      if (this.eol.left <= 0) this.finishDeprecation();
+      return;
+    }
+    this.eolTimer += dt;
+    const every = Math.max(DEPRECATE_FLOOR,
+      DEPRECATE_EVERY - this.stageIndex - this.survivalLap * 2);
+    if (this.eolTimer >= every) {
+      this.eolTimer = 0;
+      this.startDeprecation();
+    }
   }
 
   fmtC(c) {
@@ -625,6 +753,17 @@ class GameScene extends Phaser.Scene {
       Sfx.blip();
       return;
     }
+    // A deprecated pattern is a special kind of wrong: it WAS right, and the
+    // player is being punished for arriving late rather than for not knowing.
+    // Soft rejection — buzzer and a clear reason, but no combo break and no
+    // perfect-clear penalty, same treatment a duplicate gets.
+    if (!this.bossMode && !this.festival && this.dead.has(w)) {
+      this.submitsTotal--;
+      this.feedback('"' + w + '" was deprecated — too late', IDE.error);
+      Sfx.wrong();
+      this.shakePanel();
+      return;
+    }
     if (!this.activeLang.words.includes(w)) {
       // a wrong word breaks the combo — if it was a real streak (>=5, the first
       // score-multiplier tier), say so in the same red line so the cost of the
@@ -684,8 +823,19 @@ class GameScene extends Phaser.Scene {
     }
 
     const m = this.comboMult();
-    const points = w.length * 10 * m;
-    const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult;
+    // Written while the deprecation notice was up: you beat the clock the theme
+    // is actually about, so the pattern pays double and the notice comes down.
+    const rescued = !!(this.eol && this.eol.word === w);
+    if (rescued) {
+      this.eol = null;
+      this.tweens.killTweensOf(this.eolText);
+      this.eolText.setVisible(false);
+      this.eolTimer = 0;
+      this.rescuedCount++;
+      this.floatText('SAVED FROM DEPRECATION!  ×2');
+    }
+    const points = w.length * 10 * m * (rescued ? 2 : 1);
+    const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult * (rescued ? 2 : 1);
     this.score += points;
     this.addScore(points);
     this.addTime(bonus);
@@ -1282,6 +1432,7 @@ class GameScene extends Phaser.Scene {
     this.saveCheckpoint();   // clearing a language (e.g. HTML -> CSS) is a checkpoint
     this.score = 0;   // per-level progress resets; the HUD keeps showing runScore
     this.found.clear();
+    this.clearDeprecation();   // the new language starts with its full pool
     this.recent = [];
     this.recentText.setText('');
     this.hintText.setText('');
@@ -1298,6 +1449,7 @@ class GameScene extends Phaser.Scene {
     this.shakeCam(250, 0.006);
     Sfx.win();
     this.transitioning = true;
+    this.armTransitionGuard(12, 'levelUp');   // ulti + road overlay ≈ 6s
     this.battle.ulti(() => this.afterUlti(fromIdx, perfect, perfectScore));
   }
 
@@ -1310,6 +1462,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
     this.showPath(fromIdx, () => {
+      this.clearTransitionGuard();
       this.transitioning = false;
       this.refreshLangHud();
       if (this.rand() < FESTIVAL_CHANCE) {
@@ -1321,11 +1474,13 @@ class GameScene extends Phaser.Scene {
   // --- boss fight at the end of every stage ---
 
   startBoss() {
+    this.clearTransitionGuard();
     this.transitioning = false;
     const hp = 12 + this.stageIndex * 3;
     this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES) };
     this.blankPerfect();   // the boss is an interstitial — no perfect-pace tag
     this.found.clear();
+    this.clearDeprecation();
     this.addTime(10);
     this.strikeTimer = 0;
     this.battle.spawnBoss();
@@ -1337,10 +1492,12 @@ class GameScene extends Phaser.Scene {
 
   beatBoss() {
     this.transitioning = true;
+    this.armTransitionGuard(12, 'beatBoss');   // death anim + stage card ≈ 5s
     this.bossMode = null;
     this.langIndex = 0;
     this.levelMistakes = 0;   // the fresh stage's first level starts clean
     this.found.clear();   // boss words must not carry into the fresh level
+    this.clearDeprecation();
     // Cushion the victory: a boss can be beaten with ~1s left, and the next
     // stage restarts at langIndex 0 with higher targets and a new monster — so
     // without a floor you're dumped into a harder stage at near-death, an
@@ -1353,6 +1510,7 @@ class GameScene extends Phaser.Scene {
     Sfx.win();
     this.battle.bossDie(() => {
       this.showStage(() => {
+        this.clearTransitionGuard();
         this.transitioning = false;
         this.battle.clearBoss();
         this.refreshLangHud();
@@ -1628,7 +1786,8 @@ class GameScene extends Phaser.Scene {
     if (this.festival && this.festival.type === 'growth') {
       w = this.festival.lang.name.toLowerCase();
     } else {
-      const remaining = this.activeLang.words.filter(x => !this.activeFound.has(x));
+      const remaining = this.activeLang.words
+        .filter(x => !this.activeFound.has(x) && !this.dead.has(x));
       // nothing left to hint at — say so instead of eating the click silently
       // (no credits are spent either way; the charge happens below).
       if (remaining.length === 0) {
@@ -1697,6 +1856,31 @@ class GameScene extends Phaser.Scene {
     if (Motion.shake) this.cameras.main.shake(duration, intensity);
   }
 
+  // Dead-man's switch for the transition state. While `transitioning` is true the
+  // countdown stops AND every key is ignored (see update / onKey), so a level-up,
+  // boss kill or road overlay that never calls its completion callback doesn't
+  // fail loudly — it just leaves the player holding a frozen game, which in a jam
+  // is indistinguishable from a crash. Every path that sets transitioning=true
+  // arms this alongside it; the callback that clears the flag disarms it. Timed
+  // generously (the road overlay alone runs ~5s) so it can only ever fire on a
+  // genuinely lost callback, never on a slow one.
+  armTransitionGuard(seconds, label) {
+    if (this._transGuard) this._transGuard.remove(false);
+    this._transGuard = this.time.delayedCall(seconds * 1000, () => {
+      if (!this.transitioning || this.over) return;
+      this.transitioning = false;
+      this.battle.setVisible(true);
+      this.refreshLangHud();
+      this.refreshInput();
+      this.feedback('…resuming', IDE.dim);
+      console.warn('transition guard fired:', label);
+    });
+  }
+
+  clearTransitionGuard() {
+    if (this._transGuard) { this._transGuard.remove(false); this._transGuard = null; }
+  }
+
   typedColor() {
     if (!this.typed) return IDE.text;
     const f = this.festival;
@@ -1706,6 +1890,7 @@ class GameScene extends Phaser.Scene {
       if (names.some(n => n.startsWith(this.typed))) return IDE.text;
       return IDE.error;
     }
+    if (this.dead.has(this.typed)) return IDE.error;
     if (this.activeLang.words.includes(this.typed)) {
       return this.activeFound.has(this.typed) ? IDE.dim : IDE.keyword;
     }
@@ -1756,7 +1941,7 @@ class GameScene extends Phaser.Scene {
         (this.elapsed - this._lastLandAt) >= SOS_IDLE;
       const L = this.activeLang;
       if (drowning && L) {
-        const rem = L.words.filter(w => !this.activeFound.has(w));
+        const rem = L.words.filter(w => !this.activeFound.has(w) && !this.dead.has(w));
         const short = rem.filter(w => w.length <= SOS_LEN);
         // shortest available, so the rope is always the cheapest word on offer
         const pick = (short.length ? short : rem).sort((a, b) => a.length - b.length)[0];
@@ -2048,6 +2233,8 @@ class GameScene extends Phaser.Scene {
         this.battle.enemyStrike(false);
       }
     }
+
+    this.tickDeprecation(delta / 1000);
 
     this.timeLeft -= delta / 1000;
     if (this.timeLeft <= 0) {
