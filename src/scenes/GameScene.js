@@ -88,6 +88,12 @@ class GameScene extends Phaser.Scene {
     this._shaking = false;
     this._timerLow = false;   // tracks the big timer's low-time recolor state
     this._lastShownSec = -1;  // last integer second painted to the timer text
+    // refreshLangHud runs on EVERY correct word; these gate the expensive battle
+    // re-stage / re-tier so it fires only when the value actually changes (see
+    // refreshLangHud). -1 forces the first real call through.
+    this._hudStage = -1;
+    this._hudTier = -1;
+    this._comboTier = 1;      // last combo score-multiplier tier reached (juice)
 
     // combo + run stats
     this.combo = 0;
@@ -1149,11 +1155,21 @@ class GameScene extends Phaser.Scene {
       ' · target ' + this.targetScore());
     this.progressFill.width = 180 * Math.min(1, this.score / this.targetScore());
     this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
+    // Battle re-stage / re-tier only when the value changes. This method runs on
+    // every correct word, and setStage() re-textures the backdrop + hero + all
+    // five monsters AND destroys+recreates the demon fire-fountain emitters — so
+    // the Survival fountains used to visibly reset on every keystroke, plus a
+    // pile of no-op texture swaps each word on every stage. Gate both like the
+    // language badge (updateLangBadge) already does.
     if (this.battle) {
-      this.battle.setTier(Math.floor(this.langIndex / 5));
-      this.battle.setStage(this.stageIndex);
+      const tier = Math.floor(this.langIndex / 5);
+      if (tier !== this._hudTier) { this.battle.setTier(tier); this._hudTier = tier; }
+      if (this.stageIndex !== this._hudStage) {
+        this.battle.setStage(this.stageIndex);
+        if (this.sceneBg) this.sceneBg.setTexture('scene_' + Battle.TYPES[this.stageIndex]);
+        this._hudStage = this.stageIndex;
+      }
     }
-    if (this.sceneBg) this.sceneBg.setTexture('scene_' + Battle.TYPES[this.stageIndex]);
     this.updateLangBadge('lvl:' + this.langIndex, this.lang);
   }
 
