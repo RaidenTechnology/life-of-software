@@ -410,13 +410,14 @@ class GameScene extends Phaser.Scene {
     const pos = this.celebrate();
 
     if (this.bossMode) {
+      const m = this.comboMult();
       const bonus = (1.5 + 0.25 * w.length) * this.bossMode.lang.timeMult;
       this.timeLeft += bonus;
-      this.addScore(w.length * 15);   // boss hits are worth more than a plain word
+      this.addScore(w.length * 15 * m);   // boss hits are worth more than a plain word
       this.gainCredits(CREDIT_PER_WORD);
       this.tickMult();
       this.refreshCredits();
-      this.floatText('BOSS HIT!  +' + bonus.toFixed(1) + 's');
+      this.floatText('BOSS HIT!' + (m > 1 ? ' ×' + m : '') + '  +' + bonus.toFixed(1) + 's');
       this.maybeDrop(pos);
       this.bossMode.hp--;
       this.refreshLangHud();
@@ -425,20 +426,22 @@ class GameScene extends Phaser.Scene {
     }
 
     if (this.festival) {
+      const m = this.comboMult();
       this.festival.count++;
-      this.addScore(w.length * 10);
+      this.addScore(w.length * 10 * m);
       this.gainCredits(FESTIVAL_CREDIT);
       this.timeLeft += FESTIVAL_TIME_BONUS;
       this.tickMult();
       this.refreshCredits();
-      this.floatText('+' + FESTIVAL_CREDIT + ' credits  +' + FESTIVAL_TIME_BONUS + 's');
+      this.floatText((m > 1 ? '×' + m + '  ' : '') + '+' + FESTIVAL_CREDIT +
+        ' credits  +' + FESTIVAL_TIME_BONUS + 's');
       this.maybeDrop(pos);
       this.pickFestivalLang();
       return;
     }
 
-    const comboMult = this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
-    const points = w.length * 10 * comboMult;
+    const m = this.comboMult();
+    const points = w.length * 10 * m;
     const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult;
     this.score += points;
     this.addScore(points);
@@ -448,7 +451,7 @@ class GameScene extends Phaser.Scene {
 
     this.refreshCredits();
     this.pushRecent(w);
-    this.floatText('+' + points + (comboMult > 1 ? ' (×' + comboMult + ')' : '') +
+    this.floatText('+' + points + (m > 1 ? ' (×' + m + ')' : '') +
       '  +' + bonus.toFixed(1) + 's');
     if (this.wordsTyped === 1) {
       this.feedback('nice! reach the target score to clear the level', IDE.comment);
@@ -482,12 +485,14 @@ class GameScene extends Phaser.Scene {
     const pos = this.celebrate();
     const i = f.pool.indexOf(f.lang);
     this.tweens.add({ targets: f.badges[i], scale: 1.4, duration: 150, yoyo: true });
-    this.addScore(f.word.length * 10);
+    const m = this.comboMult();
+    this.addScore(f.word.length * 10 * m);
     this.gainCredits(FESTIVAL_CREDIT);
     this.timeLeft += FESTIVAL_TIME_BONUS;
     this.tickMult();
     this.refreshCredits();
-    this.floatText('+' + FESTIVAL_CREDIT + ' credits  +' + FESTIVAL_TIME_BONUS + 's');
+    this.floatText((m > 1 ? '×' + m + '  ' : '') + '+' + FESTIVAL_CREDIT +
+      ' credits  +' + FESTIVAL_TIME_BONUS + 's');
     this.maybeDrop(pos);
     this.pickGrowthRound();
   }
@@ -512,9 +517,18 @@ class GameScene extends Phaser.Scene {
     return this.festival ? null : this.battle.attack();
   }
 
+  // combo score-multiplier tier, shared by the COMBO readout and every scoring
+  // path so what the readout advertises ("score ×N") is exactly what lands —
+  // in normal mode, boss fights AND festivals alike (it used to apply to the
+  // normal path only, so the multiplier the boss/festival readout promised was
+  // never actually paid out).
+  comboMult() {
+    return this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
+  }
+
   refreshCombo(pulse) {
     if (this.combo < 2) { this.comboText.setText(''); this._comboTier = 1; return; }
-    const m = this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
+    const m = this.comboMult();
     this.comboText.setText('COMBO ' + this.combo + (m > 1 ? ' · score ×' + m : ''))
       .setColor(m >= 3 ? '#ff9800' : m >= 2 ? '#dcdcaa' : '#a0d0a0');
     // Crossing INTO a new score-multiplier tier (×2 at 5, ×3 at 15) is the moment
