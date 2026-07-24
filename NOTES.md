@@ -2351,3 +2351,69 @@ multiplier (a design call — the effect readout shows the ×N). With the road n
 reading as a countdown, a further theme touch could echo `N to boss` on the
 level-clear road overlay (`showPath`) so the descending count is felt at each
 transition too, not only in the HUD.
+
+## Auto-dev log - 20260724-review pass 16
+
+Re-read the whole game end to end (index.html, all ten JS files, languages.js,
+README, this NOTES history) and re-ran `node --check` on every file — clean. As in
+recent passes the flagged state machines re-traced clean: pause ↔ menu ↔ festival ↔
+boss ↔ death, the blur↔menu pause fix (pass 13), the strike-flag self-heal
+(battle.js `enemyStrike`, robust across `ulti()`/`spawnBoss()`/`beatBoss()` killing
+the tracked target mid-strike), the once/sec timer/HUD/credits gates + the three-band
+recolor, the terminal-'off' PERFECT logic, the p→STAGE·language checkpoint decode on
+both End sites, the daily seed/PB split, the bag-full purchase block (mouse + keyboard
+`buyStock`), the music pause/resume, the keyboard bag/shop routes, the gated
+`shakeCam`, the pooled `burstFx`/`floatText`/`deathFx` emitters, and the "missing PNG
+→ code-drawn/degraded" fallbacks. I specifically re-verified the pass-14 `addTime()`
+single-source-of-truth: the only `timeLeft +=` in the file is inside `addTime`, and
+the three rescue *sets* (boss-win `BOSS_WIN_TIME`, festival-start `FESTIVAL_MIN_TIME`,
+armor death-save) are still direct `timeLeft =` assignments correctly excluded from
+the `timeBought` tally. Re-confirmed the boss-HP-vs-pool starve math (max boss HP 27
+at Survival — hp = 12 + stageIndex·3, and stageIndex saturates at 5 through every
+survival lap — vs the smallest pool Lua's 38 words, safe) and the accuracy bookkeeping
+(empty submits and genuine duplicates both excluded via the `submitsTotal--`). **No
+fresh logic bug surfaced and — per this project's discipline — none was invented.**
+After ~34 passes the defect surface is mined out; the balance items (festival low-time,
+grade/amber thresholds) stay parked as playtest calls. So this pass shipped the exact
+small, self-contained *theme* win pass 15 teed up as the next step. One code commit +
+this log.
+
+**Theme — the level-clear road echoes the descending "N to boss" countdown**
+
+Pass 15 added a descending "N to boss" counter to the corner HUD but left the
+level-clear road overlay (`showPath`) silent — and that overlay is the ONE moment
+the player stops and actually studies the language road (a ~4.6s animated interstitial
+between levels). The "Count Down" theme was being surfaced everywhere *except* the
+screen built to show the road. Closed that: `showPath` now adds a line under the road
+strip echoing the same counter — `N languages down the road to the <STAGE> boss`,
+reading `⚔ the road fills — the <STAGE> BOSS awaits` on the final language (the level
+that ends the stage). It ticks 24 → 0 across the stage, so the descending count is now
+felt at every transition, not only mid-play.
+
+Why it's correct and safe: the line reads the **destination** level (`fromIdx + 1` —
+the road you're sliding onto) with the HUD's **exact** formula
+(`LANGUAGES.length - 1 - index`), so the overlay and the HUD it hands off to the
+instant it clears can never disagree; `toBoss <= 0` maps to the same "BOSS
+awaits"/"BOSS NEXT" wording the HUD uses on the final language. `stageIndex` is
+unchanged across a level-clear (only beating a boss raises the stage), so the stage
+name printed is the current one. It's a single static text added to the `overlay`
+container, so it fades in/out and is destroyed with the rest of the overlay — no new
+per-frame or per-word cost, no timer/tween to leak, and no scoring/time/credit/state
+path touched. Placed at `cy+110` (cy=250 → y=360), clear below the strip's language
+badges (~y=336) and well above the status bar. `node --check` clean on the one touched
+file (GameScene.js). Pass-15's leftover suggestion is now shipped.
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance and
+the grade/amber thresholds remain deliberate-but-untuned playtest calls (a real play
+session, not a code guess). The itch presentation captures (language road / a festival
+/ the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the green gain
+pulse / the survived + bought-back stats / the how-to-play panel / the keyboard-operable
+bag / the accessibility settings row / the tiered combo burst + next-tier teaser / the
+menu survival stat / the enriched pause dashboard / the HUD "N to boss" counter / now
+its echo on the level-clear road) plus the README's final checklist item (name + cover
++ screenshots) remain the top non-code work. HINT is still the one during-play action
+without a keyboard route (every printable key collides with word input — parked). The
+festival credit popup still prints the flat `+15 credits` under a live sword multiplier
+(a design call — the effect readout shows the ×N). With the descending count now on
+both the HUD and the road overlay, a further theme touch could carry it onto the End /
+share card ("stopped N from the <STAGE> boss") so the run's finish reads on-theme too.
