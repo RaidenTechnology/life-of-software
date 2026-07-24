@@ -1417,3 +1417,45 @@ code guess); itch presentation captures (language road / a festival / the
 PERFECT-LEVEL banner) + the README's final checklist item (name + cover +
 screenshots) remain the top non-code work. With SHOP now on TAB, in-run panel
 access is complete on the keyboard.
+
+## Auto-dev log - 20260724-1855 pass 1
+
+Re-read all 10 source files (all pass `node --check`) plus the full NOTES
+history. Consistent with the last several passes, the state machines the prompt
+calls out — strike flags, festival/boss/menu exclusivity, tick cadence,
+death-save timing, the pause-exit clock reset, checkpoint monotonicity, the
+daily-best `p` decode, bag-full purchase blocking — all re-traced clean, and the
+"every sprite degrades to a code-drawn placeholder if its PNG is missing"
+invariant is honored end to end. So **no fresh logic bug surfaced and none was
+invented.** This pass cut a genuine per-key re-raster in the one churn site every
+prior perf pass had skipped. One code commit + this log.
+
+**Quality / perf (fresh churn site — refreshInput, the fastest path)**
+
+1. **Gated `refreshInput()`'s per-keystroke `setColor` re-raster.** Every earlier
+   perf pass gated the per-*landed-word* readouts (timer, HUD labels, credits,
+   badges, best-combo, festival clock), but `refreshInput()` — which fires on
+   **every keystroke** (type / backspace / submit), a strictly faster path than
+   "every landed word" — was never touched. It ran
+   `setText(this.typed).setColor(this.typedColor())` each key; `setText` must run
+   (the shown text genuinely changes every key), but Phaser's `Text.setColor`
+   re-renders the glyph canvas even when the color is unchanged. The input's
+   validity color only flips at word boundaries (valid-prefix ↔ invalid ↔
+   complete), so on the vast majority of keystrokes the color is identical and the
+   second re-raster was pure waste. Gated the `setColor` on the computed color
+   (cached in `this._inputColor`, initialized alongside the other gate caches in
+   `create()`) — the exact per-word re-raster gate the rest of the HUD already
+   uses. Most keystrokes now re-raster once (the `setText`) instead of twice; only
+   a real color change pays the second. Zero behavior change — the final color
+   shown is identical, and the cache stays in sync because nothing else touches
+   `inputText`'s color.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance (a deliberate-but-untuned playtest call, needs a play session not a code
+guess); itch presentation captures (language road / a festival / the
+PERFECT-LEVEL banner) + the README's final checklist item (name + cover +
+screenshots) remain the top non-code work. The per-word/per-key re-raster gates
+are now applied across the whole HUD — timer, labels, credits, badges,
+best-combo, festival clock, and the input line — so that vein of perf work is
+essentially exhausted; the remaining wins are gameplay-feel and presentation, not
+churn-cutting.
