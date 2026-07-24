@@ -33,6 +33,25 @@ const Motion = {
   }
 };
 
+// ASSIST: a dim shelf of the active language's still-unwritten patterns, under
+// the input line. The game asks you to recall the keywords of 25 languages —
+// which quietly gates the whole thing behind "do you happen to know Zig?".
+// A jam judge who writes C# every day still can't guess Haskell or Assembly
+// patterns, and a player who can't produce a single valid word doesn't get to
+// find out whether the game is fun. With the shelf up, the challenge becomes
+// what it always should have been: read, recognise, type FAST, before the clock.
+// Default ON so a first-time player is never stuck; off in one click for anyone
+// who wants the memory test. Same guarded localStorage idiom as Motion.
+const Assist = {
+  on: (() => {
+    try { return localStorage.getItem('los_assist') !== '0'; } catch (e) { return true; }
+  })(),
+  setOn(v) {
+    this.on = v;
+    try { localStorage.setItem('los_assist', v ? '1' : '0'); } catch (e) {}
+  }
+};
+
 const UI = {
   // window title bar + blue status bar, like an editor. Also mounts the
   // settings gear (top-right) with the sound toggle panel.
@@ -67,9 +86,10 @@ const UI = {
     }).setOrigin(1, 0.5).setDepth(31).setInteractive({ useHandCursor: true });
 
     const panel = scene.add.container(w - 106, 92).setDepth(31).setVisible(false);
-    // grown downward (center nudged +8, height 106→128) to fit the third row —
-    // top edge stays clear of the title bar, bottom stays well above the status bar.
-    panel.add(scene.add.rectangle(0, 8, 188, 128, IDE.panel).setStrokeStyle(1, IDE.border));
+    // grown downward again (center +8→+16, height 128→156) to fit the fourth row
+    // (ASSIST) — top edge stays clear of the title bar, bottom (screen y ≈ 186)
+    // stays well above the status bar.
+    panel.add(scene.add.rectangle(0, 16, 188, 156, IDE.panel).setStrokeStyle(1, IDE.border));
     panel.add(scene.add.text(0, -38, 'SETTINGS', {
       fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
     }).setOrigin(0.5));
@@ -128,6 +148,25 @@ const UI = {
       Sfx.blip();
     });
     panel.add(shakeRow);
+
+    // pattern-shelf (ASSIST) toggle — the difficulty switch, so it lives with
+    // the other accessibility rows rather than behind a menu of its own.
+    const assistRow = scene.add.text(0, 70, '', {
+      fontFamily: 'monospace', fontSize: '16px', color: IDE.keyword
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    const refreshAssist = () => assistRow.setText('[ ASSIST: ' + (Assist.on ? 'ON' : 'OFF') + ' ]');
+    refreshAssist();
+    assistRow.on('pointerover', () => assistRow.setColor(IDE.white));
+    assistRow.on('pointerout', () => assistRow.setColor(IDE.keyword));
+    assistRow.on('pointerdown', () => {
+      Sfx.unlock();
+      Assist.setOn(!Assist.on);
+      refreshAssist();
+      // the live run (if any) repaints its shelf immediately
+      if (scene.refreshAssist) scene.refreshAssist();
+      Sfx.blip();
+    });
+    panel.add(assistRow);
 
     gear.on('pointerover', () => gear.setColor('#ffffff'));
     gear.on('pointerout', () => gear.setColor('#9d9d9d'));

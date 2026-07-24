@@ -311,9 +311,14 @@ class Battle {
 
     g.destroy();
 
-    // crisp pixels: nearest-neighbor filtering for every battle texture
+    // crisp pixels: nearest-neighbor filtering for every battle texture.
+    // scene_ (the full-screen atmosphere backdrop) and the two Blender UI plates
+    // were missing from this list, so the THREE BIGGEST surfaces on screen — the
+    // whole background, the pause window, the title plate — were being drawn with
+    // linear filtering: soft, smeared pixels under sharp sprites. They're pixel
+    // art like everything else; filter them like everything else.
     Object.keys(scene.textures.list)
-      .filter(k => /^(hero|en_|bg_|bolt|slash)/.test(k))
+      .filter(k => /^(hero|en_|bg_|scene_|bolt|slash|pause_panel|title_panel)/.test(k))
       .forEach(k => scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST));
   }
 

@@ -51,6 +51,18 @@ class EndScene extends Phaser.Scene {
     const lang = LANGUAGES[this.langIndex];
     this.grade = this.typingGrade();
 
+    // On-theme countdown coda: how many languages still stood between you and
+    // this stage's boss when the clock finally won. "Count Down" is the jam
+    // theme, and the descending "N to boss" counter already runs down the HUD
+    // (refreshLangHud) and the level-clear road (showPath) — so the run's FINISH
+    // should read it too. Same formula both use (LANGUAGES.length-1-langIndex),
+    // so the three never disagree. finish() only ever fires on death (the game is
+    // endless — there is no win path), so "the clock caught you" is always true.
+    // On the boss level langIndex clamps to the last language → count 0 → reads as
+    // dying at the boss's door instead of a bare "0". Shared by the on-screen line
+    // below and the share card string.
+    const toBoss = LANGUAGES.length - 1 - this.langIndex;
+
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText(this.win ? 'exit code 0' : 'exit code 1 — time is up');
     status.right.setText(this.daily
@@ -167,6 +179,17 @@ class EndScene extends Phaser.Scene {
       ' · reached ' + lang.name + ' (' + (this.langIndex + 1) + '/' + LANGUAGES.length + ')',
       {
         fontFamily: 'monospace', fontSize: '15px', color: IDE.dim
+      }).setOrigin(0.5);
+
+    // the descending "N to boss" count, read at the finish (see toBoss above).
+    // Sits in the gap between the progress line (cy+58) and the buttons (cy+104),
+    // in the theme's gold, so the run ends on the same Count-Down beat the HUD
+    // and the level-clear road carry.
+    this.add.text(cx, cy + 82, toBoss > 0
+      ? '↓ the clock caught you ' + toBoss + ' language' + (toBoss === 1 ? '' : 's') +
+        ' short of the ' + this.stage + ' boss'
+      : '↓ the clock caught you at the ' + this.stage + " boss's door", {
+        fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa', fontStyle: 'bold'
       }).setOrigin(0.5);
 
     const again = this.add.text(cx - 96, cy + 104, '[ RECOMPILE ]', {

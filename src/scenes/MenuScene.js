@@ -177,6 +177,9 @@ class MenuScene extends Phaser.Scene {
       "Type each language's patterns, then ENTER, before the countdown hits 0.\n" +
       'Every correct pattern buys you TIME + SCORE + CREDITS.\n' +
       '\n' +
+      "ASSIST     Don't know this language? The dim line under the input lists\n" +
+      '           patterns you can still write. ON by default — ESC then A, or the\n' +
+      '           settings gear, turns it off for a pure memory run.\n' +
       'COMBO      Chain correct patterns for a score multiplier: x2 at 5, x3 at 15.\n' +
       '           One wrong pattern resets the streak.\n' +
       'PERFECT    Clear a whole level with no mistakes for bonus time, score & credits.\n' +

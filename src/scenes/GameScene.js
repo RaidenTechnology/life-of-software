@@ -12,6 +12,14 @@ const FESTIVAL_HINT_COST = 10;
 const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
 const START_TIME = 75;
+// Hard ceiling on the countdown. Every landed word buys time and the gains beat
+// the drain, so a competent run used to snowball past an hour on the clock
+// (measured: 3600s+ after ~1600 words) — at which point the countdown, the whole
+// theme, stops being a threat. Capping it keeps the number in two digits and
+// turns surplus time into pressure to SPEND it (push the level, not bank it).
+// Rescue floors (boss win, festival start, armor save) set timeLeft directly and
+// sit well under the cap, so they're unaffected.
+const TIME_CAP = 99;
 const LEVELUP_TIME_BONUS = 10;
 const PERFECT_TIME_BONUS = 5;     // clearing a level with zero wrong patterns
 const PERFECT_CREDIT = 10;
@@ -285,6 +293,14 @@ class GameScene extends Phaser.Scene {
     this.feedbackText = this.add.text(cx, panelY + 92, '', {
       fontFamily: 'monospace', fontSize: '15px', color: IDE.dim
     }).setOrigin(0.5);
+    // ASSIST shelf — the still-unwritten patterns of the active language, dim,
+    // between the feedback line (y+92) and the recent-words strip (h-44). Filters
+    // to what you've typed so far, so it doubles as autocomplete: the game reads
+    // as an editor, and this is the editor's suggestion list.
+    this.assistText = this.add.text(cx, panelY + 120, '', {
+      fontFamily: 'monospace', fontSize: '14px', color: IDE.dim
+    }).setOrigin(0.5);
+    this._assistStr = null;   // gates the per-keystroke re-raster
     this.recentText = this.add.text(cx, this.scale.height - 44, '', {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
@@ -396,6 +412,7 @@ class GameScene extends Phaser.Scene {
     // resuming a run at CSS/JS/etc. from a checkpoint.
     const sample = this.lang.words[0];
     this.hintText.setText('// try typing "' + sample + '" then ENTER — every word buys time!');
+    this.refreshAssist();   // paint the shelf for word one, before any keystroke
   }
 
   get lang() {
@@ -423,7 +440,18 @@ class GameScene extends Phaser.Scene {
 
   targetScore() {
     const mult = STAGES[this.stageIndex].mult + this.survivalLap * 0.5;
-    return Math.round(this.lang.target * mult / 10) * 10;
+    const raw = Math.round(this.lang.target * mult / 10) * 10;
+    // A target is only fair if the language's word list can actually reach it.
+    // The stage/lap multiplier had no such check, so late laps pushed targets
+    // past the pool's ceiling — LUA at SURVIVAL lap 3 asked for 2500 when typing
+    // EVERY one of its 38 patterns scores 1710. A player who dropped their combo
+    // could clear the whole list, have nothing valid left to submit, get no
+    // message explaining it, and just watch the clock kill them. Cap the target
+    // at 80% of the no-combo pool total: combo multipliers make that comfortable,
+    // and the dead end can't exist at any stage or lap.
+    const ceiling = Math.round(
+      this.lang.words.reduce((s, w) => s + w.length * 10, 0) * 0.8 / 10) * 10;
+    return Math.min(raw, ceiling);
   }
 
   fmtC(c) {
@@ -441,8 +469,19 @@ class GameScene extends Phaser.Scene {
   // NOT counted: they're safety nets, not time you earned. The clock has no upper
   // cap, so a bare += is the whole story.
   addTime(sec) {
-    this.timeLeft += sec;
+    // TIME BOUGHT still counts every earned second, clipped or not — it's the
+    // "what your typing was worth" flex, and TIME_CAP is a balance clamp, not a
+    // claim you didn't earn it. (Counting only landed seconds made the End-screen
+    // headline read ~150s for a 1200-word run, which just looks broken.)
     this.timeBought += sec;
+    const before = this.timeLeft;
+    this.timeLeft = Math.min(TIME_CAP, this.timeLeft + sec);
+    // Tell the player where their time went the first time it's clipped, then at
+    // most once every 20s of play — silently swallowing the reward reads as a bug.
+    if (this.timeLeft < before + sec && this.elapsed - (this._fullMsgAt || -99) > 20) {
+      this._fullMsgAt = this.elapsed;
+      this.feedback('clock is FULL (' + TIME_CAP + 's) — spend it, don\'t bank it', '#dcdcaa');
+    }
   }
 
   // Run-total score: the HUD SCORE and the End headline. this.score still tracks
@@ -499,6 +538,16 @@ class GameScene extends Phaser.Scene {
       else if (e.key === 'm' || e.key === 'M') {
         Sfx.unlock();
         Sfx.setMuted(!Sfx.muted);
+        this.refreshPauseHint();
+        Sfx.blip();
+      }
+      // A toggles the pattern shelf. It's the difficulty switch, so it belongs on
+      // the keyboard next to mute — mid-run is exactly when a player discovers
+      // they don't know this language's keywords and needs it (or has had enough
+      // help and wants it gone).
+      else if (e.key === 'a' || e.key === 'A') {
+        Assist.setOn(!Assist.on);
+        this.refreshAssist();
         this.refreshPauseHint();
         Sfx.blip();
       }
@@ -637,8 +686,13 @@ class GameScene extends Phaser.Scene {
     const f = this.festival;
     const ok = w === f.lang.name.toLowerCase() || w === f.lang.abbr.toLowerCase();
     if (!ok) {
+      // Say which way round the question was. The old line read
+      // ("import" is not a ASDF pattern) — it echoed the player's own typo back
+      // as if it were a language, which is nonsense on a mistype. Still doesn't
+      // name the answer: a wrong guess keeps the SAME word up (pickGrowthRound
+      // only runs on a hit), so revealing it would hand over free points.
       const tail = this.combo >= 5 ? ' — combo ×' + this.combo + ' lost!' : '';
-      this.feedback('"' + f.word + '" is not a ' + w.toUpperCase() + ' pattern' + tail, IDE.error);
+      this.feedback('"' + w + '" is not the language of "' + f.word + '"' + tail, IDE.error);
       this.combo = 0;
       this.refreshCombo();
       Sfx.wrong();
@@ -1545,7 +1599,13 @@ class GameScene extends Phaser.Scene {
       w = this.festival.lang.name.toLowerCase();
     } else {
       const remaining = this.activeLang.words.filter(x => !this.activeFound.has(x));
-      if (remaining.length === 0) return;
+      // nothing left to hint at — say so instead of eating the click silently
+      // (no credits are spent either way; the charge happens below).
+      if (remaining.length === 0) {
+        this.feedback('every ' + this.activeLang.name + ' pattern is already written', IDE.dim);
+        Sfx.blip();
+        return;
+      }
       w = Phaser.Utils.Array.GetRandom(remaining);
     }
 
@@ -1636,6 +1696,42 @@ class GameScene extends Phaser.Scene {
     const col = this.typedColor();
     if (col !== this._inputColor) { this._inputColor = col; this.inputText.setColor(col); }
     this.cursor.x = this.inputText.x + this.inputText.width + 4;
+    this.refreshAssist();
+  }
+
+  // The ASSIST shelf (see ui.js). Hangs off refreshInput because that's the one
+  // call every state change already funnels through — keystroke, submit, level
+  // up, boss start, festival round — so the shelf can never show a stale
+  // language. Shortest patterns first: a newcomer gets an easy first word in,
+  // and the shelf is a nudge, not a script (only 5 of ~50 show). Same
+  // string-compare re-raster gate as the timer/credits/HUD readouts.
+  refreshAssist() {
+    if (!this.assistText) return;
+    let str = '';
+    if (Assist.on && !this.over && !this.dying) {
+      if (this.festival && this.festival.type === 'growth') {
+        // the growth round asks for a LANGUAGE name, not a pattern
+        str = '// answer with one of: ' +
+          this.festival.pool.map(l => l.name.toLowerCase()).join('  ');
+      } else {
+        const L = this.activeLang;
+        if (L) {
+          const found = this.activeFound;
+          let rem = L.words.filter(w => !found.has(w));
+          if (this.typed) {
+            const m = rem.filter(w => w.startsWith(this.typed));
+            if (m.length) rem = m;   // typing filters the shelf; a dead prefix keeps it
+          }
+          if (rem.length) {
+            str = '// ' + rem.slice().sort((a, b) => a.length - b.length)
+              .slice(0, 5).join('   ');
+          }
+        }
+      }
+    }
+    if (str === this._assistStr) return;
+    this._assistStr = str;
+    this.assistText.setText(str);
   }
 
   // Point the full-screen backdrop at this stage's scene_ PNG, but never render
@@ -1816,7 +1912,7 @@ class GameScene extends Phaser.Scene {
   refreshPauseHint() {
     if (!this.pauseHint) return;
     this.pauseHint.setText('ESC resume  ·  M sound: ' + (Sfx.muted ? 'OFF' : 'ON') +
-      '  ·  Q quit to menu');
+      '  ·  A assist: ' + (Assist.on ? 'ON' : 'OFF') + '  ·  Q quit to menu');
   }
 
   togglePause() {
