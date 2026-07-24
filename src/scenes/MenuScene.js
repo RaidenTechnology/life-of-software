@@ -15,9 +15,16 @@ class MenuScene extends Phaser.Scene {
     let best = null;
     try { best = JSON.parse(localStorage.getItem('los_best') || 'null'); } catch (e) {}
     if (best) {
+      // best.time (seconds the best run survived) is written by EndScene; older
+      // bests predate it, so it's optional. Inline M:SS here — MenuScene has no
+      // fmtDuration and it's a one-liner — to headline how long you held the clock.
+      const survived = best.time
+        ? ' · ' + Math.floor(best.time / 60) + ':' +
+          String(Math.round(best.time) % 60).padStart(2, '0') + ' survived'
+        : '';
       this.add.text(cx, 46, 'BEST: STAGE ' + best.stage + ' · LEVEL ' + best.level +
         ' · ' + best.words + ' words' + (best.score ? ' · ' + best.score + ' pts' : '') +
-        (best.wpm ? ' · ' + best.wpm + ' wpm' : ''), {
+        (best.wpm ? ' · ' + best.wpm + ' wpm' : '') + survived, {
           fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa'
         }).setOrigin(0.5);
     }

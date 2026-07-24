@@ -100,7 +100,11 @@ class EndScene extends Phaser.Scene {
       try {
         localStorage.setItem('los_best', JSON.stringify({
           p: progress, words: this.words, wpm: this.wpm, score: this.finalScore,
-          stage: this.stage, level: this.langIndex + 1
+          stage: this.stage, level: this.langIndex + 1,
+          // persist how long this best run held the clock off zero — the natural
+          // headline for a countdown game, surfaced on the menu's BEST line.
+          // Optional on read (older bests predate it), so no migration needed.
+          time: this.survived
         }));
       } catch (e) {}
       const nb = this.add.text(cx, cy - 88, '★ NEW PERSONAL BEST! ★', {
