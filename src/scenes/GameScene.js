@@ -1209,6 +1209,10 @@ class GameScene extends Phaser.Scene {
 
   refreshBag() {
     this.bagBtn.setText('[ BAG ' + this.inventory.length + '/' + INV_MAX + ' ]');
+    // Keep SHOP just past BAG's real rendered width. The fixed x=130 collides
+    // with a two-digit bag count ('[ BAG 12/12 ]' reaches ~x=133), so anchor it
+    // to bagBtn.width instead — robust to the count and to INV_MAX changes.
+    if (this.shopBtn) this.shopBtn.x = this.bagBtn.x + this.bagBtn.width + 14;
   }
 
   pushRecent(w) {
