@@ -1588,12 +1588,38 @@ class GameScene extends Phaser.Scene {
   startBoss() {
     this.clearTransitionGuard();
     this.transitioning = false;
-    // 15 + 3/stage. 12 was over in four inputs, before the chain could be read
-    // once; 18 (measured) took a player who hadn't grasped the chain yet 29
-    // inputs against a bar that kept climbing. 15 is five clean links, or
-    // fifteen ordinary patterns for someone ignoring the chain entirely.
-    const hp = 15 + this.stageIndex * 3;
-    this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES), seq: null, seqAt: 0 };
+    // The boss speaks EVERY language. It used to pick one at random, which made
+    // it a wall built out of whichever language you happened not to know — and a
+    // strange one to arrive at, since you only reach a boss by clearing all 25.
+    // It should be the exam for that ladder, not a coin flip on one rung of it.
+    // So its pool is the union of every language's patterns; anything you have
+    // learned anywhere counts here.
+    //
+    // Merging it into a synthetic language object rather than special-casing the
+    // boss everywhere means validity, the hint pool, the ASSIST rope and the
+    // input's valid-prefix colouring all keep working through the one code path
+    // they already use (activeLang).
+    if (!this._allWords) {
+      this._allWords = [...new Set(LANGUAGES.flatMap(l => l.words))];
+    }
+    const merged = {
+      name: 'ALL LANGUAGES', color: IDE.error, abbr: '∀', icon: '☠',
+      words: this._allWords,
+      // between the ladder's easiest (1.0) and hardest (0.5): a boss pattern
+      // shouldn't pay HTML rates just because `div` is in the merged pool
+      timeMult: 0.7
+    };
+    // Anything counts for 1, so the bar has to be longer than the 15 that stood
+    // when only one language's patterns did. The chain is still the fast way
+    // through — five links kill 15 of these 30.
+    const hp = 30 + this.stageIndex * 6;
+    this.bossMode = {
+      hp, max: hp, lang: merged,
+      // the chain still comes from ONE real language, named on the line, so the
+      // fight keeps something to aim at instead of being pure free typing
+      chainLang: this.pickFrom(LANGUAGES),
+      seq: null, seqAt: 0
+    };
     this.blankPerfect();   // the boss is an interstitial — no perfect-pace tag
     this.found.clear();
     this.clearDeprecation();
@@ -1601,7 +1627,7 @@ class GameScene extends Phaser.Scene {
     this.strikeTimer = 0;
     this.battle.spawnBoss();
     this.refreshLangHud();
-    this.feedback('BOSS FIGHT! type ' + this.bossMode.lang.name + ' patterns!', IDE.error);
+    this.feedback('BOSS FIGHT! every language counts — chase the chain for x3', IDE.error);
     this.shakeCam(200, 0.005);
     Sfx.hit();
     this.newBossSeq();
@@ -1621,8 +1647,19 @@ class GameScene extends Phaser.Scene {
   newBossSeq() {
     const b = this.bossMode;
     if (!b) return;
-    const pool = b.lang.words.filter(w => !this.found.has(w) && w.length >= 3);
-    if (pool.length < 3) { b.seq = null; this.refreshLangHud(); return; }
+    // links come from the chain's own language, not the merged pool — three
+    // patterns that belong together are a target; three drawn from 1200 mixed
+    // ones would just be three more words.
+    const pool = b.chainLang.words.filter(w => !this.found.has(w) && w.length >= 3);
+    if (pool.length < 3) {
+      b.chainLang = this.pickFrom(LANGUAGES);   // that language is used up — pick another
+      const alt = b.chainLang.words.filter(w => !this.found.has(w) && w.length >= 3);
+      if (alt.length < 3) { b.seq = null; this.refreshLangHud(); return; }
+      b.seq = this.shuffle(alt.slice()).slice(0, 3);
+      b.seqAt = 0;
+      this.refreshBossSeq();
+      return;
+    }
     b.seq = this.shuffle(pool.slice()).slice(0, 3);
     b.seqAt = 0;
     this.refreshBossSeq();
@@ -1642,7 +1679,7 @@ class GameScene extends Phaser.Scene {
     // is during a fight — and a boss speaks a language picked at random from the
     // whole ladder, so "which language am I in" is the first thing a player needs
     // and the easiest thing to lose track of.
-    this.eolText.setText(b.lang.name + ' EXPLOIT CHAIN:  ' + line)
+    this.eolText.setText(b.chainLang.name + ' EXPLOIT CHAIN:  ' + line)
       .setColor(b.seqAt > 0 ? '#dcdcaa' : IDE.error).setAlpha(1).setVisible(true);
   }
 
@@ -2276,9 +2313,10 @@ class GameScene extends Phaser.Scene {
       // surface how many un-typed patterns remain: boss words dedupe into
       // this.found, so a player with the HP bar alone can't see a starving pool
       // coming and just eats "already typed" rejections with the clock draining.
-      const left = this.bossMode.lang.words.length - this.found.size;
+      // no "patterns left" any more: the merged pool is ~1200 deep, so the number
+      // was neither a warning nor information. Say what the fight actually wants.
       this.stageText.setText('defeat the boss! HP ' + this.bossMode.hp + '/' + this.bossMode.max +
-        ' · ' + left + ' patterns left');
+        ' · any language counts · chain = ×3');
       this.progressFill.width = 180 * Math.max(0, this.bossMode.hp / this.bossMode.max);
       this.progressFill.fillColor = 0xf44747;
       this.updateLangBadge('boss:' + this.bossMode.lang.name, this.bossMode.lang);
