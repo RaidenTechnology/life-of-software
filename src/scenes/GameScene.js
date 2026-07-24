@@ -107,6 +107,8 @@ class GameScene extends Phaser.Scene {
     // refreshLangHud). -1 forces the first real call through.
     this._hudStage = -1;
     this._hudTier = -1;
+    this._hudLabelKey = null;  // gates the per-word LEVEL/STAGE label re-raster
+    this._hudBpm = -1;         // gates the per-word music-tempo set
     this._comboTier = 1;      // last combo score-multiplier tier reached (juice)
     this.levelMistakes = 0;   // wrong patterns in the CURRENT normal level (perfect-clear bonus)
 
@@ -1106,6 +1108,10 @@ class GameScene extends Phaser.Scene {
     this.battle.setVisible(false);
     this.langText.setText(type === 'sw' ? 'SOFTWARE FESTIVAL' : 'GROWTH FESTIVAL')
       .setColor('#dcdcaa');
+    // we've just clobbered the gated LEVEL/STAGE labels; force endFestival's
+    // refreshLangHud() to rebuild them (the langIndex/stage is otherwise unchanged
+    // across the festival, so the label-key gate would skip the restore).
+    this._hudLabelKey = null;
     if (this.langBadge) { this.langBadge.destroy(); this.langBadge = null; this._badgeKey = null; }
     this.progressFill.width = 0;
     this.typed = '';
@@ -1267,7 +1273,10 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshLangHud() {
-    Sfx.setMusicTempo(94 + this.stageIndex * 8 + this.survivalLap * 4);
+    // tempo only steps with the stage/lap, but this runs on every correct word —
+    // gate the (otherwise redundant) setMusicTempo call on the computed value.
+    const bpm = 94 + this.stageIndex * 8 + this.survivalLap * 4;
+    if (bpm !== this._hudBpm) { this._hudBpm = bpm; Sfx.setMusicTempo(bpm); }
     if (this.bossMode) {
       this.langText.setText('BOSS · ' + this.bossMode.lang.name).setColor(IDE.error);
       // surface how many un-typed patterns remain: boss words dedupe into
@@ -1281,13 +1290,25 @@ class GameScene extends Phaser.Scene {
       this.updateLangBadge('boss:' + this.bossMode.lang.name, this.bossMode.lang);
       return;
     }
-    this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
-      .setColor(this.lang.color);
-    this.stageText.setText('STAGE ' + STAGES[this.stageIndex].name +
-      (this.survivalLap > 0 ? ' · LAP ' + (this.survivalLap + 1) : '') +
-      ' · target ' + this.targetScore());
+    // The LEVEL/STAGE labels and the bar's fill color are constant for the whole
+    // level, but this method fires on every correct word — and setText/setColor
+    // re-raster the glyph texture (and HexStringToColor allocates + parses) each
+    // call. Rebuild them only when the level/stage/lap changes; the same setText
+    // re-raster gate the timer, festival clock and best-combo readouts already
+    // use. Only the progress-bar WIDTH genuinely changes per word (score), so it
+    // stays ungated below. Invalidated to null by startFestival/startBoss, which
+    // clobber langText with their own text, so leaving them forces a full rebuild.
+    const labelKey = this.langIndex + ':' + this.stageIndex + ':' + this.survivalLap;
+    if (labelKey !== this._hudLabelKey) {
+      this._hudLabelKey = labelKey;
+      this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
+        .setColor(this.lang.color);
+      this.stageText.setText('STAGE ' + STAGES[this.stageIndex].name +
+        (this.survivalLap > 0 ? ' · LAP ' + (this.survivalLap + 1) : '') +
+        ' · target ' + this.targetScore());
+      this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
+    }
     this.progressFill.width = 180 * Math.min(1, this.score / this.targetScore());
-    this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
     // Battle re-stage / re-tier only when the value changes. This method runs on
     // every correct word, and setStage() re-textures the backdrop + hero + all
     // five monsters AND destroys+recreates the demon fire-fountain emitters — so
