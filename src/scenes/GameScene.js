@@ -1351,6 +1351,17 @@ class GameScene extends Phaser.Scene {
   // stops the (paused) music; the checkpoint of the furthest section reached is
   // already persisted on each level/stage clear, so CONTINUE still works.
   quitToMenu() {
+    // We are leaving a PAUSED run: togglePause() set this.time.paused = true.
+    // Phaser reuses the scene's Clock across restarts, and Clock.start() (which
+    // fires on every restart) re-registers its listeners but never clears
+    // `paused` — only the constructor does, on first boot. Left true, the NEXT
+    // GameScene run keeps every this.time.delayedCall frozen: the level-up/boss
+    // transition completion callbacks (battle.ulti), the hint auto-clear, the
+    // panel flash/shake resets — the first level-up would soft-lock. Clear it on
+    // the way out. (TweenManager.start() DOES reset timeScale, so tweens recover
+    // on their own; reset it too for symmetry — harmless.)
+    this.time.paused = false;
+    this.tweens.timeScale = 1;
     Sfx.blip();
     this.scene.start('Menu');
   }
