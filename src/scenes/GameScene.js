@@ -357,6 +357,27 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard.addCapture('UP,DOWN,LEFT,RIGHT');
     this.input.keyboard.on('keydown', (e) => this.onKey(e));
 
+    // Auto-pause on focus loss. The whole game is a live countdown, and on itch
+    // it runs inside an iframe — so clicking OUTSIDE the frame (to read the
+    // comments, alt-tab, etc.) blurs the window while the page stays VISIBLE.
+    // Phaser's built-in pause only fires on visibilitychange (tab hidden), which
+    // this case doesn't trigger, so update() keeps draining timeLeft and can kill
+    // you while you're not even looking at the game. Force a pause on blur (never
+    // an auto-resume — the player presses ESC when ready, so the clock can't drain
+    // the instant focus returns). Routes through togglePause so every freeze it
+    // owns (clock, tweens, music, decor emitters, stats snapshot) is inherited,
+    // and mirrors the exact guards the ESC pause path uses (skip while
+    // over/dying/transitioning/in a menu, or already paused). Listener is torn
+    // down on shutdown so a later run's fresh GameScene isn't poked by the old one.
+    this._onBlur = () => {
+      if (!this.paused && !this.over && !this.dying &&
+          !this.transitioning && !this.menuOpen) {
+        this.togglePause();
+      }
+    };
+    window.addEventListener('blur', this._onBlur);
+    this.events.once('shutdown', () => window.removeEventListener('blur', this._onBlur));
+
     this.refreshLangHud();
     this.refreshCredits();
     this.refreshBag();
