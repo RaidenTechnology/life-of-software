@@ -4,7 +4,7 @@
 // Bump on any asset re-render so returning browsers fetch the new file instead
 // of a stale cached copy at the same URL (bit us during dev: the server was
 // serving the updated PNG but the browser's image cache kept the old one).
-const ASSET_V = 3;
+const ASSET_V = 4;
 
 class BootScene extends Phaser.Scene {
   constructor() {
@@ -38,6 +38,9 @@ class BootScene extends Phaser.Scene {
     for (let t = 0; t < 6; t++) {
       img('hero' + t, 'hero' + t);
       img('hero' + t + 'x', 'hero' + t + 'x');
+      // second idle frame per tier/weapon (Battle.startIdleAnim swaps at ~4fps)
+      img('hero' + t + '_b', 'hero' + t + '_b');
+      img('hero' + t + 'x_b', 'hero' + t + 'x_b');
     }
     ['ork', 'skeleton', 'elf', 'goblin', 'vampire', 'demon'].forEach(t => {
       img('en_' + t, 'en_' + t);

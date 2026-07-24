@@ -33,6 +33,25 @@ def shade(c, f):
     return (r<<16)|(g<<8)|b
 
 SS = 3
+
+# --- idle frame B ---------------------------------------------------------
+# A second pose, one pixel of movement, played at ~4fps by Battle.idleTick.
+# The sprites already bob via a tween, but a tween slides a rigid picture around;
+# a real second frame changes the picture itself, and that is the whole
+# difference between "a render on screen" and "a character standing there".
+# FB is added to the y of the parts that would actually move on a breath: head
+# and arms settle a pixel, the held weapon follows the hand. Everything else
+# (legs, torso, shield) stays planted, so the figure breathes instead of hopping.
+FB = 0
+
+def set_frame(b):
+    global FB
+    FB = 1 if b else 0
+
+def render_frame(name):
+    """Suffix for the current frame — '' for A, '_b' for B."""
+    return name + ('_b' if FB else '')
+
 def reset(canvasW):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
@@ -133,32 +152,32 @@ def hero_base(armor, t):
     part(17,24,8,6,shade(armor,1.4), depth=4.65, y=-2.4, outline=False)  # chest emblem accent
     part(9,36,24,4,0x5d4037, depth=4.75)                 # belt (forward, avoids z-fight)
     part(19,36,4,4,0xc9a227, depth=4.9)                  # buckle
-    stack(3,23,6,[(3,shade(armor,1.15)),(5,armor),(5,shade(armor,0.8)),(2,SKIN)], 3.4)  # pauldron/arm/forearm/hand
-    stack(32,23,6,[(3,shade(armor,1.15)),(5,armor),(5,shade(armor,0.8)),(2,SKIN)], 3.4)
-    part(13,8,16,13,SKIN, depth=4.2)                     # head
-    part(19,13,2,2,0x2b1d12, depth=4.5, y=-2.0, outline=False)  # eyes
-    part(24,13,2,2,0x2b1d12, depth=4.5, y=-2.0, outline=False)
-    if t>=1: part(12,4,18,6,armor, depth=4.4)            # helmet
-    if t>=3: part(18,0,6,4,0xd32f2f, depth=3.0)          # plume
+    stack(3,23+FB,6,[(3,shade(armor,1.15)),(5,armor),(5,shade(armor,0.8)),(2,SKIN)], 3.4)  # pauldron/arm/forearm/hand
+    stack(32,23+FB,6,[(3,shade(armor,1.15)),(5,armor),(5,shade(armor,0.8)),(2,SKIN)], 3.4)
+    part(13,8+FB,16,13,SKIN, depth=4.2)                  # head
+    part(19,13+FB,2,2,0x2b1d12, depth=4.5, y=-2.0, outline=False)  # eyes
+    part(24,13+FB,2,2,0x2b1d12, depth=4.5, y=-2.0, outline=False)
+    if t>=1: part(12,4+FB,18,6,armor, depth=4.4)         # helmet
+    if t>=3: part(18,0+FB,6,4,0xd32f2f, depth=3.0)       # plume
     if t>=2:
         part(0,26,7,16,0x4e342e, depth=2.2, y=-2.6)          # shield
         part(2,32,3,4,0xb0bec5, depth=2.4, y=-3.0, outline=False)
 
 def build_hero(t):
     hero_base(ARMORS[t],t)
-    part(34,27,4,6,0x5d4037, depth=2.4, y=-1.5)          # grip
-    part(33,26,6,2,0xc9a227, depth=2.6, y=-1.5)          # crossguard
-    part(34,33,3,3,0xc9a227, depth=2.6, y=-1.5)          # pommel
+    part(34,27+FB,4,6,0x5d4037, depth=2.4, y=-1.5)       # grip
+    part(33,26+FB,6,2,0xc9a227, depth=2.6, y=-1.5)       # crossguard
+    part(34,33+FB,3,3,0xc9a227, depth=2.6, y=-1.5)       # pommel
     L=10+t*3
-    part(38,27,L,4,0xdfe7ec, depth=2.6, y=-1.5)          # blade
-    part(38+L,27,6,4,0xdfe7ec, depth=2.6, y=-1.5)        # tip block
+    part(38,27+FB,L,4,0xdfe7ec, depth=2.6, y=-1.5)       # blade
+    part(38+L,27+FB,6,4,0xdfe7ec, depth=2.6, y=-1.5)     # tip block
 
 def build_herox(t):
     hero_base(ARMORS[t],t)
-    part(33,27,12,4,0x5d4037, depth=2.6, y=-1.5)         # stock
-    part(42,20,3,18,0x6d4c41, depth=2.6, y=-1.8)         # bow arms
-    part(45,21,1,16,0xeeeeee, depth=2.8, y=-2.2, outline=False)  # string
-    part(38,28,12,2,0xb0bec5, depth=2.8, y=-2.0)         # loaded bolt
+    part(33,27+FB,12,4,0x5d4037, depth=2.6, y=-1.5)      # stock
+    part(42,20+FB,3,18,0x6d4c41, depth=2.6, y=-1.8)      # bow arms
+    part(45,21+FB,1,16,0xeeeeee, depth=2.8, y=-2.2, outline=False)  # string
+    part(38,28+FB,12,2,0xb0bec5, depth=2.8, y=-2.0)      # loaded bolt
 
 # ------------------------------------------------------------------- MONSTERS
 def m_ork():
@@ -290,7 +309,7 @@ def render(name):
             t=int(base[:-1]); reset(58); build_herox(t); w=58
         else:
             t=int(base); reset(60+t*3); build_hero(t); w=60+t*3
-        fname = name + ".png"
+        fname = render_frame(name) + ".png"
     elif name.endswith('_boss'):
         mtype = name[:-5]
         reset(40); BOSSES[mtype](); fname = "en_" + name + ".png"; w=40
@@ -316,7 +335,17 @@ def main():
     argv=sys.argv; args=argv[argv.index("--")+1:] if "--" in argv else []
     todo = args if args else all_names()
     os.makedirs(ASSETS, exist_ok=True)
-    for n in todo: render(n)
+    for n in todo:
+        set_frame(False)
+        render(n)
+        # frame B for the hero only. The monsters stand in a row behind the
+        # battle strip and read as a crowd; the hero is the figure the player
+        # actually watches, and 12 more PNGs is 12 more things to keep in sync
+        # for a second row of movement nobody is looking at.
+        if n.startswith('hero'):
+            set_frame(True)
+            render(n)
+            set_frame(False)
     print("ALL_DONE")
 
 main()

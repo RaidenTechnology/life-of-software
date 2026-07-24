@@ -354,6 +354,7 @@ class Battle {
     this.hero = scene.add.image(this.heroX, this.restY, 'hero0').setScale(this.charScale);
     // idle bob runs forever on y; dashes animate x only, so they don't conflict
     scene.tweens.add({ targets: this.hero, y: this.bobY, duration: 700, yoyo: true, repeat: -1 });
+    this.startIdleAnim();
     this.heroDash = null;
     this.enemies = [];
     this.fill(true);
@@ -672,7 +673,27 @@ class Battle {
   }
 
   applyHeroTexture() {
-    this.hero.setTexture('hero' + this.tier + (this.ranged ? 'x' : ''));
+    const key = 'hero' + this.tier + (this.ranged ? 'x' : '') + (this.idleB ? '_b' : '');
+    // frame B is a separate render (blender/gen_chars.py, FB): if it somehow
+    // failed to load, fall back to A rather than showing Phaser's green box.
+    this.hero.setTexture(this.scene.textures.exists(key)
+      ? key : 'hero' + this.tier + (this.ranged ? 'x' : ''));
+  }
+
+  // Two-frame idle at ~4fps. The y-tween below already floats the sprite, but a
+  // tween slides one rigid picture around — the second frame changes the picture
+  // (head and arms settle a pixel, the sword follows the hand), which is the
+  // difference between a render sitting on screen and a character standing
+  // there. Driven off a scene timer rather than update() so it keeps its own
+  // slow beat, and pauses with the scene clock like everything else.
+  startIdleAnim() {
+    this.idleB = false;
+    this.scene.time.addEvent({
+      delay: 260, loop: true, callback: () => {
+        this.idleB = !this.idleB;
+        this.applyHeroTexture();
+      }
+    });
   }
 
   setTier(t) {
