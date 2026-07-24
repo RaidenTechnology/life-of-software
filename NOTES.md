@@ -2040,3 +2040,54 @@ is off the frame — the last obvious "died to something I couldn't act on" case
 closed. One thing to eyeball on a real playthrough: confirm a blur triggered by an
 in-page focus shift (there are no focusable HTML inputs over the canvas today, so
 this should never mis-fire) doesn't pause unexpectedly.
+
+## Auto-dev log - 20260724-review pass 11
+
+Re-read the whole game end to end (index.html, all ten JS files, languages.js,
+README, this NOTES history) and re-ran `node --check` on every file — clean. As
+in the last several passes the flagged state machines re-traced clean: pause ↔
+menu ↔ festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/HUD/
+credits gates + the three-band recolor, the terminal-'off' PERFECT logic, the
+p→STAGE·language checkpoint decode on both End sites, the daily seed/PB split, the
+bag-full purchase block, the music pause/resume, the keyboard bag/shop routes, the
+gated `shakeCam` wrapper, the blur auto-pause guards, and the "missing PNG →
+code-drawn/degraded" fallbacks. **No fresh logic bug surfaced and — per this
+project's discipline — none was invented.** After ~30 passes the defect surface is
+mined out; the balance items (festival low-time, grade/amber thresholds) stay
+parked as playtest calls, not code guesses. So this pass shipped one small,
+self-contained *feel* win. One code commit + this log.
+
+**Feel — combo-scaled correct-word burst (a hot streak hits harder on the field)**
+
+The COMBO score-multiplier tier (×2 at 5, ×3 at 15) recolored the top-right
+readout and did a springy milestone pop, but the actual play field — the green
+particle burst that fires on every landed word — looked *identical* on a 2-streak
+and a 20-streak. The streak's growing power lived only in a number. Scaled the
+burst in `celebrate()` (the one shared correct-word feedback path) by the live
+tier: **14 → 22 → 30** particles and a **green → lime → gold** tint, where the ×3
+gold is the same IDE-orange the ×3 readout and the NEW-RECORD/UNIQUE cues already
+use — so "your combo is paying off" reads in one consistent colour language across
+the HUD and the field. Why it's safe: `celebrate()` runs *after* the `combo++` in
+every scoring path (normal, boss, festival, growth-festival), so `comboMult()` is
+current; `setParticleTint` re-sets the **existing** shared burst emitter on each
+pop (a cheap transform, no new GameObjects, every explode leaves it in a known
+tint) so there's nothing to leak; and a wrong word resets combo to 0 without
+calling `celebrate()`, so the very next correct word pops back to tier-1 green —
+the burst can never get stuck hot. Zero balance impact: particle count/tint is
+pure juice, no scoring/time/credit path touched. `node --check` passes on the one
+touched file (GameScene.js).
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance
+and the grade/amber thresholds remain deliberate-but-untuned playtest calls (a real
+play session, not a code guess). The itch presentation captures (language road / a
+festival / the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the
+green gain pulse / the survived stat + amber band / the how-to-play panel / the
+keyboard-operable bag with numbered shop cards / the accessibility settings row /
+now the tiered combo burst) plus the README's final checklist item (name + cover +
+screenshots) remain the top non-code work. The one during-play action still
+mouse-only is buying a HINT: every printable key collides with word input (even
+`?`/`!`/`.`/`=` begin real patterns like `??`/`!==`/`=>`) and only the
+non-printable keys are free, so a keyboard HINT route has no *intuitive* key — it
+stays parked rather than bound to an arbitrary arrow/function key. The festival
+credit popup still prints the flat `+15 credits` under a live sword multiplier (a
+design call — the effect readout shows the ×N).
