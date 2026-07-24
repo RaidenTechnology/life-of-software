@@ -282,11 +282,17 @@ class GameScene extends Phaser.Scene {
     const pTitle = this.add.text(cx, pcy - 18, 'PAUSED', {
       fontFamily: 'monospace', fontSize: '46px', color: IDE.white, fontStyle: 'bold'
     }).setOrigin(0.5);
-    const pHint = this.add.text(cx, pcy + 40,
+    // this run's stats so far — populated in togglePause() each time you pause, so
+    // a mid-run breather doubles as a scoreboard (score/wpm/accuracy/best combo)
+    // without leaving the field or reaching the End screen.
+    this.pauseStats = this.add.text(cx, pcy + 12, '', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
+    }).setOrigin(0.5);
+    const pHint = this.add.text(cx, pcy + 44,
       'ESC to resume   ·   Q to quit to the menu', {
         fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
       }).setOrigin(0.5);
-    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, pHint].filter(Boolean))
+    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, this.pauseStats, pHint].filter(Boolean))
       .setDepth(50).setVisible(false);
 
     // silent low-time warning: a red edge frame that intensifies as the clock
@@ -1452,6 +1458,16 @@ class GameScene extends Phaser.Scene {
   togglePause() {
     if (this.over || this.transitioning || this.menuOpen) return;
     this.paused = !this.paused;
+    if (this.paused) {
+      // snapshot this run's stats onto the overlay (same 15s-floor wpm divisor and
+      // accuracy formula the End screen uses, so the pause board and the final
+      // report always agree).
+      const wpm = this.wordsTyped > 0
+        ? Math.round(this.wordsTyped / Math.max(this.elapsed / 60, 15 / 60)) : 0;
+      const acc = this.submitsTotal ? Math.round(100 * this.submitsOk / this.submitsTotal) : 100;
+      this.pauseStats.setText('SCORE ' + this.runScore + ' · ' + wpm + ' wpm · ' +
+        acc + '% acc · best combo ' + this.maxCombo);
+    }
     this.pauseUI.setVisible(this.paused);
     this.time.paused = this.paused;
     this.tweens.timeScale = this.paused ? 0 : 1;
