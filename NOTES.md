@@ -1099,3 +1099,65 @@ Three focused commits + this log, all one cohesive theme (keyboard nav).
 - Presentation polish (an itch capture of the language road / a festival / the
   PERFECT-LEVEL banner) is still the highest-value non-code work left, plus the
   README's final checklist item (name + cover + screenshots on the itch page).
+
+## Auto-dev log - 20260724-1611 pass 1
+
+Twelfth active-development pass on Opus 4.8. Re-read all 10 source files (all
+pass `node --check`) plus the full NOTES history. Rather than declare bugs
+exhausted again, I traced the newest untested code path — the pass-1558
+quit-to-menu-from-pause feature — through Phaser 3.90's actual scene-restart
+semantics (read straight from lib/phaser.min.js) and found a real soft-lock the
+last pass's music-only reasoning missed. Fixed it, then shipped the exact
+best-combo HUD leftover and one combo-feel quality nit. Three code commits +
+this log, all one theme (the combo readout + the pause-exit path).
+
+**Bug fixed (1) — confirmed against the Phaser source, not guessed**
+
+1. **Quit-to-menu from a paused run soft-locked the *next* run's timers.**
+   `togglePause()` sets `this.time.paused = true`. Phaser reuses the scene's
+   `Clock` across `scene.start` restarts, and — verified in phaser.min.js —
+   `Clock.start()` (which fires on every restart) re-registers its PRE_UPDATE/
+   UPDATE listeners but **never clears `paused`**; only the constructor does, on
+   first boot. So `quitToMenu()`'s `scene.start('Menu')`, run while paused, left
+   the reused GameScene clock paused on the following run. `update()` still
+   drains `timeLeft` (delta-based), but every `this.time.delayedCall` stayed
+   frozen: `battle.ulti`'s level-up completion callback never fires →
+   `transitioning` sticks true → **hard soft-lock at the very first level-up**;
+   plus the hint auto-clear and panel flash/shake resets. Fix: clear
+   `this.time.paused` (and `this.tweens.timeScale`, for symmetry) in
+   `quitToMenu()` before leaving. Note for future passes: `TweenManager.start()`
+   *does* reset `timeScale`/`paused`, so tweens were never the problem — the
+   asymmetry between the two managers is exactly what made this easy to miss.
+
+**Feature shipped (1)**
+
+2. **Live BEST COMBO readout on the HUD** (the standing pass-1558 leftover). A
+   persistent `BEST COMBO N` line under the current-combo readout (top-right).
+   Driven from `refreshCombo` right after `maxCombo` is bumped, self-gated on
+   change so it never re-rasters on unchanged words. Survives level-ups, bosses
+   and festivals, unlike `comboText`, which blanks whenever the live combo drops
+   below 2 — so your record stays visible even after a break.
+
+**Quality (1)**
+
+3. **A wrong word that breaks a real streak (>=5) now says so.** Dropping a big
+   combo was silent — identical red "not a pattern" line for a 2-streak or a
+   20-streak. Appended `— combo ×N lost!` to the existing feedback when the
+   broken combo was >=5 (the first score-multiplier tier), in both the normal
+   and growth-festival wrong-word paths. One already-red message, no new
+   objects; pure feedback (the combo already reset to 0 on any wrong word).
+
+**Leftover for next passes**
+
+- Festival low-time balance is still the standing deliberate-but-untuned
+  playtest call — unchanged, still needs a play session not a guess.
+- The other half of the pass-1558 combo idea — a small on-HUD *combo timer* —
+  remains unbuilt on purpose: making combos decay on time is a real balance
+  change (a playtest call), not a free feel win, so it stays parked with the
+  festival tuning until someone can play it.
+- Keyboard shortcuts for the in-run BAG/SHOP are tempting (the rest of the game
+  is keyboard-first) but every plain letter collides with word input; only Tab
+  is free, and wiring it needs `addCapture` + iframe-focus care — worth a
+  dedicated pass, not a drive-by.
+- Presentation polish (itch captures of the road / a festival / the PERFECT
+  banner) + the README's final checklist item remain the top non-code work.
