@@ -1962,7 +1962,7 @@ class GameScene extends Phaser.Scene {
       this.warnFrame.setAlpha(intensity * 0.55 * pulse);
       if (s !== this.lastTickSecond) {
         this.lastTickSecond = s;
-        Sfx.tick();
+        Sfx.tick(s);   // pitch rises as the count nears zero (see Sfx.tick)
       }
     }
   }

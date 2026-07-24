@@ -140,7 +140,13 @@ const Sfx = {
   type()   { this.tone(880, 0.03, 'square', 0.05); },
   back()   { this.tone(300, 0.03, 'square', 0.045); },
   wrong()  { this.tone(160, 0.15, 'sawtooth', 0.15, 80); },
-  tick()   { this.tone(990, 0.05, 'square', 0.08); },
+  // Low-time tick. Pass the whole seconds left (0..10) and the pitch climbs as the
+  // clock tightens — a rising countdown beep is the classic "Count Down" tension
+  // cue, and it's the theme of the whole game. No arg → the old flat 990Hz.
+  tick(sec) {
+    const f = sec == null ? 990 : 900 + (10 - Math.max(0, Math.min(10, sec))) * 45;
+    this.tone(f, 0.05, 'square', 0.08);
+  },
   hint()   { this.tone(523, 0.08, 'sine', 0.12, 1046); },
   win()    {
     this.tone(523, 0.1);
