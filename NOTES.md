@@ -2225,3 +2225,69 @@ the one during-play action without a keyboard route (every printable key collide
 word input — parked, not forgotten). The festival credit popup still prints the flat
 `+15 credits` under a live sword multiplier (a design call — the effect readout shows
 the ×N).
+
+## Auto-dev log - 20260724-review pass 14
+
+Re-read the whole game end to end (index.html, all ten JS files, languages.js, README,
+this NOTES history) and re-ran `node --check` on every file — clean. As in recent passes
+the flagged state machines re-traced clean: pause ↔ menu ↔ festival ↔ boss ↔ death, the
+strike-flag self-heal (battle.js `enemyStrike`), the once/sec timer/HUD/credits gates +
+the three-band recolor, the blur↔menu pause interaction fixed last pass, the terminal-
+'off' PERFECT logic, the p→STAGE·language checkpoint decode on both End sites, the daily
+seed/PB split, the bag-full purchase block (mouse + keyboard `buyStock` guards), the
+music pause/resume, the keyboard bag/shop routes + column-wrap math, the gated `shakeCam`,
+the pooled `burstFx`/`floatText`/`deathFx` emitters, and the "missing PNG →
+code-drawn/degraded" fallbacks (BootScene sprites, `applySceneBg`, `spawnBoss`, the menu
+splash/title/pause panels). I also re-verified the boss-HP-vs-pool starve math (max boss
+HP 27 at Survival vs smallest pool Lua 38 — safe) and the accuracy bookkeeping (empty
+submits and genuine duplicates both correctly excluded). **No fresh logic bug surfaced
+and — per this project's discipline — none was invented.** After ~32 passes the defect
+surface is mined out; the balance items (festival low-time, grade/amber thresholds) stay
+parked as playtest calls. So this pass shipped one small, self-contained feature that
+also carried a genuine code-quality consolidation. One code commit + this log.
+
+**Feature — TIME BOUGHT: the seconds your play clawed back from the countdown**
+
+A game literally themed on a countdown never reported the single most on-theme number it
+owns: how much time your typing added *back* to the clock. The End screen headlined
+`survived M:SS` (active play elapsed) but nothing showed the flip side — the seconds you
+earned racing it. Added a `this.timeBought` run tally, surfaced on the End screen's stat
+line as `bought back M:SS`, paired with `survived`: together they tell the run's whole
+story (e.g. clawed back 5:12 but the clock still caught you at 3:24 of active play,
+because you also spent time on hints/shopping and simply out-typed for a while). It's
+optional on the EndScene read (`data.bought || 0`), so older callers just show 0 — no
+migration. Scope kept honest: End-screen only. I deliberately did **not** add it to the
+pause board (pass 13 balanced that 2-line block against the 46px PAUSED title and the
+Blender pause-panel art of unknown width; a fourth item on line 2 is an avoidable layout
+risk), and left the share string untouched (it already auto-shrinks its font to fit — no
+need to lengthen it for everyone).
+
+**Quality — one `addTime()` source of truth for clock increments**
+
+The feature is powered by a small refactor that stands on its own: every EARNED time
+increment — per-word in normal / boss / festival / growth-festival play, potion use, the
+level-up bonus + perfect-clear bonus, and the boss-entry `+10` — was a scattered
+`this.timeLeft += X`. All eight now route through `addTime(sec)`, which adds to the clock
+AND to `timeBought` in one place, so future time-gain logic (and the tally) can never
+drift out of sync across call sites. The three rescue *sets* are deliberately left as
+direct assignments and excluded from the tally: the boss-win floor (`BOSS_WIN_TIME`),
+the festival-start floor (`FESTIVAL_MIN_TIME`) and the armor death-save are safety nets,
+not time you earned — counting them would inflate the stat with rescues. Verified by grep
+that the only surviving `timeLeft +=` is inside `addTime` itself; the init/floor/save/
+death `timeLeft =` sets are untouched. `pulseTimer`/`flashGain` juice still fire from
+their own call sites, so game-feel is unchanged. `node --check` clean on both touched
+files (GameScene.js, EndScene.js).
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance and
+the grade/amber thresholds remain deliberate-but-untuned playtest calls (a real play
+session, not a code guess). The itch presentation captures (language road / a festival /
+the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the green gain pulse /
+the survived + now bought-back stats / the how-to-play panel / the keyboard-operable bag /
+the accessibility settings row / the tiered combo burst + next-tier teaser / the menu
+survival stat / the enriched pause dashboard) plus the README's final checklist item
+(name + cover + screenshots) remain the top non-code work. If a future pass wants
+TIME BOUGHT on the pause board too, restructure that block first (its width budget against
+the pause-panel art is the constraint, not the stat). HINT is still the one during-play
+action without a keyboard route (every printable key collides with word input — parked).
+The festival credit popup still prints the flat `+15 credits` under a live sword
+multiplier (a design call — the effect readout shows the ×N).
