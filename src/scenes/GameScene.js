@@ -1081,7 +1081,7 @@ class GameScene extends Phaser.Scene {
       type, pool, badges, prompt, clock, container: c,
       lang: null, word: null, used: new Set(),
       usedByLang: new Map(pool.map(l => [l.name, new Set()])),
-      timeLeft: FESTIVAL_TIME, count: 0
+      timeLeft: FESTIVAL_TIME, count: 0, clockSec: -1
     };
 
     this.battle.setVisible(false);
@@ -1406,8 +1406,14 @@ class GameScene extends Phaser.Scene {
     if (this.festival) {
       this.festival.timeLeft -= delta / 1000;
       if (this.festival.timeLeft <= 0) { this.endFestival(); return; }
-      this.festival.clock.setText('⏱ clock runs — festival ends in ' +
-        Math.ceil(this.festival.timeLeft) + 's');
+      // Text.setText re-rasters the glyph texture on every call, but the shown
+      // integer only steps once per second — so skip the ~59/60 frames where the
+      // ceil second is unchanged (same gate the big timer / in-menu clock use).
+      const fs = Math.ceil(this.festival.timeLeft);
+      if (fs !== this.festival.clockSec) {
+        this.festival.clockSec = fs;
+        this.festival.clock.setText('⏱ clock runs — festival ends in ' + fs + 's');
+      }
     }
 
     // every few seconds the front monster lands a (non-lethal) hit — but hold
