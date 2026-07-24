@@ -1291,7 +1291,12 @@ class GameScene extends Phaser.Scene {
     if (low !== this._timerLow) {
       this._timerLow = low;
       this.timerText.setColor(low ? IDE.error : IDE.text);
-      if (!low) { this.timerText.setScale(1); this.warnFrame.setAlpha(0); }
+      // Leaving the low zone (level-up / boss / potion refilled the clock) also
+      // clears the tick memory: otherwise, if the last tick before the refill
+      // fired at s=10 and the clock drains back to exactly 10, s === lastTickSecond
+      // and that re-entry second's tick is silently swallowed. Reset so the first
+      // second back under 10 always ticks.
+      if (!low) { this.timerText.setScale(1); this.warnFrame.setAlpha(0); this.lastTickSecond = -1; }
     }
     if (low) {
       this.timerText.setScale(1 + (this.timeLeft % 1) * 0.15);
