@@ -148,7 +148,7 @@ class GameScene extends Phaser.Scene {
     this.applySceneBg(Battle.TYPES[0]);
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
-    status.left.setText('type + ENTER · TAB bag · ESC pause · HINT = ' + HINT_COST +
+    status.left.setText('type + ENTER · TAB bag/shop · ESC pause · HINT = ' + HINT_COST +
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     // keep the right status handle + its base label: update() appends a live
     // WPM readout to it once per second (a typing game should show your speed).
@@ -384,12 +384,13 @@ class GameScene extends Phaser.Scene {
 
   onKey(e) {
     if (this.over || this.dying) return;
-    // TAB toggles the BAG mid-run. This is a keyboard game and every plain letter
-    // collides with word input, so Tab — captured in create() so it can't shift
-    // focus out of the itch iframe — is the one free key. toggleMenu() self-guards
-    // (paused/transition/festival) and closes the bag if it's already open, and
-    // from the shop it swaps straight to the bag.
-    if (e.key === 'Tab') { this.toggleMenu('bag'); return; }
+    // TAB cycles the in-run panels: closed → BAG → SHOP → closed. This is a
+    // keyboard game and every plain letter collides with word input, so Tab —
+    // captured in create() so it can't shift focus out of the itch iframe — is the
+    // one free key. Cycling through it (rather than toggling the bag only) is what
+    // finally gives the SHOP a keyboard route, the standing "in-run SHOP access"
+    // leftover; the mouse [BAG]/[SHOP] buttons still open each panel directly.
+    if (e.key === 'Tab') { this.cycleMenu(); return; }
     if (this.menuOpen) {
       if (e.key === 'Escape') this.closeMenu();
       return;
@@ -683,6 +684,17 @@ class GameScene extends Phaser.Scene {
     if (this.menuOpen === which) return this.closeMenu();
     this.closeMenu();
     if (which === 'bag') this.openBag(-1); else this.openShop();
+  }
+
+  // TAB's panel cycle: closed → BAG → SHOP → closed. Shares toggleMenu's guards
+  // (no-op while over/dying/transitioning/paused/in a festival) so the keyboard
+  // route inherits every safety the mouse buttons have.
+  cycleMenu() {
+    if (this.over || this.dying || this.transitioning || this.paused || this.festival) return;
+    const next = this.menuOpen === 'bag' ? 'shop' : this.menuOpen === 'shop' ? null : 'bag';
+    this.closeMenu();
+    if (next === 'bag') this.openBag(-1);
+    else if (next === 'shop') this.openShop();
   }
 
   closeMenu() {
