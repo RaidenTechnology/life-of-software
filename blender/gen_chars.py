@@ -122,6 +122,7 @@ def hero_base(armor, t):
     stack(12,38,7,[(5,shade(armor,0.65)),(5,0x37474f),(3,0x14181c)], 3.2)  # thigh/shin/boot
     stack(23,38,7,[(5,shade(armor,0.65)),(5,0x37474f),(3,0x14181c)], 3.2)
     part(9,22,24,18,armor, depth=4.6)                    # torso
+    part(17,24,8,6,shade(armor,1.4), depth=4.65, y=-2.4, outline=False)  # chest emblem accent
     part(9,36,24,4,0x5d4037, depth=4.75)                 # belt (forward, avoids z-fight)
     part(19,36,4,4,0xc9a227, depth=4.9)                  # buckle
     stack(3,23,6,[(3,shade(armor,1.15)),(5,armor),(5,shade(armor,0.8)),(2,SKIN)], 3.4)  # pauldron/arm/forearm/hand
@@ -156,13 +157,14 @@ def m_ork():
     stack(10,38,7,[(4,shade(0x2e4d1e,1.1)),(4,0x14181c)], 3.4)
     stack(23,38,7,[(4,shade(0x2e4d1e,1.1)),(4,0x14181c)], 3.4)
     part(6,20,28,20,0x5d8a3c, depth=4.6)                 # body
-    stack(3,20,6,[(4,shade(0x4a7030,1.15)),(10,0x4a7030)], 3.0)   # left arm
-    stack(31,20,6,[(4,shade(0x4a7030,1.15)),(10,0x4a7030)], 3.0)  # right arm
+    stack(0,20,6,[(4,shade(0x4a7030,1.15)),(10,0x4a7030)], 3.0)   # left arm — flush with body, 0px overlap
+    stack(34,20,6,[(4,shade(0x4a7030,1.15)),(10,0x4a7030)], 3.0)  # right arm — flush with body, 0px overlap
     part(11,6,18,15,0x7cb342, depth=4.4)                 # head
     part(15,10,3,3,0xffee58, depth=4.7, y=-2.0, outline=False)
     part(23,10,3,3,0xffee58, depth=4.7, y=-2.0, outline=False)
     part(13,15,3,5,0xffffff, depth=4.6, y=-2.2, outline=False)  # tusks
     part(24,15,3,5,0xffffff, depth=4.6, y=-2.2, outline=False)
+    part(10,26,20,3,shade(0x5d8a3c,1.5), depth=4.65, y=-2.4, outline=False)  # chest strap accent (pulled forward, no overlap risk)
     part(0,30,5,20,0x4e342e, depth=2.6, y=-2.0)          # club
 
 def m_skeleton():
@@ -182,10 +184,11 @@ def m_elf():
     stack(22,38,6,[(6,shade(0x14532d,1.1)),(4,0x8d6e63)], 3.6)
     part(10,22,20,18,0x1f7a45, depth=4.4)                 # tunic
     part(10,36,20,3,0x8d6e63, depth=4.55)                 # belt
-    stack(8,23,5,[(3,shade(0x1f7a45,1.15)),(12,0x1f7a45)], 3.0)
-    stack(27,23,5,[(3,shade(0x1f7a45,1.15)),(12,0x1f7a45)], 3.0)
+    stack(5,23,5,[(3,shade(0x1f7a45,1.15)),(12,0x1f7a45)], 3.0)   # left arm — flush, 0px overlap
+    stack(30,23,5,[(3,shade(0x1f7a45,1.15)),(12,0x1f7a45)], 3.0)  # right arm — flush, 0px overlap
     part(13,7,15,12,0xffe0b2, depth=4.0)                  # head
     part(12,3,17,5,0xd9c04a, depth=4.2)                   # circlet
+    part(12,26,16,2,shade(0x1f7a45,1.5), depth=4.45, y=-2.4, outline=False)  # sash accent (pulled forward)
     part(16,11,2,2,0x1b5e20, depth=4.3, y=-2.0, outline=False)
     part(22,11,2,2,0x1b5e20, depth=4.3, y=-2.0, outline=False)
     part(2,12,3,28,0x6d4c41, depth=2.4, y=-2.0)           # bow
