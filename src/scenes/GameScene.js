@@ -133,9 +133,13 @@ class GameScene extends Phaser.Scene {
     const cx = this.scale.width / 2;
 
     // full-screen Blender atmosphere behind everything, swapped per stage in
-    // refreshLangHud(). Dark + themed so HUD/editor stay readable.
-    this.sceneBg = this.add.image(cx, this.scale.height / 2,
-      'scene_' + Battle.TYPES[0]).setDepth(-1000);
+    // refreshLangHud(). Dark + themed so HUD/editor stay readable. Start on a
+    // guaranteed-present texture and route every swap through applySceneBg so a
+    // missing PNG (flaky itch CDN / cache miss) degrades to the plain dark editor
+    // background instead of Phaser's green __MISSING fill — the same graceful
+    // degradation every other sprite gets (see Battle.spawnBoss).
+    this.sceneBg = this.add.image(cx, this.scale.height / 2, 'pixel').setDepth(-1000);
+    this.applySceneBg(Battle.TYPES[0]);
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
@@ -262,7 +266,9 @@ class GameScene extends Phaser.Scene {
     // over a dim, with PAUSED + resume hint drawn on top. Toggled in togglePause().
     const pcy = this.scale.height / 2;
     const pDim = this.add.rectangle(cx, pcy, this.scale.width, this.scale.height, 0x0a0a0f, 0.66);
-    const pPanel = this.add.image(cx, pcy, 'pause_panel');
+    // guard the Blender window PNG: if it failed to load, drop it and let the dim
+    // + PAUSED text carry the overlay rather than showing a green __MISSING box.
+    const pPanel = this.textures.exists('pause_panel') ? this.add.image(cx, pcy, 'pause_panel') : null;
     const pTitle = this.add.text(cx, pcy - 18, 'PAUSED', {
       fontFamily: 'monospace', fontSize: '46px', color: IDE.white, fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -270,7 +276,7 @@ class GameScene extends Phaser.Scene {
       'ESC to resume   ·   Q to quit to the menu', {
         fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
       }).setOrigin(0.5);
-    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, pHint])
+    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, pHint].filter(Boolean))
       .setDepth(50).setVisible(false);
 
     // silent low-time warning: a red edge frame that intensifies as the clock
@@ -1239,6 +1245,18 @@ class GameScene extends Phaser.Scene {
     this.cursor.x = this.inputText.x + this.inputText.width + 4;
   }
 
+  // Point the full-screen backdrop at this stage's scene_ PNG, but never render
+  // Phaser's green __MISSING texture if that PNG failed to load: hide the layer
+  // and let the dark editor background (config backgroundColor) show through.
+  // Battle.makeTextures code-draws the battle-strip bg_ textures as a fallback,
+  // but the full-screen scene_ atmosphere has none — so guard it at point of use.
+  applySceneBg(type) {
+    if (!this.sceneBg) return;
+    const key = 'scene_' + type;
+    if (this.textures.exists(key)) this.sceneBg.setTexture(key).setVisible(true);
+    else this.sceneBg.setVisible(false);
+  }
+
   refreshLangHud() {
     Sfx.setMusicTempo(94 + this.stageIndex * 8 + this.survivalLap * 4);
     if (this.bossMode) {
@@ -1272,7 +1290,7 @@ class GameScene extends Phaser.Scene {
       if (tier !== this._hudTier) { this.battle.setTier(tier); this._hudTier = tier; }
       if (this.stageIndex !== this._hudStage) {
         this.battle.setStage(this.stageIndex);
-        if (this.sceneBg) this.sceneBg.setTexture('scene_' + Battle.TYPES[this.stageIndex]);
+        this.applySceneBg(Battle.TYPES[this.stageIndex]);
         this._hudStage = this.stageIndex;
       }
     }

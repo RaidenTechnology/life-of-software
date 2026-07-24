@@ -23,8 +23,10 @@ class MenuScene extends Phaser.Scene {
     }
 
     // Blender key-art splash behind everything (hero facing the monster horde
-    // at dusk), with a dark scrim so the title/menu text stays readable.
-    this.add.image(cx, cy, 'menu_splash').setDepth(-100);
+    // at dusk), with a dark scrim so the title/menu text stays readable. Guard
+    // the PNG: if it failed to load, skip it so the scrim + dark bg show through
+    // instead of Phaser's green __MISSING fill.
+    if (this.textures.exists('menu_splash')) this.add.image(cx, cy, 'menu_splash').setDepth(-100);
     this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x0a0812, 0.42)
       .setDepth(-99);
 
