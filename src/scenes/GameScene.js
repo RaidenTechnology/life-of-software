@@ -316,6 +316,20 @@ class GameScene extends Phaser.Scene {
       this.scale.width, this.scale.height, 0xff2233, 0)
       .setStrokeStyle(64, 0xff2233).setDepth(8).setAlpha(0);
 
+    // the positive counterpart to warnFrame: a green edge pulse fired by
+    // flashGain() the moment a BIG chunk of time is bought back on the LIVE field
+    // (level-up, potion, armor death-save) — the "Count Down" theme's relief
+    // beat, symmetric to the red tension frame. One-shot alpha tween, so it costs
+    // nothing when idle. Sits just UNDER warnFrame (depth 7) so if a gain lands
+    // while still in the red zone the red border stays on top and the green reads
+    // as "escaping" it. Per-word +1.5s/+2s gains are too small and frequent to
+    // flash (they already have the timer pulse + floating readout); the boss-win
+    // cushion is skipped too — it plays under the full-screen stage overlay, so a
+    // depth-7 pulse there would never be seen.
+    this.gainFrame = this.add.rectangle(cx, this.scale.height / 2,
+      this.scale.width, this.scale.height, 0x4caf50, 0)
+      .setStrokeStyle(64, 0x4caf50).setDepth(7).setAlpha(0);
+
     // reusable ring of floating "+N / +Ns" popups. floatText() fires on every
     // landed word — the fastest UI churn in the game — and used to add + destroy
     // a Text each time. Preallocate a small pool and recycle round-robin instead;
@@ -611,6 +625,18 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.timerText, scale: 1, duration: 180, ease: 'Quad.easeOut' });
   }
 
+  // Green edge pulse for a big clock refill — the relief beat that mirrors the
+  // red low-time warnFrame. One-shot: pop to a modest alpha, fade back to 0.
+  // killTweensOf first so a second gain (potion right after a level-up) restarts
+  // the pulse cleanly instead of stacking fades that cut it short — the same
+  // one-tween-at-a-time discipline the feedback/shake/hint paths use.
+  flashGain() {
+    if (this.over || this.dying) return;
+    this.tweens.killTweensOf(this.gainFrame);
+    this.gainFrame.setAlpha(0.45);
+    this.tweens.add({ targets: this.gainFrame, alpha: 0, duration: 520, ease: 'Quad.easeOut' });
+  }
+
   celebrate() {
     this.hintText.setText('');
     this.flashPanel(IDE.greenHex);
@@ -741,6 +767,7 @@ class GameScene extends Phaser.Scene {
       this.deathSave = Math.max(this.deathSave, T.save[r]);
     } else if (T.key === 'potion') {
       this.timeLeft += T.time[r];
+      this.flashGain();   // a potion is the biggest single refill (+10..60s)
     } else if (T.key === 'scroll') {
       this.hintTokens += T.hints[r];
     } else if (T.key === 'treasure') {
@@ -1003,6 +1030,7 @@ class GameScene extends Phaser.Scene {
       this.gainCredits(PERFECT_CREDIT);
       this.refreshCredits();
     }
+    this.flashGain();   // clearing a level bought back +10s (+5s perfect) — pulse green
     this.strikeTimer = 0;
     this.cameras.main.shake(250, 0.006);
     Sfx.win();
@@ -1656,6 +1684,7 @@ class GameScene extends Phaser.Scene {
         this.refreshCredits();
         this.feedback('your ARMOR saved you! +' + Math.ceil(this.timeLeft) + 's', '#dcdcaa');
         this.flashPanel(0xdcdcaa);
+        this.flashGain();   // snatched back from 0 — the biggest relief beat of all
         Sfx.win();
         return;
       }
