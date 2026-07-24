@@ -106,6 +106,7 @@ class GameScene extends Phaser.Scene {
     this.menuOpen = null;
     this.menuC = null;
     this.menuClock = null;
+    this.menuClockBar = null;
 
     const cx = this.scale.width / 2;
 
@@ -573,6 +574,7 @@ class GameScene extends Phaser.Scene {
     if (this.menuC) this.menuC.destroy();
     this.menuC = null;
     this.menuClock = null;
+    this.menuClockBar = null;
     this.menuOpen = null;
   }
 
@@ -606,6 +608,16 @@ class GameScene extends Phaser.Scene {
         color: mcs <= 10 ? IDE.error : '#dcdcaa', fontStyle: 'bold'
       }).setOrigin(0, 0.5);
     c.add(this.menuClock);
+    // a thin draining bar under the text — reads the clock's fall at a glance
+    // while shopping, without having to parse the number. Full width ≈ a fresh
+    // START_TIME clock; update() shrinks it per frame and recolors it sub-10s.
+    const barW = 150;
+    c.add(this.add.rectangle(cx - 340, cy - 180, barW, 5, IDE.border).setOrigin(0, 0.5));
+    this.menuClockBar = this.add.rectangle(cx - 340, cy - 180,
+      barW * Phaser.Math.Clamp(this.timeLeft / START_TIME, 0, 1), 5,
+      mcs <= 10 ? 0xf44747 : 0xdcdcaa).setOrigin(0, 0.5);
+    this.menuClockBar._fullW = barW;
+    c.add(this.menuClockBar);
     this.menuC = c;
     return c;
   }
@@ -1282,7 +1294,15 @@ class GameScene extends Phaser.Scene {
       if (inMenu && this.menuClock) {
         this.menuClock.setText('⏱ CLOCK RUNNING · ' + s + 's')
           .setColor(s <= 10 ? IDE.error : '#dcdcaa');
+        // recolor the bar with the text (once/sec) — rect fillColor, no re-raster
+        if (this.menuClockBar) this.menuClockBar.fillColor = s <= 10 ? 0xf44747 : 0xdcdcaa;
       }
+    }
+    // shrink the in-menu clock bar every frame (transform only — cheap) so the
+    // drain reads smoothly, even though the text number only steps once a second.
+    if (inMenu && this.menuClockBar) {
+      this.menuClockBar.width = this.menuClockBar._fullW *
+        Phaser.Math.Clamp(this.timeLeft / START_TIME, 0, 1);
     }
     // Phaser's Text.setColor re-renders the glyph texture on every call, even
     // when the color is unchanged — so recolor the big timer only when it
