@@ -8,6 +8,9 @@
 import bpy, sys, os, math
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)   # blender --python doesn't add the script's folder
+import pixelart
 ASSETS = os.path.normpath(os.path.join(HERE, "..", "assets"))
 S = 0.1
 PX = 22
@@ -107,16 +110,11 @@ def i_treasure():
 ITEMS = {'sword':i_sword,'armor':i_armor,'potion':i_potion,'scroll':i_scroll,'treasure':i_treasure}
 
 def downscale(src, dst, w, h):
-    import numpy as np
-    img = bpy.data.images.load(src)
-    W2, H2 = img.size
-    px = np.array(img.pixels[:]).reshape(H2, W2, 4)
-    fy, fx = H2 // h, W2 // w
-    px = px.reshape(h, fy, w, fx, 4).mean(axis=(1, 3))
-    out = bpy.data.images.new("o", width=w, height=h, alpha=True)
-    out.pixels = px.reshape(-1).tolist()
-    out.filepath_raw = dst; out.file_format = 'PNG'; out.save()
-    bpy.data.images.remove(img); bpy.data.images.remove(out)
+    # Premultiplied downscale + hard alpha (see blender/pixelart.py). No colour
+    # quantising and no post outline: both were tried and measured against these
+    # very icons, and both made them worse — the ramp re-hued the flat fills, and
+    # a second outline ring ate interior pixels at 22px.
+    pixelart.process_file(bpy, src, dst, w, h, alpha_threshold=0.5)
 
 def render(name):
     _mats.clear()

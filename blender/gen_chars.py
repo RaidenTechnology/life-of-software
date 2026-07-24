@@ -13,6 +13,11 @@
 import bpy, sys, os, math
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# blender --python runs the script with its own folder OFF sys.path
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import pixelart
+
 ASSETS = os.path.normpath(os.path.join(HERE, "..", "assets"))
 S = 0.1
 PXH = 52
@@ -271,16 +276,11 @@ def boss_demon():
 BOSSES = {'ork':boss_ork,'skeleton':boss_skeleton,'elf':boss_elf,'goblin':boss_goblin,'vampire':boss_vampire,'demon':boss_demon}
 
 def downscale(src, dst, w, h):
-    import numpy as np
-    img = bpy.data.images.load(src)
-    W2, H2 = img.size
-    px = np.array(img.pixels[:]).reshape(H2, W2, 4)
-    fy, fx = H2 // h, W2 // w
-    px = px.reshape(h, fy, w, fx, 4).mean(axis=(1, 3))
-    out = bpy.data.images.new("o", width=w, height=h, alpha=True)
-    out.pixels = px.reshape(-1).tolist()
-    out.filepath_raw = dst; out.file_format = 'PNG'; out.save()
-    bpy.data.images.remove(img); bpy.data.images.remove(out)
+    # The plain box mean this used to be left a dark rim on every silhouette
+    # (premultiplied buffer, straight average), soft half-transparent edges, and
+    # a few hundred colours per sprite. pixelart.pixelize fixes all three — see
+    # the header of blender/pixelart.py. No outline: the models carry their own.
+    pixelart.process_file(bpy, src, dst, w, h, alpha_threshold=0.5)
 
 def render(name):
     _mats.clear()
