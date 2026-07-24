@@ -37,10 +37,10 @@ def reset():
     cam.data.type = 'ORTHO'; cam.data.ortho_scale = PX * S
     cam.location = (PX*S/2, -60, PX*S/2); cam.rotation_euler = (math.radians(90),0,0)
     bpy.context.collection.objects.link(cam); sc.camera = cam
-    d = bpy.data.lights.new("key",'SUN'); d.energy=3.2; d.angle=math.radians(4)
+    d = bpy.data.lights.new("key",'SUN'); d.energy=3.2; d.angle=math.radians(4); d.use_shadow=False
     o = bpy.data.objects.new("key",d); o.rotation_euler=(math.radians(52),0,math.radians(28))
     bpy.context.collection.objects.link(o)
-    rim = bpy.data.lights.new("rim",'SUN'); rim.energy=2.0; rim.color=(0.7,0.8,1.0); rim.angle=math.radians(4)
+    rim = bpy.data.lights.new("rim",'SUN'); rim.energy=2.0; rim.color=(0.7,0.8,1.0); rim.angle=math.radians(4); rim.use_shadow=False
     ro = bpy.data.objects.new("rim",rim); ro.rotation_euler=(math.radians(70),0,math.radians(200))
     bpy.context.collection.objects.link(ro)
     w = bpy.data.worlds.new("W"); w.use_nodes=True

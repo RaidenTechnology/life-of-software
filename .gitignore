@@ -1,3 +1,4 @@
 dist/
 *.zip
 review-*.log
+blender/__pycache__/

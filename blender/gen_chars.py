@@ -46,10 +46,13 @@ def reset(canvasW):
     cam.data.type = 'ORTHO'; cam.data.ortho_scale = canvasW * S
     cam.location = (canvasW*S/2, -60, PXH*S/2); cam.rotation_euler = (math.radians(90),0,0)
     bpy.context.collection.objects.link(cam); sc.camera = cam
-    d = bpy.data.lights.new("key",'SUN'); d.energy=3.2; d.angle=math.radians(4)
+    # use_shadow=False on both: forward-pulled held items (club/dagger/bow/staff,
+    # y<0) were casting angled shadows onto the body behind them, which downscaled
+    # into exactly the blurry dark "soot" blobs reported on the characters.
+    d = bpy.data.lights.new("key",'SUN'); d.energy=3.2; d.angle=math.radians(4); d.use_shadow=False
     o = bpy.data.objects.new("key",d); o.rotation_euler=(math.radians(52),0,math.radians(28))
     bpy.context.collection.objects.link(o)
-    rim = bpy.data.lights.new("rim",'SUN'); rim.energy=2.0; rim.color=(0.7,0.8,1.0); rim.angle=math.radians(4)
+    rim = bpy.data.lights.new("rim",'SUN'); rim.energy=2.0; rim.color=(0.7,0.8,1.0); rim.angle=math.radians(4); rim.use_shadow=False
     ro = bpy.data.objects.new("rim",rim); ro.rotation_euler=(math.radians(70),0,math.radians(200))
     bpy.context.collection.objects.link(ro)
     w = bpy.data.worlds.new("W"); w.use_nodes=True
@@ -159,7 +162,7 @@ def m_ork():
     part(6,20,28,20,0x5d8a3c, depth=4.6)                 # body
     stack(0,20,6,[(4,shade(0x4a7030,1.15)),(10,0x4a7030)], 3.0)   # left arm — flush with body, 0px overlap
     stack(34,20,6,[(4,shade(0x4a7030,1.15)),(10,0x4a7030)], 3.0)  # right arm — flush with body, 0px overlap
-    part(11,6,18,15,0x7cb342, depth=4.4)                 # head
+    part(11,6,18,14,0x7cb342, depth=4.4)                 # head — 1px shorter, flush with body (0px overlap)
     part(15,10,3,3,0xffee58, depth=4.7, y=-2.0, outline=False)
     part(23,10,3,3,0xffee58, depth=4.7, y=-2.0, outline=False)
     part(13,15,3,5,0xffffff, depth=4.6, y=-2.2, outline=False)  # tusks
@@ -172,8 +175,8 @@ def m_skeleton():
     part(12,36,16,4,0xcfcfcf, depth=3.0)                  # pelvis
     part(18,22,4,14,0xcfcfcf, depth=3.0)                  # spine
     for yy in (23,28,33): part(11,yy,18,2,0xe5e5e5, depth=3.2)  # ribs
-    part(9,24,3,16,0xd7d7d7, depth=2.6)                   # left arm bone
-    part(28,24,3,16,0xd7d7d7, depth=2.6)                  # right arm bone
+    part(7,24,3,16,0xd7d7d7, depth=2.6)                   # left arm bone — flush, 0px overlap with ribs
+    part(30,24,3,16,0xd7d7d7, depth=2.6)                  # right arm bone — flush, 0px overlap with ribs
     part(12,5,16,14,0xefefef, depth=4.0)                  # skull
     part(15,10,4,4,0x111111, depth=4.3, y=-2.0, outline=False)
     part(22,10,4,4,0x111111, depth=4.3, y=-2.0, outline=False)
@@ -187,7 +190,7 @@ def m_elf():
     stack(5,23,5,[(3,shade(0x1f7a45,1.15)),(12,0x1f7a45)], 3.0)   # left arm — flush, 0px overlap
     stack(30,23,5,[(3,shade(0x1f7a45,1.15)),(12,0x1f7a45)], 3.0)  # right arm — flush, 0px overlap
     part(13,7,15,12,0xffe0b2, depth=4.0)                  # head
-    part(12,3,17,5,0xd9c04a, depth=4.2)                   # circlet
+    part(12,3,17,4,0xd9c04a, depth=4.2)                   # circlet — 1px shorter, flush with head (0px overlap)
     part(12,26,16,2,shade(0x1f7a45,1.5), depth=4.45, y=-2.4, outline=False)  # sash accent (pulled forward)
     part(16,11,2,2,0x1b5e20, depth=4.3, y=-2.0, outline=False)
     part(22,11,2,2,0x1b5e20, depth=4.3, y=-2.0, outline=False)
@@ -221,8 +224,8 @@ def m_demon():
     stair(28,10,12,26,0x3a0d0d, steps=5, depth=1.6, y=2.6)               # right wing
     part(11,40,7,10,0x6d1b1b); part(22,40,7,10,0x6d1b1b)      # legs
     part(8,20,24,20,0xb42222, depth=4.6)                       # torso
-    part(5,22,4,16,shade(0xb42222,0.9), depth=3.0)             # left arm
-    part(31,22,4,16,shade(0xb42222,0.9), depth=3.0)            # right arm
+    part(4,22,4,16,shade(0xb42222,0.9), depth=3.0)             # left arm — flush, 0px overlap
+    part(32,22,4,16,shade(0xb42222,0.9), depth=3.0)            # right arm — flush, 0px overlap
     part(12,6,16,13,0xcf3030, depth=4.2)                       # head
     stair(11,2,6,6,0x2d1b12, steps=3, depth=2.6, flip=True)    # left horn
     stair(23,2,6,6,0x2d1b12, mirror=True, steps=3, depth=2.6, flip=True)  # right horn
