@@ -310,3 +310,38 @@ LANGUAGES.forEach((lang, i) => {
   lang.target = 500;
   lang.timeMult = Math.max(0.5, +(1 - i * 0.02).toFixed(2));
 });
+
+// --- per-language rules ---
+//
+// Twenty-five levels of "type this language's words" is twenty-five levels of
+// the same level. The word lists differ; the ACT doesn't. A rule gives a
+// handful of them a character you have to play around instead of through, and
+// it's drawn from what the language is actually like to write:
+//
+//   verbose   long patterns pay more (Java's ceremony is worth something here)
+//   terse     short patterns pay more (APL-ish languages, ASM mnemonics)
+//   strict    a wrong pattern costs 3 seconds (compilers that don't forgive)
+//   volatile  patterns deprecate twice as fast (the churn languages)
+//   legacy    the clock drains 25% faster (running on old iron)
+//
+// Deliberately only on 9 of 25: a rule everywhere is a rule nowhere, and the
+// plain levels are what make a ruled one read as different. GameScene reads
+// `rule` and shows the blurb in the HUD when the level opens.
+const LANG_RULES = {
+  strict:   { label: 'STRICT COMPILER', desc: 'a wrong pattern costs 3s' },
+  verbose:  { label: 'VERBOSE',         desc: 'patterns 6+ chars pay 1.5x' },
+  terse:    { label: 'TERSE',           desc: 'patterns under 4 chars pay 2x' },
+  volatile: { label: 'MOVES FAST',      desc: 'patterns deprecate twice as fast' },
+  legacy:   { label: 'LEGACY SYSTEM',   desc: 'the clock drains 25% faster' }
+};
+
+Object.entries({
+  JAVA: 'verbose', 'C#': 'verbose', TYPESCRIPT: 'verbose',
+  BASH: 'terse', ASSEMBLY: 'terse', C: 'terse',
+  RUST: 'strict', HASKELL: 'strict',
+  JAVASCRIPT: 'volatile', FLUTTER: 'volatile',
+  PERL: 'legacy'
+}).forEach(([name, rule]) => {
+  const lang = LANGUAGES.find(l => l.name === name);
+  if (lang) lang.rule = rule;
+});

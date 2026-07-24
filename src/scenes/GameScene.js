@@ -526,6 +526,29 @@ class GameScene extends Phaser.Scene {
     return Math.min(raw, ceiling);
   }
 
+  // Say the rule out loud when a level opens. It's already named in the HUD, but
+  // the HUD is a label you learn to stop reading — and a rule the player only
+  // discovers by being charged 3 seconds for a typo is a gotcha, not a rule.
+  // Called from levelUp (the next language's rule) rather than on arrival, so
+  // it rides the same beat as the level-up bonus.
+  announceRule() {
+    const lang = LANGUAGES[this.langIndex];
+    if (!lang || !lang.rule) return;
+    const r = LANG_RULES[lang.rule];
+    this.time.delayedCall(200, () => {
+      if (this.over || this.dying) return;
+      this.feedback('⚑ ' + lang.name + ' — ' + r.label + ': ' + r.desc, '#dcdcaa');
+    });
+  }
+
+  // The active level's rule, if it has one (see LANG_RULES in data/languages.js).
+  // Boss and festival levels are someone else's word list, so they run plain —
+  // a rule you can't see coming isn't a rule, it's a surprise tax.
+  rule() {
+    if (this.bossMode || this.festival) return null;
+    return this.lang.rule || null;
+  }
+
   // Base points left on the table this level: every pattern not yet written and
   // not deprecated. Feeds both the target ceiling above and deprecation's
   // fairness check, so the two can never disagree about what's still reachable.
@@ -611,8 +634,9 @@ class GameScene extends Phaser.Scene {
       return;
     }
     this.eolTimer += dt;
-    const every = Math.max(DEPRECATE_FLOOR,
+    let every = Math.max(DEPRECATE_FLOOR,
       DEPRECATE_EVERY - this.stageIndex - this.survivalLap * 2);
+    if (this.rule() === 'volatile') every /= 2;
     if (this.eolTimer >= every) {
       this.eolTimer = 0;
       this.startDeprecation();
@@ -797,6 +821,13 @@ class GameScene extends Phaser.Scene {
       }
       this.combo = 0;
       this.refreshCombo();
+      if (this.rule() === 'strict') {
+        // the level's own rule, announced at its start: this compiler charges
+        // for a mistake. Floors at 0 so it can't push past the death check that
+        // update() owns.
+        this.timeLeft = Math.max(0, this.timeLeft - 3);
+        this.floatText('STRICT COMPILER  -3s');
+      }
       Sfx.wrong();
       this.shakePanel();
       return;
@@ -875,7 +906,10 @@ class GameScene extends Phaser.Scene {
       this.rescuedCount++;
       this.floatText('SAVED FROM DEPRECATION!  ×2');
     }
-    const points = w.length * 10 * m * (rescued ? 2 : 1);
+    const r = this.rule();
+    const rulePay = (r === 'verbose' && w.length >= 6) ? 1.5
+      : (r === 'terse' && w.length < 4) ? 2 : 1;
+    const points = w.length * 10 * m * (rescued ? 2 : 1) * rulePay;
     const bonus = ((1.5 + 0.25 * w.length) * this.lang.timeMult + this.boonTime) *
       (rescued ? 2 : 1);
     this.score += points;
@@ -1479,6 +1513,7 @@ class GameScene extends Phaser.Scene {
     this.recentText.setText('');
     this.hintText.setText('');
     this.feedbackText.setText('');
+    this.announceRule();
     this.addTime(LEVELUP_TIME_BONUS + this.boonRefill);
     if (perfect) {
       this.addTime(PERFECT_TIME_BONUS);
@@ -2160,7 +2195,9 @@ class GameScene extends Phaser.Scene {
     const labelKey = this.langIndex + ':' + this.stageIndex + ':' + this.survivalLap;
     if (labelKey !== this._hudLabelKey) {
       this._hudLabelKey = labelKey;
-      this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
+      const rl = this.lang.rule ? '  ⚑ ' + LANG_RULES[this.lang.rule].label : '';
+      this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length +
+        ' · ' + this.lang.name + rl)
         .setColor(this.lang.color);
       // The theme is "Count Down", but every progression number counts UP (LEVEL
       // 1→25, STAGE names rising). Surface the one descending counter the road
@@ -2395,7 +2432,7 @@ class GameScene extends Phaser.Scene {
 
     this.tickDeprecation(delta / 1000);
 
-    this.timeLeft -= delta / 1000;
+    this.timeLeft -= (delta / 1000) * (this.rule() === 'legacy' ? 1.25 : 1);
     if (this.timeLeft <= 0) {
       // armor's death save gets one chance before the monsters do
       if (this.deathSave > 0) {

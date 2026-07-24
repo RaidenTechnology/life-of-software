@@ -27,16 +27,22 @@
 <body>
   <div id="game"></div>
 
+  <!-- ?v= on every game script: itch serves an updated build from the SAME url
+       as the old one, so a returning player's browser will happily run last
+       week's cached JS against this week's assets. (It bit us in local dev too:
+       the server had the new file, the page kept running the old one.) Bump this
+       number on every upload — same reason and same idiom as ASSET_V in
+       BootScene. phaser.min.js is left alone: it never changes. -->
   <script src="lib/phaser.min.js"></script>
-  <script src="src/sfx.js"></script>
-  <script src="src/ui.js"></script>
-  <script src="src/items.js"></script>
-  <script src="src/battle.js"></script>
-  <script src="src/data/languages.js"></script>
-  <script src="src/scenes/BootScene.js"></script>
-  <script src="src/scenes/MenuScene.js"></script>
-  <script src="src/scenes/GameScene.js"></script>
-  <script src="src/scenes/EndScene.js"></script>
-  <script src="src/main.js"></script>
+  <script src="src/sfx.js?v=5"></script>
+  <script src="src/ui.js?v=5"></script>
+  <script src="src/items.js?v=5"></script>
+  <script src="src/battle.js?v=5"></script>
+  <script src="src/data/languages.js?v=5"></script>
+  <script src="src/scenes/BootScene.js?v=5"></script>
+  <script src="src/scenes/MenuScene.js?v=5"></script>
+  <script src="src/scenes/GameScene.js?v=5"></script>
+  <script src="src/scenes/EndScene.js?v=5"></script>
+  <script src="src/main.js?v=5"></script>
 </body>
 </html>
