@@ -259,7 +259,7 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '46px', color: IDE.white, fontStyle: 'bold'
     }).setOrigin(0.5);
     const pHint = this.add.text(cx, pcy + 40,
-      'ESC to resume   ·   type + ENTER to fight the countdown', {
+      'ESC to resume   ·   Q to quit to the menu', {
         fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
       }).setOrigin(0.5);
     this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, pHint])
@@ -367,7 +367,13 @@ class GameScene extends Phaser.Scene {
     }
     if (this.transitioning) return;
     if (e.key === 'Escape') { this.togglePause(); return; }
-    if (this.paused) return;
+    if (this.paused) {
+      // from the pause screen you can bail out to the main menu (to try the
+      // daily, start fresh, etc.) — otherwise a run only ends by dying. The
+      // furthest section reached is already checkpointed on each clear.
+      if (e.key === 'q' || e.key === 'Q') this.quitToMenu();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     if (e.key === 'Enter') {
@@ -1339,6 +1345,14 @@ class GameScene extends Phaser.Scene {
     // the chiptune is a raw setInterval, not a scene timer, so freeze/thaw it
     // explicitly — otherwise it plays on through the pause.
     if (this.paused) Sfx.pauseMusic(); else Sfx.resumeMusic();
+  }
+
+  // Bail from a paused run back to the main menu. The scene shutdown handler
+  // stops the (paused) music; the checkpoint of the furthest section reached is
+  // already persisted on each level/stage clear, so CONTINUE still works.
+  quitToMenu() {
+    Sfx.blip();
+    this.scene.start('Menu');
   }
 
   update(_, delta) {
