@@ -199,6 +199,14 @@ class GameScene extends Phaser.Scene {
     this.comboText = this.add.text(this.scale.width - 16, 96, '', {
       fontFamily: 'monospace', fontSize: '15px', color: '#dcdcaa', fontStyle: 'bold'
     }).setOrigin(1, 0);
+    // the run's best combo, surfaced live under the current-combo readout (the
+    // End screen already reports it, but during a run you never saw your record
+    // build). Persistent — it survives level-ups, bosses and festivals, unlike
+    // comboText which blanks whenever the live combo drops below 2.
+    this.bestComboText = this.add.text(this.scale.width - 16, 118, '', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#dcdcaa'
+    }).setOrigin(1, 0);
+    this._shownBestCombo = 0;
 
     // battle strip: hero vs monsters, between the countdown and the panel
     this.battle = new Battle(this, 195);
@@ -542,7 +550,16 @@ class GameScene extends Phaser.Scene {
     return this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
   }
 
+  // surface the run's best combo once it's worth showing. Self-gates on change
+  // so it doesn't re-raster the glyph texture on every word (setText re-renders).
+  refreshBestCombo() {
+    if (this.maxCombo < 2 || this.maxCombo === this._shownBestCombo) return;
+    this._shownBestCombo = this.maxCombo;
+    this.bestComboText.setText('BEST COMBO ' + this.maxCombo);
+  }
+
   refreshCombo(pulse) {
+    this.refreshBestCombo();
     if (this.combo < 2) { this.comboText.setText(''); this._comboTier = 1; return; }
     const m = this.comboMult();
     this.comboText.setText('COMBO ' + this.combo + (m > 1 ? ' · score ×' + m : ''))
