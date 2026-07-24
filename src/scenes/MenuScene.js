@@ -17,7 +17,7 @@ class MenuScene extends Phaser.Scene {
     if (best) {
       this.add.text(cx, 46, 'BEST: STAGE ' + best.stage + ' · LEVEL ' + best.level +
         ' · ' + best.words + ' words' + (best.score ? ' · ' + best.score + ' pts' : '') +
-        ' · ' + best.wpm + ' wpm', {
+        (best.wpm ? ' · ' + best.wpm + ' wpm' : ''), {
           fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa'
         }).setOrigin(0.5);
     }
