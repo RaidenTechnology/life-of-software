@@ -125,6 +125,19 @@ class EndScene extends Phaser.Scene {
       }
     }
 
+    // for daily runs there's no checkpoint line — surface today's daily best
+    // instead (re-read AFTER the write above so it reflects this run too), so
+    // the seeded challenge shows the number to beat next attempt.
+    if (this.daily) {
+      let db = null;
+      try { db = JSON.parse(localStorage.getItem('los_daily_' + new Date().toISOString().slice(0, 10)) || 'null'); } catch (e) {}
+      if (db) {
+        this.add.text(cx, cy + 132, "today's daily best: " + db.words + ' patterns', {
+          fontFamily: 'monospace', fontSize: '13px', color: IDE.stringy
+        }).setOrigin(0.5);
+      }
+    }
+
     // RECOMPILE resumes from the checkpoint (furthest section cleared) instead of
     // dumping you back at HTML. Daily runs always restart their fixed seed fresh.
     again.on('pointerdown', () => {

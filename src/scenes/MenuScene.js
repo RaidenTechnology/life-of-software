@@ -78,9 +78,14 @@ class MenuScene extends Phaser.Scene {
       targets: start, alpha: 0.3, duration: 600, yoyo: true, repeat: -1
     });
 
-    // same seed for everyone today — race on the itch comments!
-    const daily = this.add.text(cx, cy + 92, '[ DAILY CHALLENGE — ' +
-      new Date().toISOString().slice(0, 10) + ' ]', {
+    // same seed for everyone today — race on the itch comments! Fold today's
+    // own daily best (los_daily_<date>, written by EndScene) into the label so
+    // the seeded run has a visible target instead of the score living nowhere.
+    const today = new Date().toISOString().slice(0, 10);
+    let dbest = null;
+    try { dbest = JSON.parse(localStorage.getItem('los_daily_' + today) || 'null'); } catch (e) {}
+    const daily = this.add.text(cx, cy + 92, '[ DAILY CHALLENGE — ' + today +
+      (dbest ? ' · best ' + dbest.words + 'w' : '') + ' ]', {
         fontFamily: 'monospace', fontSize: '15px', color: IDE.stringy
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     daily.on('pointerover', () => daily.setColor(IDE.white));
