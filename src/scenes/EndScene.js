@@ -15,7 +15,18 @@ class EndScene extends Phaser.Scene {
     this.acc = data.acc === undefined ? 100 : data.acc;
     this.maxCombo = data.maxCombo || 0;
     this.loot = data.loot || 0;
+    // NOT this.time — that's Phaser.Scene's Clock; clobbering it would break every
+    // this.time.* call the scene machinery makes. Store the run duration separately.
+    this.survived = data.time || 0;
     this.daily = !!data.daily;
+  }
+
+  // seconds → M:SS for the survival headline (the whole game is a countdown, so
+  // "how long you held it off" is a natural end stat). Clamped non-negative.
+  fmtDuration(s) {
+    s = Math.max(0, Math.round(s));
+    const m = Math.floor(s / 60);
+    return m + ':' + String(s % 60).padStart(2, '0');
   }
 
   // Typing grade — a single-letter verdict on this run's SKILL, from the two
@@ -136,7 +147,7 @@ class EndScene extends Phaser.Scene {
 
     this.add.text(cx, cy - 16,
       this.wpm + ' wpm · ' + this.acc + '% accuracy · max combo ' + this.maxCombo +
-      ' · ' + this.loot + ' loot', {
+      ' · ' + this.loot + ' loot · survived ' + this.fmtDuration(this.survived), {
         fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
       }).setOrigin(0.5);
 
@@ -227,6 +238,7 @@ class EndScene extends Phaser.Scene {
       (this.lap > 0 ? ' lap ' + (this.lap + 1) : '') + ' · ' + lang.name +
       ' (L' + (this.langIndex + 1) + '/' + LANGUAGES.length + ') · ' + this.finalScore +
       ' pts · ' + this.wpm + ' wpm · ' + this.acc + '% acc · x' + this.maxCombo + ' combo · ' +
+      this.fmtDuration(this.survived) + ' survived · ' +
       this.grade + '-rank' +
       // a run that beat the stored best reads as an improvement when pasted into
       // the itch comments, not just a raw stat line (mirrors the on-screen banner).

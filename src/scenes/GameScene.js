@@ -1388,6 +1388,11 @@ class GameScene extends Phaser.Scene {
       acc: this.submitsTotal ? Math.round(100 * this.submitsOk / this.submitsTotal) : 100,
       maxCombo: this.maxCombo,
       loot: this.lootCount,
+      // total active play time held off the clock — the survival headline for a
+      // "Count Down" game. this.elapsed excludes paused/transition time (it's the
+      // same clock the wpm divisor uses), so it reads as time actually SPENT racing
+      // the countdown, not wall time. EndScene formats it M:SS.
+      time: Math.round(this.elapsed),
       daily: this.daily
     });
   }
@@ -1600,8 +1605,10 @@ class GameScene extends Phaser.Scene {
       const wpm = this.wordsTyped > 0
         ? Math.round(this.wordsTyped / Math.max(this.elapsed / 60, 15 / 60)) : 0;
       const acc = this.submitsTotal ? Math.round(100 * this.submitsOk / this.submitsTotal) : 100;
+      const t = Math.max(0, Math.round(this.elapsed));
+      const survived = Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
       this.pauseStats.setText('SCORE ' + this.runScore + ' · ' + wpm + ' wpm · ' +
-        acc + '% acc · best combo ' + this.maxCombo);
+        acc + '% acc · best combo ' + this.maxCombo + ' · survived ' + survived);
     }
     this.pauseUI.setVisible(this.paused);
     this.time.paused = this.paused;
