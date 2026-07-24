@@ -34,16 +34,27 @@ const FESTIVAL_MIN_TIME = 15;    // clock floor when a festival starts — mirro
 const FESTIVAL_CREDIT = 15;
 const FESTIVAL_TIME_BONUS = 2;
 const ENEMY_STRIKE_EVERY = 10;   // seconds between the front monster's hits
-// ASSIST (see ui.js) is a rope thrown to a drowning player, so it needs a
-// definition of drowning: the clock is nearly out, OR nothing has landed in a
-// while (you're staring at a language you don't know). It then shows at most
-// three of the SHORTEST patterns left — the ones worth the fewest points, since
-// score scales with word length. Reading the shelf keeps you alive and teaches
-// you the vocabulary; it can never be the way to a good score.
-const SOS_TIME = 20;   // clock at or below this = in trouble
-const SOS_IDLE = 8;    // seconds since your last correct pattern
-const SOS_LEN = 4;     // only patterns this short get offered
-const SOS_MAX = 3;
+// ASSIST (see ui.js) is a rope thrown to a drowning player. Drowning means the
+// clock is nearly out, OR nothing has landed in a while (you're staring at a
+// language you've never written).
+//
+// The rate limit is the whole design. Without it — the first cut refreshed the
+// shelf whenever you were idle, and under SOS_TIME it simply never left — you
+// could clear a level by DOING NOTHING: wait, read the free words, type them,
+// wait again. The words bought back roughly the time the waiting cost, so
+// stalling was a viable strategy, which is the exact opposite of what a game
+// about a countdown should reward.
+//
+// So: ONE pattern, at most once every SOS_COOLDOWN seconds of play, and always
+// one of the shortest left (fewest points, since score scales with length).
+// Waiting for the next rope costs 40 seconds of clock and returns about two.
+// Nobody farms that. It exists so a player who cannot produce a single Haskell
+// keyword still gets shown one, occasionally, instead of dying blind.
+const SOS_TIME = 20;       // clock at or below this = in trouble
+const SOS_IDLE = 8;        // seconds since your last correct pattern
+const SOS_LEN = 4;         // prefer patterns this short
+const SOS_COOLDOWN = 40;   // seconds between ropes — the anti-stalling rule
+const SOS_SHOW = 10;       // how long one stays on screen
 
 const STAGES = [
   { name: 'VERY EASY', mult: 1.0 },
@@ -312,6 +323,10 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this._assistStr = null;   // gates the per-keystroke re-raster
     this._lastLandAt = 0;     // elapsed at the last correct pattern (SOS trigger)
+    this._sosWord = null;     // the rope currently on screen, if any
+    this._sosLang = null;     // the language it belongs to (retires it on a change)
+    this._sosUntil = 0;       // elapsed when it comes down
+    this._sosNextAt = 0;      // elapsed before which no new rope is thrown
     this.recentText = this.add.text(cx, this.scale.height - 44, '', {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
@@ -1722,28 +1737,39 @@ class GameScene extends Phaser.Scene {
   // are already on screen as badges, so a list would just be the answer.
   refreshAssist() {
     if (!this.assistText) return;
-    let str = '';
-    const drowning = this.timeLeft <= SOS_TIME ||
-      (this.elapsed - this._lastLandAt) >= SOS_IDLE;
-    if (Assist.on && drowning && !this.over && !this.dying && !this.paused &&
-        !(this.festival && this.festival.type === 'growth')) {
+    const live = Assist.on && !this.over && !this.dying && !this.paused &&
+      !(this.festival && this.festival.type === 'growth');
+
+    // Retire the current rope once it's been typed, once its language changed
+    // out from under it (level up / boss / festival), or once its time is up.
+    if (this._sosWord && (!live || this.elapsed >= this._sosUntil ||
+        this._sosLang !== this.activeLang || this.activeFound.has(this._sosWord))) {
+      this._sosWord = null;
+    }
+
+    // Throw a new one only if the cooldown has expired. Note the cooldown is
+    // charged from the moment a rope is GIVEN, not from when it expires, and it
+    // never resets on a level or stage change — otherwise stalling through the
+    // transitions would hand out one per level.
+    if (live && !this._sosWord && this.elapsed >= this._sosNextAt) {
+      const drowning = this.timeLeft <= SOS_TIME ||
+        (this.elapsed - this._lastLandAt) >= SOS_IDLE;
       const L = this.activeLang;
-      if (L) {
-        const found = this.activeFound;
-        let rem = L.words.filter(w => !found.has(w));
-        if (this.typed) {
-          const m = rem.filter(w => w.startsWith(this.typed));
-          if (m.length) rem = m;   // typing filters the shelf; a dead prefix keeps it
-        }
-        // short ones only. Falls back to the shortest of whatever is left when a
-        // language has none left that brief — the rope has to be there at the
-        // moment it's needed, or it isn't a rope.
+      if (drowning && L) {
+        const rem = L.words.filter(w => !this.activeFound.has(w));
         const short = rem.filter(w => w.length <= SOS_LEN);
-        const pick = (short.length ? short : rem)
-          .sort((a, b) => a.length - b.length).slice(0, SOS_MAX);
-        if (pick.length) str = '// stuck?  ' + pick.join('   ');
+        // shortest available, so the rope is always the cheapest word on offer
+        const pick = (short.length ? short : rem).sort((a, b) => a.length - b.length)[0];
+        if (pick) {
+          this._sosWord = pick;
+          this._sosLang = L;
+          this._sosUntil = this.elapsed + SOS_SHOW;
+          this._sosNextAt = this.elapsed + SOS_COOLDOWN;
+        }
       }
     }
+
+    const str = this._sosWord ? '// stuck? try:  ' + this._sosWord : '';
     if (str === this._assistStr) return;
     this._assistStr = str;
     this.assistText.setText(str);

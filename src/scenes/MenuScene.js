@@ -177,10 +177,10 @@ class MenuScene extends Phaser.Scene {
       "Type each language's patterns, then ENTER, before the countdown hits 0.\n" +
       'Every correct pattern buys you TIME + SCORE + CREDITS.\n' +
       '\n' +
-      'ASSIST     Out of time, or stuck on a language you\'ve never written? A dim\n' +
-      '           line offers three SHORT patterns to buy seconds with — worth the\n' +
-      '           fewest points, and gone the moment you get moving. ESC then A,\n' +
-      '           or the settings gear, turns it off.\n' +
+      'ASSIST     Out of time, or stuck on a language you\'ve never written? One\n' +
+      '           short pattern is offered — once every 40s at most, worth the\n' +
+      '           fewest points there are. Waiting for it costs far more clock\n' +
+      '           than it pays. ESC then A, or the gear, turns it off.\n' +
       'COMBO      Chain correct patterns for a score multiplier: x2 at 5, x3 at 15.\n' +
       '           One wrong pattern resets the streak.\n' +
       'PERFECT    Clear a whole level with no mistakes for bonus time, score & credits.\n' +
