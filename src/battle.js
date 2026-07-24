@@ -339,6 +339,13 @@ class Battle {
     this.strikeTarget = null;
     this.bossActive = false;
     this.bg = scene.add.image(scene.scale.width / 2, groundY - 10, 'bg_ork');
+    // one reusable burst emitter for every monster death / boss flinch — the
+    // most frequent battle event (one per correct melee word). explode(n, x, y)
+    // fires n particles at a point, so we recycle this instead of allocating and
+    // destroying a fresh emitter (+ two delayedCalls) on each kill.
+    this.deathFx = scene.add.particles(0, 0, 'pixel', {
+      speed: { min: 60, max: 150 }, lifespan: 350, emitting: false
+    });
     this.hero = scene.add.image(this.heroX, this.restY, 'hero0').setScale(this.charScale);
     // idle bob runs forever on y; dashes animate x only, so they don't conflict
     scene.tweens.add({ targets: this.hero, y: this.bobY, duration: 700, yoyo: true, repeat: -1 });
@@ -386,13 +393,7 @@ class Battle {
       targets: e, y: '+=16', angle: 100, alpha: 0, duration: 300, delay,
       onComplete: () => e.destroy()
     });
-    this.scene.time.delayedCall(delay, () => {
-      const em = this.scene.add.particles(e.x, e.y, 'pixel', {
-        speed: { min: 60, max: 150 }, lifespan: 350, quantity: 8, emitting: false
-      });
-      em.explode();
-      this.scene.time.delayedCall(450, () => em.destroy());
-    });
+    this.scene.time.delayedCall(delay, () => this.deathFx.explode(8, e.x, e.y));
   }
 
   slashAt(x, y, delay = 0, big = false) {
@@ -627,11 +628,7 @@ class Battle {
     b.setTint(0xff9999);
     s.tweens.add({ targets: b, x: '+=10', duration: 70, yoyo: true });
     s.time.delayedCall(180, () => b.clearTint());
-    const em = s.add.particles(b.x - 20, b.y, 'pixel', {
-      speed: { min: 60, max: 150 }, lifespan: 300, quantity: 6, emitting: false
-    });
-    em.explode();
-    s.time.delayedCall(400, () => em.destroy());
+    this.deathFx.explode(6, b.x - 20, b.y);
   }
 
   bossDie(done) {
