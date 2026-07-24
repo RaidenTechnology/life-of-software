@@ -1576,3 +1576,57 @@ the README's final checklist item (name + cover + screenshots) remain the top
 non-code work. The festival credit popup still prints the flat `+15 credits`
 even under a live sword multiplier (a design call, not a defect — the effect
 readout already shows the `×N` buff).
+
+## Auto-dev log - 20260724-review pass 3
+
+Read the whole game again (index.html, all of src/, languages.js, README, and
+this NOTES history). Traced the full state machine for a fresh crash/deadlock:
+pause ↔ menu ↔ festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec
+timer/HUD gates, checkpoint monotonicity, the daily seed + PB paths, boss-pool
+starvation vs the smallest word list (Lua 38 words vs hp cap 27 — safe), and the
+`this.lang === undefined` window while `langIndex` sits at the post-final index
+(never dereferenced — the boss/activeLang getters cover it). No new deadlock or
+crash surfaced and none was invented; after ~20 passes that surface is genuinely
+mined out. So this pass went after a hidden mechanic and core-loop feel instead.
+Verified no duplicate words in any of the 25 language lists. Two code commits +
+this log.
+
+**Feature — live PERFECT-pace indicator during a level**
+
+The perfect-clear bonus (zero wrong patterns in a language level → +time/score/
+credits at `levelUp`, scaling with stage/lap) was completely invisible until the
+level-clear screen — players had no idea a streak was even in play. Now a green
+`◆ PERFECT` tag in the left margin (under the bag/shop row) lights up once you've
+landed a word and stays lit while the level is still clean, and flashes red
+`✗ PERFECT LOST` the instant a wrong pattern breaks it (one-shot; a mistake
+before any correct word doesn't false-fire, since there was no streak to lose).
+Driven by `refreshPerfect()`, folded into the per-word `refreshLangHud` tail and
+self-gated on the computed on/idle state so it re-rasters only on a real change —
+the same setText gate the timer / HUD labels / credits readouts already use.
+Boss fights and festivals are interstitials, not the language level being
+cleared, so they hard-blank it via `blankPerfect()` (their `refreshLangHud`
+paths take the early return and never run the normal per-word refresh). Makes
+the precision mechanic — the whole point of a typing game — legible during play.
+
+**Feel — pulse the countdown on time-gain + backspace keystroke sound**
+
+Two small touches to the core loop:
+- The big countdown never reacted to the thing the whole game is about: every
+  correct word buys seconds. Added `pulseTimer()` — a quick scale-pop on the
+  timer — called from `celebrate()` (the shared success path for normal / boss /
+  festival / growth words), so all four paths pulse from one place. Skipped while
+  low-time, since `update()` already drives a per-frame scale/tremble on the
+  timer under 10s and a tween there would fight it. Cheap transform, no re-raster.
+- Backspace was silent while forward typing chirps (`Sfx.type`), which reads as
+  an unresponsive delete. Gave it its own softer, lower tick (`Sfx.back`, 300Hz),
+  and only when there's actually something to delete — which also skips a
+  redundant `refreshInput` on an already-empty line.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance and the grade thresholds remain deliberate-but-untuned playtest calls;
+the live PERFECT tag's exact wording/placement is a fresh cosmetic tuning knob
+(same low-risk status). Itch presentation captures (the language road / a
+festival / the PERFECT-LEVEL banner / the grade stamp / now the live PERFECT
+tag) + the README's final checklist item (name + cover + screenshots) remain the
+top non-code work. The festival credit popup still prints the flat `+15 credits`
+under a live sword multiplier (a design call — the effect readout shows the ×N).
