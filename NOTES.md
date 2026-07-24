@@ -1805,3 +1805,60 @@ design call — the effect readout already shows the ×N, and reflecting the rea
 gain is complicated by the 100-credit cap, so it's left as-is). The two new
 keyboard/readout touches this pass are themselves worth a feel re-check on a real
 playthrough (does amber at 20s fire too eagerly given the +10s level-up refills?).
+
+## Auto-dev log - 20260724-review pass 7
+
+Read the whole game end to end again (index.html, all of src/, languages.js,
+README and this NOTES history). `node --check` clean on all ten JS files. As in
+the last several passes the flagged state machines re-traced clean — pause ↔
+menu ↔ festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/
+HUD/status gates + the pass-6 three-band recolor, the pass-4 terminal-'off'
+PERFECT logic, checkpoint monotonicity + the p→STAGE·language decode on both End
+sites, the daily seed/PB split, the bag-full purchase block, the music
+pause/resume on ESC, and the "missing PNG → code-drawn/degraded" fallbacks. **No
+fresh logic bug surfaced and — per the discipline this project established —
+none was invented.** After ~26 passes the defect surface is mined out; the
+surviving value is fresh features, feel and presentation. This pass finally built
+the single oldest recorded-but-unbuilt idea — the how-to-play panel — plus one
+consistency touch. Two code commits + this log.
+
+**Feature — keyboard-first HOW TO PLAY panel on the menu (pass-6 idea #5, the
+last recorded-but-never-built idea)**
+
+The game has real depth a judge who plays two minutes never discovers: combo
+score-multipliers (×2 at 5, ×3 at 15), five loot rarities across five item
+types, festivals, boss fights, the perfect-clear bonus, the credit/hint/shop
+economy. The menu carried only a one-line blurb, so none of that read before a
+run — flagged all the way back in the pass-6 review ideas and never built. Added
+an H-toggled help overlay on MenuScene (a clickable `[ HOW TO PLAY · H ]` at
+top-left, plus the H key; ESC also closes, and the dim-backdrop click dismisses
+it like the in-game bag/shop modal). It's a single depth-60 container built once
+in `create()` and shown/hidden — no per-frame work, no new game state. The body
+lays out COMBO / PERFECT / LOOT / BAG-SHOP / FESTIVAL / BOSS / STAGES in one
+left-aligned monospace block (uses `LANGUAGES.length`, so the "clear all N
+languages" line can't drift from the real ladder) with a keys footer. Landmine
+avoided: while the overlay is up its keydown branch returns after H/ESC, so
+ENTER/N/D can't start a run out from under the open panel — the same "panel
+captures input" discipline the in-run onKey paused/menu branches use. Panel is
+sized 840×400, centred, so it clears the title bar (y≤30) and status bar (y≥527)
+and its widest body line (~610px) fits the 840px width. Direct payoff on the
+Enjoyment / perceived-depth axis GMTK scores, with zero mechanical change.
+
+**Quality — unify the overlay dismiss idiom**
+
+The in-game bag/shop modal closes on a backdrop-dim click; the new help overlay
+first only swallowed dim clicks. Made its dim close the panel too, so every
+full-screen overlay in the game dismisses the same way (click-away or ESC/H).
+One handler, no behaviour risk (the panel has no interactive content to guard).
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance and the grade/amber thresholds remain deliberate-but-untuned playtest
+calls; the itch presentation captures (language road / a festival / the
+PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the green gain
+pulse / the survived stat + amber band / and now the how-to-play panel itself,
+which screenshots well as a "depth at a glance" capture) + the README's final
+checklist item (name + cover + screenshots) remain the top non-code work. With
+pass-6 idea #5 now shipped, every recorded idea from the original review passes
+(1-6) has been built — the remaining backlog is presentation and playtest
+tuning, not code. The festival credit popup still prints the flat `+15 credits`
+under a live sword multiplier (a design call — the effect readout shows the ×N).
