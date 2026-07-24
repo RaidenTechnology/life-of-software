@@ -6,7 +6,21 @@ her doğru kelime **süre + puan + kredi** kazandırır. Hedef puana ulaşınca 
 dile geçersin: **25 dillik bir merdiven**, en kolaydan en zora —
 **HTML → CSS → Python → JavaScript → … → Rust → Haskell → Assembly**.
 Tüm diller bitince **STAGE** yükselir (hedefler artar) ve merdiven baştan başlar.
-Kredilerle (max 100) panelin sağ üstündeki **İPUCU** butonundan ipucu satın alınır (20 kredi).
+Kredilerle (max 100) panelin sağ üstündeki **İPUCU** butonundan ipucu satın alınır.
+
+Ama geri sayan tek şey saat değil: **kalıplar da eskiyor.** Birkaç saniyede bir,
+henüz yazmadığın bir kalıp uyarıya düşer ve kısa süre sonra **deprecate** olur —
+o seviye boyunca bir daha yazılamaz. Uyarı ekrandayken yazarsan çift öder.
+Oyunun çekirdeği bu: bir geri sayımla yarışırken ikincisi cevapları yiyor.
+
+Diğer sistemler: **dile özel kurallar** (VERBOSE / TERSE / STRICT COMPILER /
+MOVES FAST / LEGACY SYSTEM), boss'larda **exploit chain** (sırayla üç kalıp =
+3 kat hasar), her seviye sonunda **3 kart arasından kalıcı bir boon**, ganimet +
+çanta + günlük dükkân, festivaller ve günlük mücadele.
+
+**Dili bilmiyorsan:** ASSIST açık gelir — gerçekten sıkıştığında (saat bitmek
+üzere ya da bir süredir hiçbir kalıp tutmadıysa) **40 saniyede en fazla bir kez**
+kısa bir kalıp önerir. Hayatta kalmaya yeter, puana yetmez.
 
 Built on our generic pre-jam skeleton (allowed by jam rules: "pre-existing generic code").
 
@@ -40,6 +54,10 @@ Any static server, e.g.:
 ```
 python -m http.server 8765
 ```
+
+Kodu değiştirdikten sonra tarayıcı eski dosyayı önbellekten servis edebilir —
+`index.html` içindeki `?v=` numarasını artır (itch'e yeni build yüklerken de
+şart: itch aynı URL'den servis eder).
 
 ## Package for itch.io
 
