@@ -414,7 +414,11 @@ class GameScene extends Phaser.Scene {
       return;
     }
     if (!this.activeLang.words.includes(w)) {
-      this.feedback('"' + w + '" is not a ' + this.activeLang.name + ' pattern', IDE.error);
+      // a wrong word breaks the combo — if it was a real streak (>=5, the first
+      // score-multiplier tier), say so in the same red line so the cost of the
+      // miss reads. No balance change; combo already reset to 0 on any wrong word.
+      const tail = this.combo >= 5 ? ' — combo ×' + this.combo + ' lost!' : '';
+      this.feedback('"' + w + '" is not a ' + this.activeLang.name + ' pattern' + tail, IDE.error);
       // only count against the perfect-clear bonus during real level play — boss
       // fights and festivals are interstitials, not the language level being cleared.
       if (!this.bossMode && !this.festival) this.levelMistakes++;
@@ -493,7 +497,8 @@ class GameScene extends Phaser.Scene {
     const f = this.festival;
     const ok = w === f.lang.name.toLowerCase() || w === f.lang.abbr.toLowerCase();
     if (!ok) {
-      this.feedback('"' + f.word + '" is not a ' + w.toUpperCase() + ' pattern', IDE.error);
+      const tail = this.combo >= 5 ? ' — combo ×' + this.combo + ' lost!' : '';
+      this.feedback('"' + f.word + '" is not a ' + w.toUpperCase() + ' pattern' + tail, IDE.error);
       this.combo = 0;
       this.refreshCombo();
       Sfx.wrong();
