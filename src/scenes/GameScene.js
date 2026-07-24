@@ -863,7 +863,12 @@ class GameScene extends Phaser.Scene {
       if (onChain) {
         dmg = 3;
         b.seqAt++;
-        this.floatText('CHAIN ' + b.seqAt + '/3!  ×2  +' + bonus.toFixed(1) + 's');
+        // Say when a chain is FINISHED rather than silently swapping in three new
+        // patterns — the silent redraw is what makes the fight read as if the
+        // boss changed language on you. It doesn't; only the chain does.
+        this.floatText(b.seqAt >= b.seq.length
+          ? 'CHAIN COMPLETE!  ×2  — new chain'
+          : 'CHAIN ' + b.seqAt + '/3!  ×2  +' + bonus.toFixed(1) + 's');
         Sfx.win();
       } else if (brokeChain) {
         // Typed a chain pattern out of order: it's spent, and the boss recovers.
@@ -1623,7 +1628,12 @@ class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.eolText);
     const line = b.seq.map((w, i) =>
       i < b.seqAt ? '✓' : (i === b.seqAt ? '▶ ' + w : w)).join('   ');
-    this.eolText.setText('EXPLOIT CHAIN:  ' + line)
+    // Name the language ON the chain line. It's already in the HUD's top-left
+    // corner, but this line sits directly above the input where the eye actually
+    // is during a fight — and a boss speaks a language picked at random from the
+    // whole ladder, so "which language am I in" is the first thing a player needs
+    // and the easiest thing to lose track of.
+    this.eolText.setText(b.lang.name + ' EXPLOIT CHAIN:  ' + line)
       .setColor(b.seqAt > 0 ? '#dcdcaa' : IDE.error).setAlpha(1).setVisible(true);
   }
 
