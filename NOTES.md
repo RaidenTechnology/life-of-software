@@ -724,3 +724,75 @@ and cut a real per-frame render cost — four separate commits.
 - Other reused-object tween sites (`flashPanel` stroke via `delayedCall`,
   `floatText` spawns) look safe, but a quick audit for the same stacked-tween
   class the shake/feedback fix addressed wouldn't hurt.
+
+## Auto-dev log - 20260724-1424 pass 1
+
+Sixth active-development pass on Opus 4.8 (Fable 5 hit its usage limit again).
+Re-read all 10 files (all still pass `node --check`) and ran two data-integrity
+scans first: every word list is clean (0 duplicates / uppercase / whitespace /
+over-`MAX_TYPED` / missing-meta entries), and the smallest pool (LUA, 38) still
+exceeds the max boss HP (27), so the boss can't starve. The state machines the
+prompt calls out (strike flags, festival+boss exclusivity, death-save timing,
+menu freeze) are all sound after five prior passes — genuine fresh *bugs* are
+nearly exhausted, so this pass fixed the one real correctness nit left in the
+timer, then shipped the two most-flagged unbuilt features and cut the last
+recorded per-frame allocation. Four separate commits.
+
+**Bug fixed**
+
+1. **Countdown tick could be swallowed on a boundary refill (GameScene
+   `update`) — FIXED.** The sub-10s tick fires once per integer second, gated on
+   `s !== this.lastTickSecond`. `lastTickSecond` was never cleared when the timer
+   *left* the ≤10s zone, so if the last tick before a level-up / boss / potion
+   refill landed on `s = 10` and the clock later drained back to exactly 10,
+   `s === lastTickSecond` and that re-entry second's tick was silently dropped.
+   Now `lastTickSecond` resets to -1 in the leave-low transition, alongside the
+   existing scale / warn-frame reset, so the first second back under 10 always
+   ticks. Fresh area: no prior pass touched the tick cadence.
+
+**Features shipped**
+
+2. **End-screen score delta vs. previous best — SHIPPED (recorded-but-unbuilt in
+   two prior logs).** The live HUD gained a PB target two passes ago, but its
+   end-screen counterpart was never built. EndScene now captures the previous
+   best *score* before the PB row can overwrite `los_best`, then prints one line
+   under SCORE: green `▲ +N over your best score!` when you beat it, `matched
+   your best score` on a tie, or a dim `N to beat your best score` when short.
+   Gated to non-daily runs with a prior score, mirroring the in-run PB target so
+   the two always agree. (SCORE nudged up 6px to make room; layout stays clear of
+   the NEW-PERSONAL-BEST row above and the wpm line below.)
+
+3. **Draining clock bar in the bag/shop header — SHIPPED (flagged in three prior
+   logs).** The in-menu clock was text-only. `menuShell` now draws a 150px bar
+   (full ≈ a fresh `START_TIME` clock) under the `CLOCK RUNNING` text; `update()`
+   shrinks it every frame (rect width is a transform, no re-raster) and recolors
+   it red under 10s in step with the text. Cleared with the rest of the menu in
+   `closeMenu` (new `menuClockBar` handle nulled there and in `create`). Now the
+   cost of browsing the bag reads at a glance, not just as a number.
+
+**Quality / perf**
+
+4. **`floatText` popups pooled instead of alloc+destroy per word.** `floatText`
+   fires on every landed word (normal, boss, festival) — the fastest UI churn in
+   the game — and each call `add()`'d a Text plus a 900ms destroy tween. Now a
+   6-entry ring is preallocated in `create()` and recycled round-robin: kill any
+   in-flight tween, reset text / position / alpha, re-tween. No per-word
+   GameObject allocation or teardown; built last in `create()` so the popups keep
+   their old above-panel / below-warn-frame layering. This clears the last
+   recorded reused-object churn site (the `flashPanel` `delayedCall` reset is
+   idempotent and stays as-is — it only ever sets the stroke back to border).
+
+**Leftover for next passes**
+
+- Festival balance (entering at low time is dangerous) is deliberate but still
+  untuned — the standing options are a small one-time clock cushion on festival
+  start, or a slightly larger `+2s`/answer. Needs a playtest call, not a code
+  call.
+- Daily bests (`los_daily_<date>`) are written but surfaced nowhere — the menu
+  BEST line reads only the global `los_best`. A small "today's daily best" line
+  on the menu / end screen would close the loop on the daily leaderboard hook.
+- Settings gear/panel (`UI.settings`, depth 31) floats above the bag/shop modal
+  (depth 30); you can't easily open both, but the layering is technically wrong
+  — bump the menu above the gear or hide the gear while a menu is open.
+- With the end-screen delta landed, a live "beat N to set a record" is already on
+  the HUD; the two PB surfaces are now consistent — no further PB work needed.
