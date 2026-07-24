@@ -1155,6 +1155,25 @@ class GameScene extends Phaser.Scene {
     const item = this.inventory[i];
     if (!item) return;
     const T = ITEM_TYPES[item.t], r = item.r;
+    // Refuse a use that would throw the item away. A word's time bonus being
+    // clipped by TIME_CAP is incidental; a consumable you deliberately spent
+    // being destroyed is not — measured: a LEGENDARY potion (+60s) drunk at 90s
+    // on the clock delivered 9 and burned 51. Same for an armour whose save is
+    // no better than the one already armed. The item stays in the bag and the
+    // message says why, so the answer is "spend some clock first", not "oh".
+    if (T.key === 'potion' && TIME_CAP - this.timeLeft < T.time[r] * 0.66) {
+      this.feedback('clock too full for ' + Items.name(item) +
+        ' — it would waste ' + Math.round(T.time[r] - (TIME_CAP - this.timeLeft)) + 's',
+        IDE.error);
+      Sfx.wrong();
+      return;
+    }
+    if (T.key === 'armor' && this.deathSave >= T.save[r]) {
+      this.feedback('your armour already saves ' + this.deathSave + 's — keep this one',
+        IDE.error);
+      Sfx.wrong();
+      return;
+    }
     if (T.key === 'sword') {
       this.creditMult = T.mult(r);
       this.multWords = T.multWords[r];
@@ -2322,8 +2341,12 @@ class GameScene extends Phaser.Scene {
     // the cooldown has to be on the button, not just in the rejection message —
     // a button that answers a click with "no" and looks unchanged reads as broken
     const cooling = Math.max(0, Math.ceil(this._hintNextAt - this.elapsed));
+    // while cooling, still say how many free hints are banked — the count is the
+    // scroll you spent an item slot on, and hiding it reads as having lost it
     const hintStr = cooling > 0
-      ? '[ HINT ' + cooling + 's ]'
+      ? (this.hintTokens > 0
+        ? '[ HINT FREE ×' + this.hintTokens + ' · ' + cooling + 's ]'
+        : '[ HINT ' + cooling + 's ]')
       : (this.hintTokens > 0
         ? '[ HINT FREE ×' + this.hintTokens + ' ]'
         : '[ HINT -' + this.hintCost + ' ]');
