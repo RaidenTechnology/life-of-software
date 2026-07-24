@@ -122,6 +122,7 @@ class GameScene extends Phaser.Scene {
     this._inputColor = null;
     this._comboTier = 1;      // last combo score-multiplier tier reached (juice)
     this.levelMistakes = 0;   // wrong patterns in the CURRENT normal level (perfect-clear bonus)
+    this._perfectState = 'idle';  // gates the live PERFECT-pace indicator (see refreshPerfect)
 
     // combo + run stats
     this.combo = 0;
@@ -205,6 +206,15 @@ class GameScene extends Phaser.Scene {
     this.shopBtn.on('pointerover', () => this.shopBtn.setColor(IDE.white));
     this.shopBtn.on('pointerout', () => this.shopBtn.setColor(IDE.keyword));
     this.shopBtn.on('pointerdown', () => this.toggleMenu('shop'));
+
+    // live PERFECT-pace tag: lights up (green) while the CURRENT level still has
+    // zero wrong patterns and you've landed at least one word, so the otherwise
+    // invisible perfect-clear bonus (extra time/score/credits at levelUp) reads
+    // during play — and flashes red the moment a mistake breaks it. Sits in the
+    // left margin under the bag/shop row; driven by refreshPerfect().
+    this.perfectText = this.add.text(16, 116, '', {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.comment, fontStyle: 'bold'
+    }).setOrigin(0, 0.5);
 
     this.langText = this.add.text(this.scale.width - 16, 44, '', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.text, fontStyle: 'bold'
@@ -466,7 +476,10 @@ class GameScene extends Phaser.Scene {
       this.feedback('"' + w + '" is not a ' + this.activeLang.name + ' pattern' + tail, IDE.error);
       // only count against the perfect-clear bonus during real level play — boss
       // fights and festivals are interstitials, not the language level being cleared.
-      if (!this.bossMode && !this.festival) this.levelMistakes++;
+      if (!this.bossMode && !this.festival) {
+        this.levelMistakes++;
+        if (this._perfectState === 'on') this.refreshPerfect(true);  // one-shot break flash
+      }
       this.combo = 0;
       this.refreshCombo();
       Sfx.wrong();
@@ -606,6 +619,39 @@ class GameScene extends Phaser.Scene {
     if (this.maxCombo < 2 || this.maxCombo === this._shownBestCombo) return;
     this._shownBestCombo = this.maxCombo;
     this.bestComboText.setText('BEST COMBO ' + this.maxCombo);
+  }
+
+  // Live PERFECT-pace indicator. Only meaningful during a normal level (not a
+  // boss/festival interstitial, which reset it via blankPerfect). broke=true is
+  // the one-shot break flash on the level's first mistake; otherwise it self-
+  // gates on the computed on/idle state so it re-rasters only on a real change
+  // — the same setText gate the timer / HUD labels / credits readouts use.
+  refreshPerfect(broke) {
+    if (this.bossMode || this.festival || this.over || this.dying) return;
+    if (broke) {
+      this._perfectState = 'off';
+      this.tweens.killTweensOf(this.perfectText);
+      this.perfectText.setText('✗ PERFECT LOST').setColor(IDE.error).setAlpha(1).setScale(1.15);
+      this.tweens.add({ targets: this.perfectText, scale: 1, duration: 150 });
+      this.tweens.add({ targets: this.perfectText, alpha: 0, delay: 900, duration: 400 });
+      return;
+    }
+    // "on" needs at least one landed word this level — a fresh level (score 0)
+    // shows nothing until you've actually earned the streak worth protecting.
+    const state = (this.levelMistakes === 0 && this.score > 0) ? 'on' : 'idle';
+    if (state === this._perfectState) return;
+    this._perfectState = state;
+    this.tweens.killTweensOf(this.perfectText);
+    if (state === 'on') this.perfectText.setText('◆ PERFECT').setColor(IDE.comment).setAlpha(1).setScale(1);
+    else this.perfectText.setText('').setAlpha(1).setScale(1);
+  }
+
+  // hard-clear the indicator when a boss/festival takes over the level (their
+  // refreshLangHud paths don't run the normal per-word refreshPerfect).
+  blankPerfect() {
+    this._perfectState = 'idle';
+    this.tweens.killTweensOf(this.perfectText);
+    this.perfectText.setText('').setAlpha(1).setScale(1);
   }
 
   refreshCombo(pulse) {
@@ -955,6 +1001,7 @@ class GameScene extends Phaser.Scene {
     this.transitioning = false;
     const hp = 12 + this.stageIndex * 3;
     this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES) };
+    this.blankPerfect();   // the boss is an interstitial — no perfect-pace tag
     this.found.clear();
     this.timeLeft += 10;
     this.strikeTimer = 0;
@@ -1153,6 +1200,7 @@ class GameScene extends Phaser.Scene {
     };
 
     this.battle.setVisible(false);
+    this.blankPerfect();   // the festival is an interstitial — no perfect-pace tag
     this.langText.setText(type === 'sw' ? 'SOFTWARE FESTIVAL' : 'GROWTH FESTIVAL')
       .setColor('#dcdcaa');
     // we've just clobbered the gated LEVEL/STAGE labels; force endFestival's
@@ -1382,6 +1430,10 @@ class GameScene extends Phaser.Scene {
       }
     }
     this.updateLangBadge('lvl:' + this.langIndex, this.lang);
+    // refresh the live PERFECT-pace tag with the rest of the per-word HUD (self-
+    // gated, so it re-rasters only on an on/idle change). Boss uses the early
+    // return above; festivals blank it via blankPerfect and never reach here.
+    this.refreshPerfect();
   }
 
   // The language badge is identical within a level/boss, but refreshLangHud
