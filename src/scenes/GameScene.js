@@ -1682,11 +1682,15 @@ class GameScene extends Phaser.Scene {
     if (s !== this._lastShownSec) {
       this._lastShownSec = s;
       this.timerText.setText(String(s));
-      // live WPM in the status bar — refreshed once/sec, same 15s-floor divisor
-      // as the end-screen headline so a fast early run can't post an absurd rate.
+      // live WPM + accuracy in the status bar — refreshed once/sec, same 15s-floor
+      // divisor and accuracy formula as the end-screen headline (and the pause
+      // board), so the live readout can never disagree with the final report. A
+      // typing game should show BOTH speed and precision as you play; accuracy was
+      // otherwise only visible on pause or the End screen.
       if (this.wordsTyped > 0 && this.elapsed > 2) {
         const wpm = Math.round(this.wordsTyped / Math.max(this.elapsed / 60, 15 / 60));
-        this.statusRight.setText(this._statusBase + ' · ' + wpm + ' wpm');
+        const acc = this.submitsTotal ? Math.round(100 * this.submitsOk / this.submitsTotal) : 100;
+        this.statusRight.setText(this._statusBase + ' · ' + wpm + ' wpm · ' + acc + '% acc');
       }
       if (inMenu && this.menuClock) {
         this.menuClock.setText('⏱ CLOCK RUNNING · ' + s + 's')
