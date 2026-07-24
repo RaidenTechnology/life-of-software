@@ -1862,3 +1862,71 @@ pass-6 idea #5 now shipped, every recorded idea from the original review passes
 (1-6) has been built — the remaining backlog is presentation and playtest
 tuning, not code. The festival credit popup still prints the flat `+15 credits`
 under a live sword multiplier (a design call — the effect readout shows the ×N).
+
+## Auto-dev log - 20260724-review pass 8
+
+Read the whole game again end to end (index.html, all of src/, languages.js,
+README, this NOTES history). `node --check` clean on all ten JS files. As in the
+last several passes the flagged state machines re-traced clean — pause ↔ menu ↔
+festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/HUD/
+status gates + the three-band recolor, the terminal-'off' PERFECT logic,
+checkpoint monotonicity + the p→STAGE·language decode, the daily seed/PB split,
+the bag-full purchase block, music pause/resume, and the "missing PNG →
+code-drawn/degraded" fallbacks. **No fresh logic bug surfaced and — per this
+project's discipline — none was invented.** After ~27 passes the defect surface
+is mined out; the surviving value is fresh features, feel and presentation. This
+pass closed the last real interaction-consistency gap: the bag/shop were the one
+place the otherwise keyboard-first game still demanded the mouse. Three commits.
+
+**Feature — keyboard-first BAG & SHOP (steer / use / salvage / buy, no mouse)**
+
+Every other surface answers the keyboard — the menu (ENTER/N/D/H), pause (M/Q),
+the End screen (ENTER/M/C), and TAB opens the panels — but once a panel was
+open, *selecting, USING, SALVAGING or BUYING was mouse-only*, breaking the
+"hands never leave the keys" promise the rest of the game keeps. Now the bag
+navigates with the arrow keys over its dense 6-wide grid (inventory is packed,
+so the visible slot index == the inventory index, and slots ≥ length are empty —
+which makes ↑↓←→ wrap math trivial and correct), 1-9 jump to a slot, U/ENTER
+use, S salvages. TAB-into-bag pre-selects slot 0 so U/S act with no steering
+step (the mouse [BAG] button still opens with nothing selected); after a
+use/salvage the selection stays on a valid slot so several items can be actioned
+in a row. The shop buys with 1-4. Repaint reuses the exact closeMenu→openBag
+idiom the mouse slot-click already used, so there's no new render path — just a
+new input into the old one. Landmines avoided: (a) the buy logic was extracted
+into `buyStock()`, shared by the mouse button and the keyboard route, and it
+*re-validates* sold / bag-full / affordability itself so the keyboard path is as
+safe as the (only-wired-when-buyable) mouse button — an invalid keypress is a
+soft buzzer, since the card already shows SOLD / BAG FULL / price; (b) the arrow
+keys are `addCapture`-d like TAB so steering the grid can't scroll the itch page
+under the game; (c) menuKey lives inside onKey's existing `menuOpen` branch, so
+no bag/shop key can ever leak into word input, and digits/U/S stay pure word
+input during actual play (h1/h2/… need the digits). `node --check` passes.
+
+**Quality — teach the new keys in the menu's HOW TO PLAY panel**
+
+That panel predated keyboard control of the panels, so its BAG/SHOP line still
+implied a mouse. Folded the new keys (arrows/1-9 pick, U use, S salvage, 1-4
+buy) into it so the flow is discoverable before a run, not only from the
+in-panel note. Text-only; still fits the 840×400 overlay. `node --check` passes.
+
+**Quality — number the shop cards + a keystroke tick on bag keyboard nav**
+
+Two touches so the new mapping is legible and responsive: the shop's "1-4 to
+buy" note now maps to a visible per-card index drawn in each card's corner (no
+more guessing left-to-right), and keyboard bag navigation plays the game's quiet
+`type()` tick on a real selection change — steering the grid now feels like
+input instead of silence. The tick lives in `reopenBag()`, a keyboard-only path,
+so the mouse slot-click flow stays silent exactly as before. `node --check`
+passes.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance and the grade/amber thresholds remain deliberate-but-untuned playtest
+calls (a real play session, not a code guess). The itch presentation captures
+(language road / a festival / the PERFECT-LEVEL banner / the grade stamp / the
+live PERFECT tag / the green gain pulse / the survived stat + amber band / the
+how-to-play panel / and now the keyboard-operable bag with numbered shop cards)
+plus the README's final checklist item (name + cover + screenshots) remain the
+top non-code work. With keyboard control now reaching the bag/shop, the whole
+game is playable end to end without the mouse — a clean "keyboard-only" framing
+for the itch page. The festival credit popup still prints the flat `+15 credits`
+under a live sword multiplier (a design call — the effect readout shows the ×N).
