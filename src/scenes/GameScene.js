@@ -594,7 +594,11 @@ class GameScene extends Phaser.Scene {
 
   menuShell(title, note) {
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
-    const c = this.add.container(0, 0).setDepth(30);
+    // depth 40: above the settings gear/panel (depth 31, mounted by UI.chrome)
+    // so the modal's dim covers them — otherwise the gear stayed clickable and
+    // its panel opened on top of the bag/shop window. Still below the pause
+    // overlay (depth 50). The dim also swallows clicks aimed at the gear beneath.
+    const c = this.add.container(0, 0).setDepth(40);
     const dim = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x000000, 0.7)
       .setInteractive();
     dim.on('pointerdown', () => this.closeMenu());
