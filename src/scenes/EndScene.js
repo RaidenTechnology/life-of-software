@@ -110,13 +110,21 @@ class EndScene extends Phaser.Scene {
         fontFamily: 'monospace', fontSize: '15px', color: IDE.dim
       }).setOrigin(0.5);
 
-    const again = this.add.text(cx, cy + 104, '[ RECOMPILE ]', {
+    const again = this.add.text(cx - 96, cy + 104, '[ RECOMPILE ]', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.white
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     this.tweens.add({
       targets: again, alpha: 0.3, duration: 600, yoyo: true, repeat: -1
     });
+
+    // a route back to the main menu (Daily / New Game live there) — the End
+    // screen otherwise dead-ends on RECOMPILE, which just resumes the run.
+    const toMenu = this.add.text(cx + 104, cy + 104, '[ MENU ]', {
+      fontFamily: 'monospace', fontSize: '20px', color: IDE.dim
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    toMenu.on('pointerover', () => toMenu.setColor(IDE.white));
+    toMenu.on('pointerout', () => toMenu.setColor(IDE.dim));
 
     // show where RECOMPILE will drop you back in (the saved checkpoint)
     if (!this.daily) {
@@ -158,9 +166,27 @@ class EndScene extends Phaser.Scene {
 
     // RECOMPILE resumes from the checkpoint (furthest section cleared) instead of
     // dumping you back at HTML. Daily runs always restart their fixed seed fresh.
-    again.on('pointerdown', () => {
-      Sfx.blip();
+    const recompile = () => {
+      Sfx.unlock(); Sfx.blip();
       this.scene.start('Game', this.daily ? { daily: true } : { resume: true });
+    };
+    const backToMenu = () => {
+      Sfx.unlock(); Sfx.blip();
+      this.scene.start('Menu');
+    };
+    again.on('pointerdown', recompile);
+    toMenu.on('pointerdown', backToMenu);
+
+    this.add.text(cx, cy + 164, 'ENTER to recompile  ·  M to return to the menu', {
+      fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
+    }).setOrigin(0.5);
+
+    // Keyboard is the whole game — let it drive the End screen too, so a player
+    // whose hands never left the keys can restart (ENTER/SPACE) or bail to the
+    // menu (M/ESC) without reaching for the mouse.
+    this.input.keyboard.on('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') recompile();
+      else if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') backToMenu();
     });
   }
 }
