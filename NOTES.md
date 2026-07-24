@@ -2291,3 +2291,63 @@ the pause-panel art is the constraint, not the stat). HINT is still the one duri
 action without a keyboard route (every printable key collides with word input — parked).
 The festival credit popup still prints the flat `+15 credits` under a live sword
 multiplier (a design call — the effect readout shows the ×N).
+
+## Auto-dev log - 20260724-review pass 15
+
+Re-read the whole game end to end (index.html, all ten JS files, languages.js,
+README, this NOTES history) and re-ran `node --check` on every file — clean. As in
+recent passes the flagged state machines re-traced clean: pause ↔ menu ↔ festival ↔
+boss ↔ death, the blur↔menu pause fix (pass 13), the strike-flag self-heal
+(battle.js `enemyStrike`), the once/sec timer/HUD/credits gates + the three-band
+recolor, the terminal-'off' PERFECT logic, the p→STAGE·language checkpoint decode
+on both End sites, the daily seed/PB split, the bag-full purchase block (mouse +
+keyboard `buyStock`), the music pause/resume, the keyboard bag/shop routes, the
+gated `shakeCam`, the pooled `burstFx`/`floatText`/`deathFx` emitters, the
+`addTime()` single-source-of-truth for clock gains (pass 14), and the "missing PNG
+→ code-drawn/degraded" fallbacks. Re-verified the boss-HP-vs-pool starve math (max
+boss HP 27 at Survival vs smallest pool Lua 38 — safe) and the accuracy bookkeeping
+(empty submits and genuine duplicates both correctly excluded). **No fresh logic
+bug surfaced and — per this project's discipline — none was invented.** After ~33
+passes the defect surface is mined out; the balance items (festival low-time, grade/
+amber thresholds) stay parked as playtest calls. So this pass shipped one small,
+self-contained *theme* win — the highest-level idea recorded (pass-1 #2) that had
+gone unbuilt through every pass since. One code commit + this log.
+
+**Theme — a descending "N to boss" countdown down the language road**
+
+The game is themed on "Count Down", yet every *progression* number counts UP:
+LEVEL 1/25 climbing, STAGE names rising Very Easy → Survival. The only descending
+number was the seconds timer, so a judge skimming reads a typing brawler and can
+miss the theme tie — and Theme is a distinct GMTK scored axis. This was literally
+**pass-1 idea #2** ("surface an explicit descending counter — LANGUAGES LEFT
+25 → 0"), recorded on the very first review and never built across 32 passes.
+Shipped it: `refreshLangHud`'s normal-level branch now appends `· N to boss` to the
+STAGE line, where `N = LANGUAGES.length - 1 - langIndex` — the languages left before
+this stage's boss. It ticks 24 → 0 down the road and **resets each stage** (the road
+read as a repeating countdown, not a one-way climb), and reads `· ⚔ BOSS NEXT` on the
+final language (which fills the road → boss) instead of a bare "0 to boss". Why it's
+safe and free: it lives entirely inside the `_hudLabelKey`-gated rebuild (keyed on
+`langIndex:stageIndex:survivalLap`), so it re-rasters only when the level/stage/lap
+changes — **not** on every correct word — and the boss branch returns early above it
+(so a live boss keeps its own "HP · N patterns left" line) while festivals null the
+label key and rebuild on teardown. Pure HUD text: no scoring/time/credit/state path
+touched, no new GameObject, no per-frame or per-word cost. `node --check` clean on
+the one touched file (GameScene.js); the left-aligned STAGE line still clears the
+right-hand lang/progress cluster even at its longest (`STAGE VERY HARD · LAP 2 ·
+target 340 · 24 to boss`).
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance
+and the grade/amber thresholds remain deliberate-but-untuned playtest calls (a real
+play session, not a code guess). The itch presentation captures (language road / a
+festival / the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the
+green gain pulse / the survived + bought-back stats / the how-to-play panel / the
+keyboard-operable bag / the accessibility settings row / the tiered combo burst +
+next-tier teaser / the menu survival stat / the enriched pause dashboard / now the
+"N to boss" theme counter) plus the README's final checklist item (name + cover +
+screenshots) remain the top non-code work. HINT is still the one during-play action
+without a keyboard route (every printable key collides with word input — parked).
+The festival credit popup still prints the flat `+15 credits` under a live sword
+multiplier (a design call — the effect readout shows the ×N). With the road now
+reading as a countdown, a further theme touch could echo `N to boss` on the
+level-clear road overlay (`showPath`) so the descending count is felt at each
+transition too, not only in the HUD.
