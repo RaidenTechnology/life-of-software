@@ -971,3 +971,65 @@ the RNG. Three code commits + this log.
   best spent on tuning (needs playtests) or presentation polish (an itch capture
   showing the language road / a festival), not on hunting for logic defects that
   the earlier passes have already closed.
+
+## Auto-dev log - 20260724-1509 pass 2
+
+Tenth active-development pass on Opus 4.8. Re-read all 10 source files (all pass
+`node --check`) plus the full NOTES history. Pass 9 declared logic bugs
+"exhausted", so this pass hunted for the one class prior passes hadn't checked —
+a UI element that *claims* something the scoring doesn't actually do — found and
+fixed exactly that, then shipped a fresh skill-reward feature and a live-stat
+readout. Three code commits + this log.
+
+**Bug fixed**
+
+1. **Combo score-multiplier was advertised but not applied outside normal mode
+   — FIXED (fresh area: the readout-vs-scoring mismatch).** The COMBO readout
+   prints "score ×2" (combo 5) / "score ×3" (combo 15) and the milestone
+   spring-pop + chirp fire in every mode, but the multiplier was only ever
+   folded into the *normal-level* scoring path. Boss hits (`w.length*15`) and
+   both festival paths (`w.length*10`) paid flat points, so a player building a
+   streak through a boss fight or a festival saw the game promise a ×2/×3 payout
+   that never landed. Extracted the tier into a `comboMult()` helper (also reused
+   by `refreshCombo`) and multiplied it into all four scoring sites, with a "×N"
+   tag on the boss/festival float popups so the payout now reads truthfully.
+   Combos require flawless play, so this rewards skill consistently rather than
+   inflating everything.
+
+**Features shipped**
+
+2. **Perfect-level precision bonus.** The game is a typing test, yet clearing a
+   whole language level without a single wrong pattern earned nothing extra. New
+   `levelMistakes` counter tracks wrong patterns during *real* level play (boss
+   and festival interstitials are excluded — they aren't the level being
+   cleared), and a clean clear grants +5s, +10 credits and a stage/lap-scaled
+   score bonus (`50 + 25·(stage+lap)`) on top of the normal level bonus. The
+   payout is banked in `levelUp`; the celebration shows on the fully-visible
+   level-clear road overlay ("★ PERFECT LEVEL — no mistakes!"), or as a float
+   over the field when the cleared level rolls straight into a boss. Counter
+   resets each level and after every boss so a fresh stage always starts clean.
+
+3. **Live WPM readout in the status bar.** wpm only existed on the end screen;
+   now the bottom-right status label appends "· N wpm" during a run, refreshed
+   once per second inside the existing per-second timer gate (no new per-frame
+   work) and using the same 15s-floor divisor as the end-screen headline so an
+   early burst can't post an absurd rate. Placed in the status bar's spare
+   right-side room, well clear of the left controls hint.
+
+**Housekeeping**
+
+- An untracked `blender/gen_items.py` (the item-texture generator, sibling to
+  the existing `gen_chars.py` / `gen_backdrops.py`) was sitting in the tree and
+  got picked up alongside commit 1; it's a legitimate part of the Blender
+  pipeline, so it's kept rather than reverted.
+
+**Leftover for next passes**
+
+- Festival balance (entering at low time is dangerous) is still the standing
+  deliberate-but-untuned playtest call — unchanged.
+- With combos now paying out everywhere, a natural follow-up is surfacing the
+  *best combo of the run* live (the end screen already shows max combo), or a
+  small on-HUD combo-timer if a playtest finds streaks too easy to hold across
+  level transitions (combo only breaks on a wrong pattern today).
+- Presentation polish (an itch capture of the language road / a festival / a
+  PERFECT-LEVEL banner) remains the highest-value non-code work left.
