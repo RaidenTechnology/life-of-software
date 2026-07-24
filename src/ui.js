@@ -33,15 +33,22 @@ const Motion = {
   }
 };
 
-// ASSIST: a dim shelf of the active language's still-unwritten patterns, under
-// the input line. The game asks you to recall the keywords of 25 languages —
-// which quietly gates the whole thing behind "do you happen to know Zig?".
-// A jam judge who writes C# every day still can't guess Haskell or Assembly
-// patterns, and a player who can't produce a single valid word doesn't get to
-// find out whether the game is fun. With the shelf up, the challenge becomes
-// what it always should have been: read, recognise, type FAST, before the clock.
-// Default ON so a first-time player is never stuck; off in one click for anyone
-// who wants the memory test. Same guarded localStorage idiom as Motion.
+// ASSIST — an EMERGENCY shelf, not an answer key.
+//
+// The problem it solves is real: the game asks you to recall the keywords of 25
+// languages, so a judge who writes C# every day still can't produce Haskell or
+// Assembly patterns, and a player who can't land a single word never finds out
+// whether the game is fun. The first version solved it by permanently listing
+// the shortest unwritten patterns — which handed over the whole answer, and
+// (because score scales with word length) made reading them off the shelf the
+// LOWEST-scoring way to play. It removed the game to save the tutorial.
+//
+// So the shelf only surfaces when you're actually drowning: the clock is nearly
+// out, or you haven't landed a word in a while (see SOS_* in GameScene). It
+// offers at most three of the SHORTEST patterns left — enough to buy seconds and
+// learn the vocabulary, never enough to score. A player in flow never sees it;
+// a player about to die gets a rope, and pays for it in points. Off in one click
+// either way. Same guarded localStorage idiom as Motion.
 const Assist = {
   on: (() => {
     try { return localStorage.getItem('los_assist') !== '0'; } catch (e) { return true; }

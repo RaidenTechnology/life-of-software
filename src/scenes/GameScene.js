@@ -34,6 +34,16 @@ const FESTIVAL_MIN_TIME = 15;    // clock floor when a festival starts — mirro
 const FESTIVAL_CREDIT = 15;
 const FESTIVAL_TIME_BONUS = 2;
 const ENEMY_STRIKE_EVERY = 10;   // seconds between the front monster's hits
+// ASSIST (see ui.js) is a rope thrown to a drowning player, so it needs a
+// definition of drowning: the clock is nearly out, OR nothing has landed in a
+// while (you're staring at a language you don't know). It then shows at most
+// three of the SHORTEST patterns left — the ones worth the fewest points, since
+// score scales with word length. Reading the shelf keeps you alive and teaches
+// you the vocabulary; it can never be the way to a good score.
+const SOS_TIME = 20;   // clock at or below this = in trouble
+const SOS_IDLE = 8;    // seconds since your last correct pattern
+const SOS_LEN = 4;     // only patterns this short get offered
+const SOS_MAX = 3;
 
 const STAGES = [
   { name: 'VERY EASY', mult: 1.0 },
@@ -301,6 +311,7 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.dim
     }).setOrigin(0.5);
     this._assistStr = null;   // gates the per-keystroke re-raster
+    this._lastLandAt = 0;     // elapsed at the last correct pattern (SOS trigger)
     this.recentText = this.add.text(cx, this.scale.height - 44, '', {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
@@ -755,6 +766,10 @@ class GameScene extends Phaser.Scene {
   }
 
   celebrate() {
+    // Every scoring path (normal / boss / festival / growth) runs through here,
+    // so this is where "you are still moving" is recorded — the SOS shelf reads
+    // it to decide whether you're stuck (see refreshAssist).
+    this._lastLandAt = this.elapsed;
     this.hintText.setText('');
     this.flashPanel(IDE.greenHex);
     this.pulseTimer();   // every landed word buys time — pop the countdown to show it
@@ -1699,34 +1714,34 @@ class GameScene extends Phaser.Scene {
     this.refreshAssist();
   }
 
-  // The ASSIST shelf (see ui.js). Hangs off refreshInput because that's the one
-  // call every state change already funnels through — keystroke, submit, level
-  // up, boss start, festival round — so the shelf can never show a stale
-  // language. Shortest patterns first: a newcomer gets an easy first word in,
-  // and the shelf is a nudge, not a script (only 5 of ~50 show). Same
-  // string-compare re-raster gate as the timer/credits/HUD readouts.
+  // The ASSIST shelf (see ui.js). Called from refreshInput — the one call every
+  // state change funnels through, so the shelf can never show a stale language —
+  // and once a second from update(), since the trigger is time-based and a
+  // player who is truly stuck isn't pressing any keys to refresh it.
+  // Deliberately silent during a growth festival: the six candidate languages
+  // are already on screen as badges, so a list would just be the answer.
   refreshAssist() {
     if (!this.assistText) return;
     let str = '';
-    if (Assist.on && !this.over && !this.dying) {
-      if (this.festival && this.festival.type === 'growth') {
-        // the growth round asks for a LANGUAGE name, not a pattern
-        str = '// answer with one of: ' +
-          this.festival.pool.map(l => l.name.toLowerCase()).join('  ');
-      } else {
-        const L = this.activeLang;
-        if (L) {
-          const found = this.activeFound;
-          let rem = L.words.filter(w => !found.has(w));
-          if (this.typed) {
-            const m = rem.filter(w => w.startsWith(this.typed));
-            if (m.length) rem = m;   // typing filters the shelf; a dead prefix keeps it
-          }
-          if (rem.length) {
-            str = '// ' + rem.slice().sort((a, b) => a.length - b.length)
-              .slice(0, 5).join('   ');
-          }
+    const drowning = this.timeLeft <= SOS_TIME ||
+      (this.elapsed - this._lastLandAt) >= SOS_IDLE;
+    if (Assist.on && drowning && !this.over && !this.dying && !this.paused &&
+        !(this.festival && this.festival.type === 'growth')) {
+      const L = this.activeLang;
+      if (L) {
+        const found = this.activeFound;
+        let rem = L.words.filter(w => !found.has(w));
+        if (this.typed) {
+          const m = rem.filter(w => w.startsWith(this.typed));
+          if (m.length) rem = m;   // typing filters the shelf; a dead prefix keeps it
         }
+        // short ones only. Falls back to the shortest of whatever is left when a
+        // language has none left that brief — the rope has to be there at the
+        // moment it's needed, or it isn't a rope.
+        const short = rem.filter(w => w.length <= SOS_LEN);
+        const pick = (short.length ? short : rem)
+          .sort((a, b) => a.length - b.length).slice(0, SOS_MAX);
+        if (pick.length) str = '// stuck?  ' + pick.join('   ');
       }
     }
     if (str === this._assistStr) return;
@@ -2045,6 +2060,9 @@ class GameScene extends Phaser.Scene {
     if (s !== this._lastShownSec) {
       this._lastShownSec = s;
       this.timerText.setText(String(s));
+      // the SOS shelf's trigger is time-based, and a player who is genuinely
+      // stuck isn't pressing keys — so it can't rely on refreshInput alone.
+      this.refreshAssist();
       // live WPM + accuracy in the status bar — refreshed once/sec, same 15s-floor
       // divisor and accuracy formula as the end-screen headline (and the pause
       // board), so the live readout can never disagree with the final report. A
