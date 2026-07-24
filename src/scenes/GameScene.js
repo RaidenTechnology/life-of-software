@@ -301,11 +301,13 @@ class GameScene extends Phaser.Scene {
     this.pauseStats = this.add.text(cx, pcy + 12, '', {
       fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
     }).setOrigin(0.5);
-    const pHint = this.add.text(cx, pcy + 44,
-      'ESC to resume   ·   Q to quit to the menu', {
-        fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
-      }).setOrigin(0.5);
-    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, this.pauseStats, pHint].filter(Boolean))
+    // shows the sound state live: this is a keyboard game, so M toggles mute right
+    // here (see onKey's paused branch) instead of forcing a mouse trip to the gear.
+    this.pauseHint = this.add.text(cx, pcy + 44, '', {
+      fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
+    }).setOrigin(0.5);
+    this.refreshPauseHint();
+    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, this.pauseStats, this.pauseHint].filter(Boolean))
       .setDepth(50).setVisible(false);
 
     // silent low-time warning: a red edge frame that intensifies as the clock
@@ -439,6 +441,15 @@ class GameScene extends Phaser.Scene {
       // daily, start fresh, etc.) — otherwise a run only ends by dying. The
       // furthest section reached is already checkpointed on each clear.
       if (e.key === 'q' || e.key === 'Q') this.quitToMenu();
+      // M mutes/unmutes without leaving the keyboard (the gear is mouse-only).
+      // Safe here: letters are word-input only when NOT paused. unlock() first so
+      // the very first toggle still has an audio context to (un)mute.
+      else if (e.key === 'm' || e.key === 'M') {
+        Sfx.unlock();
+        Sfx.setMuted(!Sfx.muted);
+        this.refreshPauseHint();
+        Sfx.blip();
+      }
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1595,6 +1606,15 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  // the pause overlay's key legend, including the live SOUND state so the M-mute
+  // toggle reads. Rebuilt on pause-open (the gear could have changed it mid-run)
+  // and on each M press.
+  refreshPauseHint() {
+    if (!this.pauseHint) return;
+    this.pauseHint.setText('ESC resume  ·  M sound: ' + (Sfx.muted ? 'OFF' : 'ON') +
+      '  ·  Q quit to menu');
+  }
+
   togglePause() {
     if (this.over || this.transitioning || this.menuOpen) return;
     this.paused = !this.paused;
@@ -1609,6 +1629,7 @@ class GameScene extends Phaser.Scene {
       const survived = Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
       this.pauseStats.setText('SCORE ' + this.runScore + ' · ' + wpm + ' wpm · ' +
         acc + '% acc · best combo ' + this.maxCombo + ' · survived ' + survived);
+      this.refreshPauseHint();   // the gear may have flipped mute since we built it
     }
     this.pauseUI.setVisible(this.paused);
     this.time.paused = this.paused;
