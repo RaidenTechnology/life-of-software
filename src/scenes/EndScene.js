@@ -237,12 +237,21 @@ class EndScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // the result string itself, framed and shown so it reads/screenshots even if
-    // the clipboard write is blocked (sandboxed itch iframes can refuse it).
-    const box = this.add.rectangle(cx, cy + 192, this.scale.width - 120, 24, 0x1c1c1d)
-      .setStrokeStyle(1, IDE.border);
-    this.add.text(cx, cy + 192, this.shareStr, {
+    // the clipboard write is blocked (sandboxed itch iframes can refuse it). The
+    // string length varies a lot (a daily + long language + NEW DAILY BEST + rank
+    // is far wider than a short early run), so build the text FIRST, step the font
+    // down until it fits the screen, then size the frame to hug it — otherwise a
+    // long result spilled past the fixed-width box toward the screen edges.
+    const maxTextW = this.scale.width - 56;
+    const shareText = this.add.text(cx, cy + 192, this.shareStr, {
       fontFamily: 'monospace', fontSize: '12px', color: IDE.stringy
     }).setOrigin(0.5);
+    for (let fs = 12; fs > 8 && shareText.width > maxTextW; fs--) {
+      shareText.setFontSize(fs);
+    }
+    const boxW = Math.min(shareText.width + 28, this.scale.width - 40);
+    this.add.rectangle(cx, cy + 192, boxW, 24, 0x1c1c1d).setStrokeStyle(1, IDE.border);
+    shareText.setDepth(1);   // keep the text above its just-added backing frame
 
     const copyBtn = this.add.text(cx, cy + 218, '[ COPY RESULT · C ]', {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.keyword
