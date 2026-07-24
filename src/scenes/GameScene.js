@@ -1268,6 +1268,9 @@ class GameScene extends Phaser.Scene {
     this.pauseUI.setVisible(this.paused);
     this.time.paused = this.paused;
     this.tweens.timeScale = this.paused ? 0 : 1;
+    // the chiptune is a raw setInterval, not a scene timer, so freeze/thaw it
+    // explicitly — otherwise it plays on through the pause.
+    if (this.paused) Sfx.pauseMusic(); else Sfx.resumeMusic();
   }
 
   update(_, delta) {

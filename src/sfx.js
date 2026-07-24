@@ -85,26 +85,46 @@ const Sfx = {
     if (step % 8 === 4) this.noteAt(this.freq(root + 27), t, spb * 0.4, 'square', 0.022);
   },
 
+  // one scheduler tick: queue any 8th-notes due in the next lookahead window
+  musicTick(m) {
+    if (!this.ctx || this.ctx.state !== 'running') return;
+    if (m.next < this.ctx.currentTime) m.next = this.ctx.currentTime + 0.05;
+    const spb = 60 / (m.bpm * 2);                // 8th notes
+    while (m.next < this.ctx.currentTime + 0.15) {
+      this.playStep(m.step, m.next, spb);
+      m.next += spb;
+      m.step = (m.step + 1) % 32;
+    }
+  },
+
   startMusic(bpm = 96) {
     if (this.music) { this.music.bpm = bpm; return; }
     this.unlock();
     if (!this.ctx) return;
     const m = { bpm, step: 0, next: this.ctx.currentTime + 0.1, timer: null };
-    m.timer = setInterval(() => {
-      if (!this.ctx || this.ctx.state !== 'running') return;
-      if (m.next < this.ctx.currentTime) m.next = this.ctx.currentTime + 0.05;
-      const spb = 60 / (m.bpm * 2);                // 8th notes
-      while (m.next < this.ctx.currentTime + 0.15) {
-        this.playStep(m.step, m.next, spb);
-        m.next += spb;
-        m.step = (m.step + 1) % 32;
-      }
-    }, 50);
+    m.timer = setInterval(() => this.musicTick(m), 50);
     this.music = m;
   },
 
   setMusicTempo(bpm) {
     if (this.music) this.music.bpm = bpm;
+  },
+
+  // Freeze the loop for an ESC pause. The interval is a raw timer, so it kept
+  // playing through Phaser's scene pause (which only halts scene timers/tweens).
+  // Keep the music object (step/bpm) so resume picks the melody back up in place.
+  pauseMusic() {
+    if (this.music && this.music.timer) {
+      clearInterval(this.music.timer);
+      this.music.timer = null;
+    }
+  },
+
+  resumeMusic() {
+    const m = this.music;
+    if (!m || m.timer || !this.ctx || this.ctx.state !== 'running') return;
+    m.next = this.ctx.currentTime + 0.05;   // don't dump the whole paused gap at once
+    m.timer = setInterval(() => this.musicTick(m), 50);
   },
 
   stopMusic() {
