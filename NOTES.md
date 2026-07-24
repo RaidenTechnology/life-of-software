@@ -1735,3 +1735,73 @@ surviving value is presentation and playtest tuning plus re-auditing newly-added
 juice, not defect hunting — this pass's green pulse is itself the kind of small
 feel touch worth a feel-defect re-check next pass (its interaction with the red
 frame and the level-up ulti animation is the thing to eyeball on a real playthrough).
+
+## Auto-dev log - 20260724-review pass 6
+
+Read the whole game end to end again (index.html, all of src/, languages.js,
+README and this NOTES history). `node --check` clean on all ten JS files. As in
+the last several passes the flagged state machines re-traced clean — pause ↔
+menu ↔ festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/
+HUD/status gates, the pass-4 terminal-'off' PERFECT logic, checkpoint
+monotonicity + the p→STAGE·language decode on both End sites, the daily seed/PB
+split, the bag-full purchase block, and the "missing PNG → code-drawn/degraded"
+fallbacks. **No fresh logic bug surfaced and — per the discipline this project
+established — none was invented.** After ~25 passes the genuine defect surface is
+mined out; the surviving value is fresh features, feel and presentation. This
+pass shipped two small self-contained features and one readability touch, each
+committed on its own.
+
+**Feature — "time survived" run stat (End screen + share card + pause board)**
+
+A game literally themed on a countdown never reported how long you held the clock
+off zero — the most natural survival headline it could have. `finish()` now
+passes the active-play elapsed to EndScene as `time` (the same `this.elapsed`
+clock the wpm divisor uses, so it counts time actually SPENT racing the
+countdown — paused/transition time excluded), formatted `M:SS`. Surfaced in the
+End stats line (`... · survived 3:42`), folded into the shareable result string
+so a pasted itch comment carries it (leaderboard flavour), and added to the pause
+board so the live/pause/End readouts stay consistent — the same three-readouts-
+must-agree discipline the wpm/accuracy work followed. Landmine avoided: stored as
+`this.survived` in EndScene, **not** `this.time` — that name is Phaser.Scene's
+Clock, and clobbering it would break every `this.time.*` the scene machinery
+makes. `node --check` passes.
+
+**Feature — M toggles mute on the pause screen (keyboard-first, no mouse trip)**
+
+The only in-run sound control was the mouse-only settings gear — off-theme for an
+all-keyboard typing game, where muting mid-run meant leaving the keys. The pause
+overlay now toggles sound with **M** and shows the live `SOUND: ON/OFF` state in
+its key legend (`refreshPauseHint()`, rebuilt on pause-open in case the gear
+flipped it, and on each press). Key choice is collision-safe: plain letters are
+word-input *only when not paused* (onKey's paused branch returns before the
+character path), so M can never eat a keystroke during play. `Sfx.unlock()` first
+so the very first toggle has an audio context to act on. `node --check` passes.
+
+**Feel — amber warning band on the countdown (11-20s), before the red zone**
+
+The big timer only reacted at `<=10s` (red + per-frame scale-pulse), so falling
+behind gave no cue until it was already critical. Added a middle **amber** band
+(11..20s) that recolors the countdown to a warning yellow — an earlier "you're
+losing the race" read that suits the Count Down theme. Kept as a pure recolor,
+gated on a 3-state band (`normal`/`warn`/`low`, cached in `_timerBand`) so it
+re-rasters only on a crossing, never per frame — the same setColor gate the rest
+of the HUD uses. Critically, the delicate `<=10s` machinery is untouched: the
+scale-pulse, the red `warnFrame` ramp, and the low-zone reset (scale→1,
+warnFrame→0, `lastTickSecond=-1`, which prevents a swallowed re-entry tick) all
+still key off the `low` boolean alone — amber is not "low", it only recolors.
+Verified the four crossings by trace: >20→warn recolors amber; warn→low goes red
+and arms the pulse/frame; a refill low→warn recolors amber AND runs the low-exit
+reset; a refill warn→normal recolors to text. `node --check` passes.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance and the grade/amber thresholds are deliberate-but-untuned playtest calls
+(the amber 20s line and the S/A/B/C/D cut-offs both want a real play session, not
+a code guess); the itch presentation captures (the language road / a festival /
+the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the green
+gain pulse / now the survived stat + amber band) + the README's final checklist
+item (name + cover + screenshots) remain the top non-code work. The festival
+credit popup still prints the flat `+15 credits` under a live sword multiplier (a
+design call — the effect readout already shows the ×N, and reflecting the real
+gain is complicated by the 100-credit cap, so it's left as-is). The two new
+keyboard/readout touches this pass are themselves worth a feel re-check on a real
+playthrough (does amber at 20s fire too eagerly given the +10s level-up refills?).
