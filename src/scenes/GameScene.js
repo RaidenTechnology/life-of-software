@@ -365,15 +365,19 @@ class GameScene extends Phaser.Scene {
     // you while you're not even looking at the game. Force a pause on blur (never
     // an auto-resume — the player presses ESC when ready, so the clock can't drain
     // the instant focus returns). Routes through togglePause so every freeze it
-    // owns (clock, tweens, music, decor emitters, stats snapshot) is inherited,
-    // and mirrors the exact guards the ESC pause path uses (skip while
-    // over/dying/transitioning/in a menu, or already paused). Listener is torn
-    // down on shutdown so a later run's fresh GameScene isn't poked by the old one.
+    // owns (clock, tweens, music, decor emitters, stats snapshot) is inherited.
+    // The bag/shop panel is the one case that must NOT be skipped: it keeps the
+    // countdown draining on purpose (no free pause), so looking away with a panel
+    // open is exactly the unearned death this blur pause exists to prevent — the
+    // old guard mirrored the ESC path and skipped the pause while a menu was up,
+    // leaving the clock draining behind an open bag while the player wasn't even
+    // looking. Close the panel first (togglePause no-ops while menuOpen), then
+    // pause. Listener is torn down on shutdown so a later run's fresh GameScene
+    // isn't poked by the old one.
     this._onBlur = () => {
-      if (!this.paused && !this.over && !this.dying &&
-          !this.transitioning && !this.menuOpen) {
-        this.togglePause();
-      }
+      if (this.paused || this.over || this.dying || this.transitioning) return;
+      if (this.menuOpen) this.closeMenu();
+      this.togglePause();
     };
     window.addEventListener('blur', this._onBlur);
     this.events.once('shutdown', () => window.removeEventListener('blur', this._onBlur));
