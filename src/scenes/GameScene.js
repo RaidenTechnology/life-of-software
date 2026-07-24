@@ -142,7 +142,7 @@ class GameScene extends Phaser.Scene {
     this.applySceneBg(Battle.TYPES[0]);
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
-    status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
+    status.left.setText('type + ENTER · TAB bag · ESC pause · HINT = ' + HINT_COST +
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     // keep the right status handle + its base label: update() appends a live
     // WPM readout to it once per second (a typing game should show your speed).
@@ -300,6 +300,9 @@ class GameScene extends Phaser.Scene {
       }).setOrigin(0.5).setAlpha(0));
     }
 
+    // capture TAB so the bag shortcut (see onKey) never tab-moves focus out of
+    // the game canvas / itch iframe onto browser chrome.
+    this.input.keyboard.addCapture('TAB');
     this.input.keyboard.on('keydown', (e) => this.onKey(e));
 
     this.refreshLangHud();
@@ -375,6 +378,12 @@ class GameScene extends Phaser.Scene {
 
   onKey(e) {
     if (this.over || this.dying) return;
+    // TAB toggles the BAG mid-run. This is a keyboard game and every plain letter
+    // collides with word input, so Tab — captured in create() so it can't shift
+    // focus out of the itch iframe — is the one free key. toggleMenu() self-guards
+    // (paused/transition/festival) and closes the bag if it's already open, and
+    // from the shop it swaps straight to the bag.
+    if (e.key === 'Tab') { this.toggleMenu('bag'); return; }
     if (this.menuOpen) {
       if (e.key === 'Escape') this.closeMenu();
       return;
