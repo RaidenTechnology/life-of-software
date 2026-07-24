@@ -190,6 +190,16 @@ class GameScene extends Phaser.Scene {
 
     // loot state
     this.inventory = Items.load();
+    // boons drafted between levels (see offerBoons) — all permanent for the run
+    this.boons = [];
+    this.boonKey = null;      // set while a draft is on screen; onKey routes 1-3
+    this.boonTime = 0;        // extra seconds per landed pattern
+    this.boonCredit = 0;      // extra credits per landed pattern
+    this.boonTarget = 1;      // multiplier on every level target
+    this.boonEol = 0;         // extra seconds on a deprecation notice
+    this.boonHint = 0;        // hint discount
+    this.boonCombo = false;   // x3 combo tier at 10 instead of 15
+    this.boonRefill = 0;      // seconds granted at each level start
     this.hintTokens = 0;
     this.creditMult = 1;
     this.multWords = 0;
@@ -491,12 +501,13 @@ class GameScene extends Phaser.Scene {
   }
 
   get hintCost() {
-    return this.festival ? FESTIVAL_HINT_COST : HINT_COST;
+    const base = this.festival ? FESTIVAL_HINT_COST : HINT_COST;
+    return Math.max(5, base - this.boonHint);
   }
 
   targetScore() {
     const mult = STAGES[this.stageIndex].mult + this.survivalLap * 0.5;
-    const raw = Math.round(this.lang.target * mult / 10) * 10;
+    const raw = Math.round(this.lang.target * mult * this.boonTarget / 10) * 10;
     // A target is only fair if the language's word list can actually reach it.
     // The stage/lap multiplier had no such check, so late laps pushed targets
     // past the pool's ceiling — LUA at SURVIVAL lap 3 asked for 2500 when typing
@@ -548,7 +559,7 @@ class GameScene extends Phaser.Scene {
     if (!pool.length) return;
     pool.sort((a, b) => b.length - a.length);
     const word = this.pickFrom(pool.slice(0, Math.max(3, Math.ceil(pool.length / 3))));
-    this.eol = { word, left: DEPRECATE_WARN };
+    this.eol = { word, left: DEPRECATE_WARN + this.boonEol };
     this.eolText.setText('⚠ "' + word + '" is being deprecated — write it now!')
       .setColor('#dcdcaa').setVisible(true);
     this.tweens.killTweensOf(this.eolText);
@@ -613,7 +624,8 @@ class GameScene extends Phaser.Scene {
   }
 
   gainCredits(base) {
-    this.credits = Math.min(CREDIT_MAX, this.credits + base * this.creditMult);
+    this.credits = Math.min(CREDIT_MAX,
+      this.credits + (base + this.boonCredit) * this.creditMult);
   }
 
   // Every EARNED clock increment routes through here so the run can tally how many
@@ -670,6 +682,13 @@ class GameScene extends Phaser.Scene {
     // one free key. Cycling through it (rather than toggling the bag only) is what
     // finally gives the SHOP a keyboard route, the standing "in-run SHOP access"
     // leftover; the mouse [BAG]/[SHOP] buttons still open each panel directly.
+    // a boon draft owns 1-3 while it's up (see offerBoons); everything else on
+    // the level-clear screen is already inert behind `transitioning`.
+    if (this.boonKey) {
+      const n = parseInt(e.key, 10);
+      if (n >= 1 && n <= 3) this.boonKey(n - 1);
+      return;
+    }
     if (e.key === 'Tab') { this.cycleMenu(); return; }
     if (this.menuOpen) {
       // The bag/shop are now fully keyboard-operable (this is a keyboard-first
@@ -835,7 +854,8 @@ class GameScene extends Phaser.Scene {
       this.floatText('SAVED FROM DEPRECATION!  ×2');
     }
     const points = w.length * 10 * m * (rescued ? 2 : 1);
-    const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult * (rescued ? 2 : 1);
+    const bonus = ((1.5 + 0.25 * w.length) * this.lang.timeMult + this.boonTime) *
+      (rescued ? 2 : 1);
     this.score += points;
     this.addScore(points);
     this.addTime(bonus);
@@ -959,7 +979,7 @@ class GameScene extends Phaser.Scene {
   // normal path only, so the multiplier the boss/festival readout promised was
   // never actually paid out).
   comboMult() {
-    return this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
+    return this.combo >= (this.boonCombo ? 10 : 15) ? 3 : this.combo >= 5 ? 2 : 1;
   }
 
   // surface the run's best combo once it's worth showing. Self-gates on change
@@ -1437,7 +1457,7 @@ class GameScene extends Phaser.Scene {
     this.recentText.setText('');
     this.hintText.setText('');
     this.feedbackText.setText('');
-    this.addTime(LEVELUP_TIME_BONUS);
+    this.addTime(LEVELUP_TIME_BONUS + this.boonRefill);
     if (perfect) {
       this.addTime(PERFECT_TIME_BONUS);
       this.addScore(perfectScore);
@@ -1613,12 +1633,91 @@ class GameScene extends Phaser.Scene {
       });
     });
 
-    this.time.delayedCall(4600, () => {
+    this.time.delayedCall(4600, () => this.offerBoons(overlay, done));
+  }
+
+  // --- boon draft (the level-clear screen's one decision) ---
+
+  // Every level asks the same thing of the player: type these words, faster.
+  // There was no point in the whole run where they CHOSE anything — items are
+  // found or bought, never weighed against each other. The road overlay is
+  // already a natural pause between levels, so it ends on a three-card draft:
+  // one permanent upgrade, picked from a shuffled pool, keyboard (1-3) or mouse.
+  // Runs stay different from each other, and a run develops a shape.
+  boonDeck() {
+    return [
+      { key: 'time', name: 'FASTER COMPILER', desc: '+0.6s from every\npattern you write',
+        apply: () => { this.boonTime += 0.6; } },
+      { key: 'credit', name: 'OPEN SOURCE', desc: '+3 credits from\nevery pattern',
+        apply: () => { this.boonCredit += 3; } },
+      { key: 'target', name: 'SCOPE CUT', desc: 'every level target\n12% lower',
+        apply: () => { this.boonTarget *= 0.88; } },
+      { key: 'lts', name: 'LTS RELEASE', desc: 'deprecation notices\nlast 3s longer',
+        apply: () => { this.boonEol += 3; } },
+      { key: 'hints', name: 'STACK OVERFLOW', desc: '+3 free hints,\nand hints cost 5 less',
+        apply: () => { this.hintTokens += 3; this.boonHint += 5; } },
+      { key: 'combo', name: 'HOT PATH', desc: 'combo x3 arrives at\n10 instead of 15',
+        apply: () => { this.boonCombo = true; } },
+      { key: 'refill', name: 'NIGHTLY BUILD', desc: '+8s at the start of\nevery level',
+        apply: () => { this.boonRefill += 8; } }
+    ];
+  }
+
+  offerBoons(overlay, done) {
+    // the draft waits on a human, so the transition guard has to outlast the
+    // auto-pick below rather than tearing the overlay down on top of them.
+    this.armTransitionGuard(30, 'boon draft');
+    const finish = () => {
+      this.boonKey = null;
       this.tweens.add({
         targets: overlay, alpha: 0, duration: 400,
         onComplete: () => { overlay.destroy(); done(); }
       });
+    };
+
+    const cards = this.shuffle(this.boonDeck()).slice(0, 3);
+    const cx = this.scale.width / 2;
+    overlay.add(this.add.text(cx, 330, '// pick one — it lasts the whole run', {
+      fontFamily: 'monospace', fontSize: '15px', color: IDE.comment
+    }).setOrigin(0.5));
+
+    const take = (i) => {
+      if (!this.boonKey) return;       // one pick only, and not after the timeout
+      const b = cards[i];
+      b.apply();
+      this.boons.push(b.name);
+      this.boonKey = null;
+      Sfx.win();
+      this.feedback('gained ' + b.name, '#dcdcaa');
+      finish();
+    };
+
+    cards.forEach((b, i) => {
+      const x = cx - 230 + i * 230, y = 410;
+      const card = this.add.rectangle(x, y, 200, 118, IDE.panel)
+        .setStrokeStyle(2, IDE.border).setInteractive({ useHandCursor: true });
+      overlay.add(card);
+      overlay.add(this.add.text(x - 88, y - 46, String(i + 1), {
+        fontFamily: 'monospace', fontSize: '13px', color: IDE.dim, fontStyle: 'bold'
+      }).setOrigin(0, 0.5));
+      overlay.add(this.add.text(x, y - 28, b.name, {
+        fontFamily: 'monospace', fontSize: '15px', color: IDE.keyword, fontStyle: 'bold'
+      }).setOrigin(0.5));
+      overlay.add(this.add.text(x, y + 16, b.desc, {
+        fontFamily: 'monospace', fontSize: '13px', color: IDE.text, align: 'center', lineSpacing: 4
+      }).setOrigin(0.5));
+      card.on('pointerover', () => card.setStrokeStyle(2, IDE.white));
+      card.on('pointerout', () => card.setStrokeStyle(2, IDE.border));
+      card.on('pointerdown', () => take(i));
     });
+
+    // onKey routes 1-3 here while boonKey is set (word input is dead behind the
+    // overlay anyway, since `transitioning` is still true).
+    this.boonKey = take;
+    // …but never let the draft be the thing that stalls a run: if the player is
+    // away from the keyboard, take the first card and carry on. The transition
+    // guard would otherwise fire and leave the overlay up over live play.
+    this.time.delayedCall(20000, () => { if (this.boonKey) take(0); });
   }
 
   showStage(done) {
