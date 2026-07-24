@@ -861,3 +861,57 @@ strip — which no prior perf pass had touched. Four separate commits.
 - The music loop is a raw `setInterval`, so it keeps playing through an ESC pause
   (Phaser `time.paused` only freezes scene timers). Arguably fine, but pausing the
   chiptune on pause would be more correct if a playtest finds it odd.
+
+## Auto-dev log - 20260724-1451 pass 2
+
+Eighth active-development pass on Opus 4.8. Re-read all 10 source files (all pass
+`node --check`) plus NOTES. Confirmed the earlier boss word-starvation worry is a
+non-issue (smallest language pool is 38 words vs a max boss HP of 27), then found
+a genuinely fresh render/perf bug no prior pass had spotted — the battle strip
+was being fully re-staged on *every* correct word — and shipped one juice feature
+and one standing-leftover quality fix. Three code commits + this log.
+
+**Bug fixed**
+
+1. **The battle strip re-staged on every correct word — FIXED (fresh area).**
+   `refreshLangHud()` runs once per landed word (GameScene `submit` else-branch),
+   and it called `battle.setStage(this.stageIndex)` + `battle.setTier(...)`
+   unconditionally. `setStage()` re-textures the backdrop, the hero and all five
+   monsters, and — worst — `decor.forEach(destroy)` + recreates the demon stage's
+   two fire-fountain particle emitters. So on the SURVIVAL (demon) stage the fire
+   fountains visibly reset on every keystroke-that-landed, and every stage paid a
+   pile of no-op `setTexture` swaps per word. Now gated behind `_hudStage` /
+   `_hudTier` change-tracking keys (same idiom as `updateLangBadge`), so the
+   re-stage runs only when the stage or hero tier actually changes. `sceneBg`'s
+   per-word `setTexture` folded into the same stage-change guard.
+
+**Feature shipped**
+
+2. **Combo score-multiplier milestones now pop (juice).** Hitting combo 5 (score
+   ×2) and combo 15 (score ×3) previously only recolored the COMBO readout. Now
+   crossing INTO a new multiplier tier gives it a bigger `Back.easeOut` spring pop
+   (scale 1.7 vs the ordinary 1.25 nudge) and a bright rising chirp (`Sfx.pickup`),
+   so the moment the multiplier starts paying off is felt, not just tinted.
+   Tracked in `_comboTier`, fired only on the word that crosses each line, reset
+   when the combo breaks.
+
+**Quality**
+
+3. **Chiptune now pauses with the game on ESC (standing leftover, flagged in the
+   pass-6 and pass-7 logs).** The music loop is a raw `setInterval`, so Phaser's
+   scene pause (`time.paused`, which only freezes scene timers/tweens) left it
+   playing under the PAUSED overlay. Extracted the scheduler body into
+   `Sfx.musicTick(m)` and added `pauseMusic()` / `resumeMusic()` that clear and
+   restore the interval while keeping the step + bpm, so the melody resumes in
+   place instead of restarting. `togglePause()` freezes/thaws it with everything
+   else. `stopMusic()` still no-ops safely on the now-null timer at shutdown.
+
+**Leftover for next passes**
+
+- Festival balance (entering at low time is dangerous) remains a deliberate-but-
+  untuned playtest call — a small one-time clock cushion on festival start or a
+  slightly larger `+2s`/answer are the standing options.
+- The daily-best line still shows only word count; decoding its stored `p` into a
+  STAGE·LEVEL label (as the checkpoint/menu lines do) is small polish left undone.
+- With the re-stage gate in, `refreshLangHud`'s remaining per-word work is all
+  cheap text/rect updates — no known churn sites left in the battle strip.
