@@ -1630,3 +1630,59 @@ festival / the PERFECT-LEVEL banner / the grade stamp / now the live PERFECT
 tag) + the README's final checklist item (name + cover + screenshots) remain the
 top non-code work. The festival credit popup still prints the flat `+15 credits`
 under a live sword multiplier (a design call — the effect readout shows the ×N).
+
+## Auto-dev log - 20260724-review pass 4
+
+Re-read the whole game (index.html, all of src/, languages.js, README, and this
+NOTES history). As in the last several passes the flagged state machines re-traced
+clean — pause ↔ menu ↔ festival ↔ boss ↔ death, the strike-flag self-heal, the
+once/sec timer/HUD gates, checkpoint monotonicity, the daily seed + PB paths, the
+bag-full purchase block, and the "missing PNG → code-drawn placeholder"
+degradation — so no crash/deadlock surfaced and none was invented. But re-reading
+the live PERFECT indicator shipped in pass 3 (its own log flagged the tag's exact
+behaviour as a fresh, lightly-tested knob) turned up one genuine **feel defect** in
+it, which this pass fixed, plus a matching live-readout gap in a fresh site. Two
+code commits + this log.
+
+**Fix — the "✗ PERFECT LOST" flash is no longer wiped by the next correct word**
+
+The break flash is meant to play a one-shot ~1.3s fade (150ms pop, then a 900ms
+hold + 400ms fade). But `refreshPerfect()` also runs on every landed word via
+`refreshLangHud`'s tail, and after a mistake the computed state moves `off → idle`
+— so the very next correct word ran `killTweensOf(perfectText)` + `setText('')`,
+killing the flash's own fade tween and blanking the text. On a fast typing game the
+next word almost always lands inside that 1.3s window, so the flash the last pass
+shipped was routinely cut short — the exact stacked-/killed-tween class as the
+earlier feedback/shake/hint-clear fixes, but in the *new* code.
+
+Made `'off'` terminal for the level: once a mistake breaks the pace a perfect clear
+is impossible this level, so `refreshPerfect()` now early-returns while `off` — the
+flash plays out untouched and the tag can't relight green mid-level (both correct).
+`levelUp()` re-arms it for the next level via `blankPerfect()` (the one normal-play
+path that starts a new language level; boss/festival already blank it), so the
+indicator still works every subsequent level. Verified the four transitions: fresh
+level → first word lights green; mistake → flash survives to completion; more
+correct words → tag stays blanked (no relight, no re-wipe); next level → armed
+again. The early-return also trims the per-word `killTweensOf`+`setText` the broken
+state used to run each word. `node --check` passes.
+
+**Quality — live accuracy alongside WPM in the status bar (fresh readout site)**
+
+The bottom-right status bar surfaced live WPM once you were typing, but accuracy —
+the other half of a typing game's skill readout — only appeared on the pause board
+or the End screen. Appended it to the same once/sec status update, using the exact
+15s-floor wpm divisor and `100*ok/total` accuracy formula the End headline and the
+pause board already use, so the three readouts can never disagree. Gated inside the
+existing once/sec `setText` block, so it adds no per-frame work — the same
+once/sec discipline every other live readout uses.
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance
+and the grade thresholds remain deliberate-but-untuned playtest calls; itch
+presentation captures (the language road / a festival / the PERFECT-LEVEL banner /
+the grade stamp / the live PERFECT tag) + the README's final checklist item (name
++ cover + screenshots) remain the top non-code work. The festival credit popup
+still prints the flat `+15 credits` under a live sword multiplier (a design call —
+the effect readout shows the ×N). Genuine fresh logic bugs remain mined out after
+~20 passes; the surviving value is presentation and playtest tuning, not defect
+hunting — but this pass shows the *newly-added* features are still worth
+re-auditing for feel defects even when the old state machines are clean.
