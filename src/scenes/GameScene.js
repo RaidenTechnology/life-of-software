@@ -761,7 +761,15 @@ class GameScene extends Phaser.Scene {
     this.refreshBestCombo();
     if (this.combo < 2) { this.comboText.setText(''); this._comboTier = 1; return; }
     const m = this.comboMult();
-    this.comboText.setText('COMBO ' + this.combo + (m > 1 ? ' · score ×' + m : ''))
+    // Teach the reward ramp live: the ×2/×3 score tiers were documented in HOW TO
+    // PLAY but on the field you only saw the multiplier AFTER crossing it. Append a
+    // "→ ×N at M" teaser toward the NEXT tier (mirrors comboMult's 5/15 thresholds)
+    // so a building streak shows what it's climbing toward — and it self-drops once
+    // you're at the top ×3 tier. Right-aligned readout, so the extra chars grow
+    // leftward into empty HUD space; no new re-raster (this already setText's/word).
+    const nextAt = this.combo < 5 ? 5 : this.combo < 15 ? 15 : 0;
+    const tease = nextAt ? ' → ×' + (nextAt === 5 ? 2 : 3) + ' at ' + nextAt : '';
+    this.comboText.setText('COMBO ' + this.combo + (m > 1 ? ' · score ×' + m : '') + tease)
       .setColor(m >= 3 ? '#ff9800' : m >= 2 ? '#dcdcaa' : '#a0d0a0');
     // Crossing INTO a new score-multiplier tier (×2 at 5, ×3 at 15) is the moment
     // the combo starts paying off — mark it with a bigger springy pop + a bright
