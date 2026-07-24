@@ -2158,3 +2158,70 @@ route (every printable key collides with word input, so no intuitive binding
 exists — parked, not forgotten). The festival credit popup still prints the flat
 `+15 credits` under a live sword multiplier (a design call — the effect readout
 shows the ×N).
+
+## Auto-dev log - 20260724-review pass 13
+
+Re-read the whole game end to end (index.html, all ten JS files, languages.js,
+README, this NOTES history) and re-ran `node --check` on every file — clean. As in
+recent passes the flagged state machines re-traced clean: pause ↔ menu ↔ festival ↔
+boss ↔ death, the strike-flag self-heal, the once/sec timer/HUD/credits gates + the
+three-band recolor, the terminal-'off' PERFECT logic, the p→STAGE·language checkpoint
+decode, the daily seed/PB split, the bag-full purchase block, the music pause/resume,
+the keyboard bag/shop routes, the gated `shakeCam`, and the "missing PNG →
+code-drawn/degraded" fallbacks. This pass found ONE genuine fairness bug (not
+invented — a real interaction between two previously-shipped features) and fixed it,
+shipped one small feature, and made one on-theme feel change. Four commits total +
+this log.
+
+**Bug fix — blur while the bag/shop is open no longer drains the clock unseen**
+
+A real hole opened by the interaction of two earlier features. Pass 10 added a
+`window` `blur` auto-pause so looking away (clicking outside the itch iframe, alt-tab)
+can't kill you while the countdown drains unwatched. But a later change made the
+bag/shop panel keep the countdown running on purpose (no free pause), and the blur
+handler mirrored the ESC pause guards — which *skip while a menu is open*. For ESC
+that's correct (ESC-in-menu means "close menu"); for blur it is not. Net result:
+open the bag, then alt-tab or click outside the frame → `blur` fires → the handler
+sees `menuOpen` and does nothing → the clock drains to zero behind the open panel
+while you aren't even looking → the exact unearned death the blur pause exists to
+prevent. Fixed the handler to close the panel first (`togglePause` no-ops while
+`menuOpen`, so the close has to precede it) and then pause. Other guards
+(over/dying/transitioning/already-paused) are unchanged, and the shutdown teardown of
+the listener is untouched. `node --check` clean on the one touched file.
+
+**Feature — pause board shows credits banked + loot this run (2-line run dashboard)**
+
+The pause overlay is described as doubling as a scoreboard, but it only surfaced
+score / wpm / accuracy / best combo / survived — two run stats a player actually
+wants mid-run, **credits banked** and **loot collected**, were invisible until the
+End screen. Split the readout into two centred lines (skill on top: score/wpm/acc;
+the run's spoils below: best combo / credits / loot / survived) and nudged the block
++4px and the sound-hint line +6px so the taller two-line block still clears the 46px
+PAUSED title above and the hint below. Deliberately built from **always-valid** state
+(`fmtC(this.credits)`, `this.lootCount`) rather than `langIndex`/`this.lang`, so it
+stays crash-safe when you pause during a boss (where `langIndex === LANGUAGES.length`
+and `this.lang` is `undefined`) or a festival. `node --check` clean.
+
+**Feel — low-time tick rises in pitch as the countdown nears zero**
+
+Under 10s the game beeps once per second, but at a flat 990Hz — a rising countdown
+beep is the classic tension device (bomb timers, quiz clocks) and "Count Down" is the
+whole theme, so this was free thematic juice left on the table. `Sfx.tick` now takes
+the whole seconds left and climbs 900→1305Hz across the final 10s; called with `s`
+from the existing once/sec low-time tick site. No-arg calls keep the old flat 990Hz
+(there are none today, but it's a safe default). Kept `sfx.js` Phaser-free (it's pure
+WebAudio) by clamping with plain `Math.max/min` instead of `Phaser.Math.Clamp`.
+Sfx-only — no scoring/time/state path touched. `node --check` clean on both files.
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance and
+the grade/amber thresholds remain deliberate-but-untuned playtest calls (a real play
+session, not a code guess). The itch presentation captures (language road / a festival
+/ the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the green gain
+pulse / the survived stat + amber band / the how-to-play panel / the keyboard-operable
+bag / the accessibility settings row / the tiered combo burst + next-tier teaser / the
+menu survival stat / now the enriched pause dashboard) plus the README's final
+checklist item (name + cover + screenshots) remain the top non-code work. HINT is still
+the one during-play action without a keyboard route (every printable key collides with
+word input — parked, not forgotten). The festival credit popup still prints the flat
+`+15 credits` under a live sword multiplier (a design call — the effect readout shows
+the ×N).
