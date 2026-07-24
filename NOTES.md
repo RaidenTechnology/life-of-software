@@ -1984,3 +1984,59 @@ under a live sword multiplier (a design call — the effect readout shows the ×
 With the reduced-motion toggle in, the settings gear now carries SOUND / VOLUME /
 SCREEN SHAKE — a small "accessibility options" callout that also screenshots as a
 polish signal for the itch page.
+
+## Auto-dev log - 20260724-review pass 10
+
+Read the whole game again end to end (index.html, all of src/, languages.js,
+README, this NOTES history) and re-ran `node --check` on all ten JS files — clean.
+As in the last several passes the flagged state machines re-traced clean: pause ↔
+menu ↔ festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/
+HUD/status gates + the three-band recolor, the terminal-'off' PERFECT logic,
+checkpoint monotonicity + the p→STAGE·language decode on both End sites, the daily
+seed/PB split, the bag-full purchase block, the music pause/resume, the keyboard
+bag/shop routes, the pass-9 gated `shakeCam` wrapper, and the "missing PNG →
+code-drawn/degraded" fallbacks. **No fresh logic bug surfaced and — per this
+project's discipline — none was invented.** After ~29 passes the defect surface is
+mined out; the surviving value is fresh features, feel and presentation. This pass
+shipped one small, self-contained fairness/QoL feature. One code commit + this log.
+
+**Feature — auto-pause the countdown on window blur (focus-loss safety)**
+
+The one input-fairness gap left in a game whose entire mechanic is a live
+countdown: nothing paused it when the player looked away. On itch the game runs
+inside an **iframe**, so clicking OUTSIDE the frame — to read the comments, alt-tab,
+or bring another window forward — fires a window `blur` while the page itself stays
+VISIBLE. Phaser's built-in auto-pause only fires on `visibilitychange` (the tab
+actually going hidden), which that iframe-blur case does **not** trigger, so
+`update()` kept draining `timeLeft` and could kill you while you weren't even
+looking at the game — an unfair, un-earned death on the exact platform the jam is
+judged on. Added a `window.addEventListener('blur', …)` in `create()` that force-
+pauses through the **existing** `togglePause()`, so every freeze it already owns —
+the main clock (`this.time.paused`), all tweens (`tweens.timeScale`), the chiptune
+(`Sfx.pauseMusic`), the demon fire-fountain decor emitters (`setDecorActive`), and
+the pause-board stats snapshot — is inherited with **no new freeze path**. Design
+calls that keep it safe: (a) it only ever pauses, **never auto-resumes** — the
+player presses ESC when ready, so the clock can't drain the instant focus returns
+(and a tab-hide that DID trip Phaser's loop-pause stays frozen too, since `update`
+early-returns on `paused`); (b) it mirrors the **exact** guards the ESC pause path
+uses — skip while `over` / `dying` / `transitioning` / a bag-or-shop menu is open,
+or when already paused — so it can't fire mid-transition or stack a second pause;
+(c) the listener is removed on the scene's `shutdown` event, so a later run's fresh
+GameScene (RECOMPILE / CONTINUE restarts the scene) is never poked by the old
+instance's dangling handler. Complements, rather than duplicates, Phaser's default
+visibilitychange handling. `node --check` passes on the one touched file.
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance
+and the grade/amber thresholds remain deliberate-but-untuned playtest calls (a real
+play session, not a code guess). The itch presentation captures (language road / a
+festival / the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the
+green gain pulse / the survived stat + amber band / the how-to-play panel / the
+keyboard-operable bag with numbered shop cards / the accessibility settings row)
+plus the README's final checklist item (name + cover + screenshots) remain the top
+non-code work. The festival credit popup still prints the flat `+15 credits` under
+a live sword multiplier (a design call — the effect readout shows the ×N). With the
+blur-pause in, the countdown can no longer steal a run while the player's attention
+is off the frame — the last obvious "died to something I couldn't act on" case is
+closed. One thing to eyeball on a real playthrough: confirm a blur triggered by an
+in-page focus shift (there are no focusable HTML inputs over the canvas today, so
+this should never mis-fire) doesn't pause unexpectedly.
