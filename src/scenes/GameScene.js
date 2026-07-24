@@ -13,6 +13,8 @@ const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
 const START_TIME = 75;
 const LEVELUP_TIME_BONUS = 10;
+const PERFECT_TIME_BONUS = 5;     // clearing a level with zero wrong patterns
+const PERFECT_CREDIT = 10;
 const BOSS_WIN_TIME = 25;        // clock floor after clearing a boss (fresh stage)
 const MAX_TYPED = 24;
 const FESTIVAL_CHANCE = 0.35;
@@ -106,6 +108,7 @@ class GameScene extends Phaser.Scene {
     this._hudStage = -1;
     this._hudTier = -1;
     this._comboTier = 1;      // last combo score-multiplier tier reached (juice)
+    this.levelMistakes = 0;   // wrong patterns in the CURRENT normal level (perfect-clear bonus)
 
     // combo + run stats
     this.combo = 0;
@@ -394,6 +397,9 @@ class GameScene extends Phaser.Scene {
     }
     if (!this.activeLang.words.includes(w)) {
       this.feedback('"' + w + '" is not a ' + this.activeLang.name + ' pattern', IDE.error);
+      // only count against the perfect-clear bonus during real level play — boss
+      // fights and festivals are interstitials, not the language level being cleared.
+      if (!this.bossMode && !this.festival) this.levelMistakes++;
       this.combo = 0;
       this.refreshCombo();
       Sfx.wrong();
@@ -809,6 +815,13 @@ class GameScene extends Phaser.Scene {
 
   levelUp() {
     const fromIdx = this.langIndex;
+    // Perfect clear: no wrong patterns typed this level. Reward the precision
+    // (the whole game is a typing test) with extra time/score/credits on top of
+    // the normal level bonus. perfectScore rises with the stage/lap so it stays
+    // meaningful as targets grow. Reset the counter for the next level.
+    const perfect = this.levelMistakes === 0;
+    const perfectScore = perfect ? 50 + (this.stageIndex + this.survivalLap) * 25 : 0;
+    this.levelMistakes = 0;
     this.langIndex++;
     this.saveCheckpoint();   // clearing a language (e.g. HTML -> CSS) is a checkpoint
     this.score = 0;   // per-level progress resets; the HUD keeps showing runScore
@@ -818,15 +831,24 @@ class GameScene extends Phaser.Scene {
     this.hintText.setText('');
     this.feedbackText.setText('');
     this.timeLeft += LEVELUP_TIME_BONUS;
+    if (perfect) {
+      this.timeLeft += PERFECT_TIME_BONUS;
+      this.addScore(perfectScore);
+      this.gainCredits(PERFECT_CREDIT);
+      this.refreshCredits();
+    }
     this.strikeTimer = 0;
     this.cameras.main.shake(250, 0.006);
     Sfx.win();
     this.transitioning = true;
-    this.battle.ulti(() => this.afterUlti(fromIdx));
+    this.battle.ulti(() => this.afterUlti(fromIdx, perfect, perfectScore));
   }
 
-  afterUlti(fromIdx) {
+  afterUlti(fromIdx, perfect, perfectScore) {
     if (this.langIndex >= LANGUAGES.length) {
+      // the level that fills the road (bonus already banked in levelUp) goes
+      // straight to the boss — flash the perfect callout over the live field.
+      if (perfect) this.floatText('PERFECT LEVEL!  +' + perfectScore);
       this.startBoss();
       return;
     }
@@ -836,7 +858,7 @@ class GameScene extends Phaser.Scene {
       if (this.rand() < FESTIVAL_CHANCE) {
         this.startFestival(this.rand() < 0.5 ? 'sw' : 'growth');
       }
-    });
+    }, perfect, perfectScore);
   }
 
   // --- boss fight at the end of every stage ---
@@ -859,6 +881,7 @@ class GameScene extends Phaser.Scene {
     this.transitioning = true;
     this.bossMode = null;
     this.langIndex = 0;
+    this.levelMistakes = 0;   // the fresh stage's first level starts clean
     this.found.clear();   // boss words must not carry into the fresh level
     // Cushion the victory: a boss can be beaten with ~1s left, and the next
     // stage restarts at langIndex 0 with higher targets and a new monster — so
@@ -879,7 +902,7 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  showPath(fromIdx, done) {
+  showPath(fromIdx, done, perfect, perfectScore) {
     const cx = this.scale.width / 2, cy = 250;
     const spacing = 230;
 
@@ -889,6 +912,17 @@ class GameScene extends Phaser.Scene {
     overlay.add(this.add.text(cx, 120, '// level cleared ✓ — the language road', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.comment
     }).setOrigin(0.5));
+    // perfect-clear banner on the (fully visible) level-clear screen — the
+    // numeric bonus is already banked in levelUp; this is the celebration.
+    if (perfect) {
+      const pf = this.add.text(cx, 152,
+        '★ PERFECT LEVEL — no mistakes!  +' + perfectScore + ' pts · +' +
+        PERFECT_TIME_BONUS + 's · +' + PERFECT_CREDIT + ' credits', {
+          fontFamily: 'monospace', fontSize: '15px', color: '#dcdcaa', fontStyle: 'bold'
+        }).setOrigin(0.5);
+      overlay.add(pf);
+      this.tweens.add({ targets: pf, scale: 1.12, duration: 450, yoyo: true, repeat: -1 });
+    }
 
     const strip = this.add.container(cx, cy);
     overlay.add(strip);
