@@ -117,6 +117,9 @@ class GameScene extends Phaser.Scene {
     this._creditStr = null;
     this._hintStr = null;
     this._effectStr = null;
+    // gate refreshInput()'s per-KEYSTROKE setColor re-raster (the fastest churn
+    // path in the game — fires on every key, not just landed words). See refreshInput.
+    this._inputColor = null;
     this._comboTier = 1;      // last combo score-multiplier tier reached (juice)
     this.levelMistakes = 0;   // wrong patterns in the CURRENT normal level (perfect-clear bonus)
 
@@ -1290,7 +1293,17 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshInput() {
-    this.inputText.setText(this.typed).setColor(this.typedColor());
+    // refreshInput fires on EVERY keystroke (type/backspace/submit) — the fastest
+    // UI churn in the game. setText must run (the text genuinely changes each key),
+    // but Phaser's Text.setColor re-renders the glyph canvas even when the color is
+    // unchanged, and the validity color only flips at word boundaries (valid-prefix
+    // ↔ invalid ↔ complete) — unchanged on the vast majority of keystrokes. Gate it
+    // on the computed color, the same per-word re-raster gate the timer / HUD labels
+    // / credits / best-combo readouts already use, so most keys re-raster once (the
+    // setText), not twice.
+    this.inputText.setText(this.typed);
+    const col = this.typedColor();
+    if (col !== this._inputColor) { this._inputColor = col; this.inputText.setColor(col); }
     this.cursor.x = this.inputText.x + this.inputText.width + 4;
   }
 
