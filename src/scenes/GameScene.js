@@ -113,6 +113,10 @@ class GameScene extends Phaser.Scene {
     this._hudTier = -1;
     this._hudLabelKey = null;  // gates the per-word LEVEL/STAGE label re-raster
     this._hudBpm = -1;         // gates the per-word music-tempo set
+    // gate refreshCredits()'s three setText re-rasters (runs on every landed word)
+    this._creditStr = null;
+    this._hintStr = null;
+    this._effectStr = null;
     this._comboTier = 1;      // last combo score-multiplier tier reached (juice)
     this.levelMistakes = 0;   // wrong patterns in the CURRENT normal level (perfect-clear bonus)
 
@@ -1364,15 +1368,26 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshCredits() {
-    this.creditText.setText('CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX);
-    this.hintBtn.setText(this.hintTokens > 0
+    // This runs on EVERY landed word (the fastest scoring path), but Text.setText
+    // re-rasters the glyph texture every call — and the hint label ('[ HINT -20 ]')
+    // and the effect line ('' with no buff up) are constant across most words. Gate
+    // each setText on its computed string so only genuine changes re-raster, the
+    // same per-word gate the timer/HUD-label/best-combo readouts already use. The
+    // credit number really does change most words, but caps at CREDIT_MAX, so gate
+    // it too and the capped-100/100 tail stops re-rastering. setAlpha only tints —
+    // it doesn't re-raster — so it stays ungated.
+    const creditStr = 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX;
+    if (creditStr !== this._creditStr) { this._creditStr = creditStr; this.creditText.setText(creditStr); }
+    const hintStr = this.hintTokens > 0
       ? '[ HINT FREE ×' + this.hintTokens + ' ]'
-      : '[ HINT -' + this.hintCost + ' ]');
+      : '[ HINT -' + this.hintCost + ' ]';
+    if (hintStr !== this._hintStr) { this._hintStr = hintStr; this.hintBtn.setText(hintStr); }
     this.hintBtn.setAlpha(this.hintTokens > 0 || this.credits >= this.hintCost ? 1 : 0.4);
     const fx = [];
     if (this.multWords > 0) fx.push('×' + this.creditMult + ' credits (' + this.multWords + 'w)');
     if (this.deathSave > 0) fx.push('SAVE ' + this.deathSave + 's');
-    this.effectText.setText(fx.join('  ·  '));
+    const effectStr = fx.join('  ·  ');
+    if (effectStr !== this._effectStr) { this._effectStr = effectStr; this.effectText.setText(effectStr); }
   }
 
   refreshBag() {
