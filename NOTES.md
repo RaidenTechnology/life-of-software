@@ -796,3 +796,68 @@ recorded per-frame allocation. Four separate commits.
   — bump the menu above the gear or hide the gear while a menu is open.
 - With the end-screen delta landed, a live "beat N to set a record" is already on
   the HUD; the two PB surfaces are now consistent — no further PB work needed.
+
+## Auto-dev log - 20260724-1451 pass 1
+
+Seventh active-development pass on Opus 4.8. Re-read all 10 files (all still pass
+`node --check`). Genuine fresh bugs are nearly exhausted after six passes, so
+this pass closed the last stacked-timer site the earlier juice fixes hadn't
+reached, cleared two of the standing leftovers (the settings-gear layering and
+the daily-best surfacing), and cut the last per-event allocation in the battle
+strip — which no prior perf pass had touched. Four separate commits.
+
+**Bugs fixed**
+
+1. **Stacked `hintText` auto-clear timers blanked a newer hint early
+   (GameScene `buyHint`) — FIXED.** Each hint scheduled a bare
+   `time.delayedCall(6000, clear)`; buying a second hint within 6s left the
+   first timer pending, and when it fired it wiped the *newer* hint's masked
+   text 0–6s early. Exactly the stacked-timer class the `feedback`/`shakePanel`
+   fixes addressed for their shared labels, but hints were never covered. Now the
+   timer is tracked in `this._hintClear` and `remove()`d before the next is
+   scheduled. Fresh area: no prior pass touched the hint auto-clear.
+
+2. **Settings gear/panel drew above the bag/shop modal (depth 31 > 30) —
+   FIXED (standing leftover, flagged in the pass-6 log).** `UI.chrome` mounts the
+   gear + settings panel at depth 31; the bag/shop `menuShell` container sat at
+   depth 30, so the gear stayed clickable through the modal dim and its panel
+   opened on top of the shop window. Bumped the menu container to depth 40 — the
+   dim now covers the gear (and swallows clicks aimed at it) while staying below
+   the pause overlay (depth 50). One-line, no other depth users in 30–50.
+
+**Feature shipped**
+
+3. **Today's daily best surfaced on the menu + end screen (standing leftover,
+   flagged in the pass-5 and pass-6 logs).** `los_daily_<date>` was written by
+   EndScene but shown nowhere, so the seeded daily had no visible target. The
+   menu now folds the day's best word count into the DAILY button label
+   (`… · best Nw ]`), and the end screen prints `today's daily best: N patterns`
+   for daily runs — re-read *after* the write so it includes the run just
+   finished — reusing the slot the checkpoint line uses for normal runs. Closes
+   the daily leaderboard loop that the shared-seed race depends on.
+
+**Quality / perf**
+
+4. **Death/flinch particle burst pooled instead of alloc+destroy per kill
+   (battle.js — a fresh area for perf).** `Battle.kill()` fires on every correct
+   melee word and `bossFlinch()` on every boss hit; each `add()`'d a fresh
+   ParticleEmitter (`emitting:false`), `explode()`'d once, and scheduled a
+   `delayedCall` to `destroy()` it ~400–450ms later — an emitter allocation +
+   teardown + timer on the game's most frequent battle event. Now one reusable
+   `deathFx` emitter is built in the constructor and `explode(n, x, y)` fires the
+   burst at the hit point (verified the Phaser 3.90 `explode(count,x,y)` signature
+   forwards x/y to `emitParticle`). Mirrors the `floatText`/`burstFx` pooling the
+   GameScene passes did; the demon fire-fountain emitters stay as-is (they're
+   persistent continuous emitters, not per-event).
+
+**Leftover for next passes**
+
+- Festival balance (entering at low time is dangerous) is deliberate but still
+  untuned — a small one-time clock cushion on festival start or a slightly larger
+  `+2s`/answer are the standing options. A playtest call, not a code call.
+- The daily-best line shows only word count; decoding `p` into a STAGE·LEVEL label
+  (as the checkpoint/menu lines do) would make the daily target read the same way
+  as the normal-mode BEST line. Small polish.
+- The music loop is a raw `setInterval`, so it keeps playing through an ESC pause
+  (Phaser `time.paused` only freezes scene timers). Arguably fine, but pausing the
+  chiptune on pause would be more correct if a playtest finds it odd.
