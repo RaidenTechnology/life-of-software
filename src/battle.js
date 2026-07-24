@@ -587,7 +587,7 @@ class Battle {
     this.enemies.forEach(e => { s.tweens.killTweensOf(e); e.destroy(); });
     this.enemies = [];
     this.bossActive = true;
-    const key = 'en_' + Battle.TYPES[this.typeIndex];
+    const key = 'en_' + Battle.TYPES[this.typeIndex] + '_boss';   // crowned boss variant
     const b = s.add.image(620, this.groundY - 34, key)
       .setScale(2.6).setAlpha(0);
     s.tweens.add({ targets: b, alpha: 1, duration: 400 });

@@ -231,6 +231,42 @@ def m_demon():
 
 MONSTERS = {'ork':m_ork,'skeleton':m_skeleton,'elf':m_elf,'goblin':m_goblin,'vampire':m_vampire,'demon':m_demon}
 
+# --------------------------------------------------------------------- BOSS
+# One "boss" variant per monster type: the same body plus a gold crown/accent,
+# rendered at the same 40x52 canvas as the regular monster (the game already
+# scales bosses 2.6x with NEAREST filtering, so bigger chunky voxels read as
+# a mega-sized boss — no need for a separate larger canvas).
+GOLD = 0xc9a227
+
+def crown(px, top, w):
+    top = max(1, top)
+    part(px, top, w, 3, GOLD, depth=4.9)                  # band
+    step = max(1, w // 4)
+    for i in range(1, 4):
+        part(px + i*step - 1, max(1, top-3), 2, 3, GOLD, depth=4.7)  # spikes
+
+def boss_ork():
+    m_ork(); crown(10, 1, 20)
+
+def boss_skeleton():
+    m_skeleton(); crown(11, 1, 18)
+
+def boss_elf():
+    m_elf(); part(12, 1, 17, 3, 0xffd700, depth=4.3)      # brighter/bigger circlet
+
+def boss_goblin():
+    m_goblin(); crown(9, 9, 22)
+
+def boss_vampire():
+    m_vampire(); crown(12, 1, 16)
+
+def boss_demon():
+    m_demon()
+    part(12, 1, 4, 3, GOLD, depth=2.8)                    # gold-tipped horns
+    part(24, 1, 4, 3, GOLD, depth=2.8)
+
+BOSSES = {'ork':boss_ork,'skeleton':boss_skeleton,'elf':boss_elf,'goblin':boss_goblin,'vampire':boss_vampire,'demon':boss_demon}
+
 def downscale(src, dst, w, h):
     import numpy as np
     img = bpy.data.images.load(src)
@@ -252,6 +288,9 @@ def render(name):
         else:
             t=int(base); reset(60+t*3); build_hero(t); w=60+t*3
         fname = name + ".png"
+    elif name.endswith('_boss'):
+        mtype = name[:-5]
+        reset(40); BOSSES[mtype](); fname = "en_" + name + ".png"; w=40
     else:
         reset(40); MONSTERS[name](); fname = "en_" + name + ".png"; w=40
     dst = os.path.join(ASSETS, fname)
@@ -267,6 +306,7 @@ def all_names():
     names=[]
     for t in range(6): names.append('hero%d'%t); names.append('hero%dx'%t)
     names += list(MONSTERS.keys())
+    names += [k+'_boss' for k in BOSSES.keys()]
     return names
 
 def main():

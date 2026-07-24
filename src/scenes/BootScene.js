@@ -33,6 +33,13 @@ class BootScene extends Phaser.Scene {
     }
     ['ork', 'skeleton', 'elf', 'goblin', 'vampire', 'demon'].forEach(t => {
       this.load.image('en_' + t, 'assets/en_' + t + '.png');
+      this.load.image('en_' + t + '_boss', 'assets/en_' + t + '_boss.png');  // crowned boss variant
+    });
+
+    // loot icons — same keys Items.makeTextures() checks, so it skips its own
+    // placeholder once these are loaded.
+    ['sword', 'armor', 'potion', 'scroll', 'treasure'].forEach(t => {
+      this.load.image('it_' + t, 'assets/it_' + t + '.png');
     });
   }
 
