@@ -175,7 +175,8 @@ class MenuScene extends Phaser.Scene {
       'PERFECT    Clear a whole level with no mistakes for bonus time, score & credits.\n' +
       'LOOT       Slain monsters drop gear, COMMON to UNIQUE: swords (credit x),\n' +
       '           armor (death-save), potions (+time), scrolls (hints), treasure.\n' +
-      'BAG / SHOP Press TAB for your bag and the daily shop — the clock keeps running.\n' +
+      'BAG / SHOP TAB opens your bag & the daily shop (clock keeps running) — all\n' +
+      '           keyboard: arrows/1-9 pick, U use, S salvage, 1-4 buy.\n' +
       'FESTIVAL   Surprise bonus rounds between levels — the main clock still drains!\n' +
       'BOSS       A boss guards the end of every stage. Beat it to raise the difficulty.\n' +
       'STAGES     Clear all ' + LANGUAGES.length + ' languages to advance: VERY EASY -> SURVIVAL.\n' +
