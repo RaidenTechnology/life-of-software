@@ -1930,3 +1930,57 @@ top non-code work. With keyboard control now reaching the bag/shop, the whole
 game is playable end to end without the mouse — a clean "keyboard-only" framing
 for the itch page. The festival credit popup still prints the flat `+15 credits`
 under a live sword multiplier (a design call — the effect readout shows the ×N).
+
+## Auto-dev log - 20260724-review pass 9
+
+Read the whole game again end to end (index.html, all of src/, languages.js,
+README, this NOTES history). `node --check` clean on all ten JS files. As in the
+last several passes the flagged state machines re-traced clean — pause ↔ menu ↔
+festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/HUD/
+status gates + the three-band recolor, the terminal-'off' PERFECT logic,
+checkpoint monotonicity + the p→STAGE·language decode, the daily seed/PB split,
+the bag-full purchase block, the music pause/resume, the keyboard bag/shop
+routes, and the "missing PNG → code-drawn/degraded" fallbacks. I specifically
+re-checked the sw-festival per-language `usedByLang` dedup (a keyword valid in
+two pooled languages isn't wrongly rejected), the credit float paths (the sword
+`creditMult` DOES apply to festival credits via `gainCredits`, and only the
+festival popup understates it — the known, deliberately-left design call), and
+the quit-to-menu `this.time.paused` reset that prevents a frozen next run. **No
+fresh logic bug surfaced and — per this project's discipline — none was
+invented.** After ~28 passes the defect surface is mined out; the surviving
+value is fresh features, feel and presentation. This pass shipped one small,
+self-contained accessibility feature. One code commit + this log.
+
+**Feature — reduced-motion SCREEN SHAKE toggle (settings gear, all scenes)**
+
+The game shakes the camera at its four punchiest beats — level-up (`250,0.006`),
+boss spawn (`200,0.005`), boss kill (`350,0.01`) and death (`300,0.01`) — which
+is great game-feel but is also one of the most common motion-sensitivity
+triggers, and jam juries increasingly note a reduced-motion option as a
+presentation/accessibility plus. Added a persisted `Motion.shake` setting (guarded
+localStorage reads mirroring `Sfx`, so a sandboxed itch iframe can't leave it
+undefined and break the settings panel) and a third row in the shared settings
+panel — `[ SCREEN SHAKE: ON/OFF ]`, same row idiom as SOUND, so it shows on the
+menu, in-game and End screens. All four shake sites now route through a single
+gated `shakeCam(duration, intensity)` wrapper on GameScene, so the one toggle
+silences every shake with no balance change. Scope kept honest: the death
+red-`flash` is deliberately left on (it's a flash, not a shake, and it's the
+fail-state read), and the toggle is labelled SCREEN SHAKE accordingly. The
+settings panel was grown downward (height 106→128, centre nudged +8) to fit the
+row while its top edge still clears the title bar and its bottom stays well above
+the status bar. `node --check` passes on both touched files (`src/ui.js`,
+`src/scenes/GameScene.js`); grep confirms the only surviving `cameras.main.shake`
+call is inside the gated wrapper.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance and the grade/amber thresholds remain deliberate-but-untuned playtest
+calls (a real play session, not a code guess). The itch presentation captures
+(language road / a festival / the PERFECT-LEVEL banner / the grade stamp / the
+live PERFECT tag / the green gain pulse / the survived stat + amber band / the
+how-to-play panel / the keyboard-operable bag with numbered shop cards) plus the
+README's final checklist item (name + cover + screenshots) remain the top
+non-code work. The festival credit popup still prints the flat `+15 credits`
+under a live sword multiplier (a design call — the effect readout shows the ×N).
+With the reduced-motion toggle in, the settings gear now carries SOUND / VOLUME /
+SCREEN SHAKE — a small "accessibility options" callout that also screenshots as a
+polish signal for the itch page.
