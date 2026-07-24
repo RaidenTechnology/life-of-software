@@ -1153,7 +1153,7 @@ class GameScene extends Phaser.Scene {
     }
     this.flashGain();   // clearing a level bought back +10s (+5s perfect) — pulse green
     this.strikeTimer = 0;
-    this.cameras.main.shake(250, 0.006);
+    this.shakeCam(250, 0.006);
     Sfx.win();
     this.transitioning = true;
     this.battle.ulti(() => this.afterUlti(fromIdx, perfect, perfectScore));
@@ -1189,7 +1189,7 @@ class GameScene extends Phaser.Scene {
     this.battle.spawnBoss();
     this.refreshLangHud();
     this.feedback('BOSS FIGHT! type ' + this.bossMode.lang.name + ' patterns!', IDE.error);
-    this.cameras.main.shake(200, 0.005);
+    this.shakeCam(200, 0.005);
     Sfx.hit();
   }
 
@@ -1207,7 +1207,7 @@ class GameScene extends Phaser.Scene {
     if (this.stageIndex < STAGES.length - 1) this.stageIndex++;
     else this.survivalLap++;
     this.saveCheckpoint();   // reaching a new stage is a checkpoint
-    this.cameras.main.shake(350, 0.01);
+    this.shakeCam(350, 0.01);
     Sfx.win();
     this.battle.bossDie(() => {
       this.showStage(() => {
@@ -1519,6 +1519,14 @@ class GameScene extends Phaser.Scene {
   }
 
   // --- UI helpers ---
+
+  // Camera shake, gated by the reduced-motion setting (settings gear → SCREEN
+  // SHAKE). All four shake sites (level-up, boss spawn, boss kill, death) route
+  // through here so one toggle silences them; the death red-flash is left alone
+  // (it's a flash, not shake, and reads as the fail state even with shake off).
+  shakeCam(duration, intensity) {
+    if (Motion.shake) this.cameras.main.shake(duration, intensity);
+  }
 
   typedColor() {
     if (!this.typed) return IDE.text;
@@ -1833,7 +1841,7 @@ class GameScene extends Phaser.Scene {
       this.timeLeft = 0;
       this.timerText.setText('0');
       this.dying = true;
-      this.cameras.main.shake(300, 0.01);
+      this.shakeCam(300, 0.01);
       this.cameras.main.flash(400, 140, 30, 30);
       Sfx.hit();
       this.battle.defeat(() => this.finish(false));

@@ -17,6 +17,22 @@ const IDE = {
   white: '#ffffff'
 };
 
+// Accessibility: a screen-shake toggle. The countdown game shakes the camera on
+// level-ups, boss fights and death — punchy, but camera shake is a common
+// motion-sensitivity trigger, so let players turn it off. Persisted and read the
+// same guarded way as the sound settings (a sandboxed itch iframe / private
+// window can throw on ANY localStorage access; an unguarded read here would leave
+// Motion undefined and break the settings panel on every scene). Default ON.
+const Motion = {
+  shake: (() => {
+    try { return localStorage.getItem('los_shake') !== '0'; } catch (e) { return true; }
+  })(),
+  setShake(on) {
+    this.shake = on;
+    try { localStorage.setItem('los_shake', on ? '1' : '0'); } catch (e) {}
+  }
+};
+
 const UI = {
   // window title bar + blue status bar, like an editor. Also mounts the
   // settings gear (top-right) with the sound toggle panel.
@@ -51,7 +67,9 @@ const UI = {
     }).setOrigin(1, 0.5).setDepth(31).setInteractive({ useHandCursor: true });
 
     const panel = scene.add.container(w - 106, 92).setDepth(31).setVisible(false);
-    panel.add(scene.add.rectangle(0, 0, 188, 106, IDE.panel).setStrokeStyle(1, IDE.border));
+    // grown downward (center nudged +8, height 106→128) to fit the third row —
+    // top edge stays clear of the title bar, bottom stays well above the status bar.
+    panel.add(scene.add.rectangle(0, 8, 188, 128, IDE.panel).setStrokeStyle(1, IDE.border));
     panel.add(scene.add.text(0, -38, 'SETTINGS', {
       fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
     }).setOrigin(0.5));
@@ -94,6 +112,22 @@ const UI = {
     };
     mkArrow(-74, '◀', -1);
     mkArrow(74, '▶', 1);
+
+    // screen-shake (reduced-motion) toggle — same row idiom as SOUND above
+    const shakeRow = scene.add.text(0, 44, '', {
+      fontFamily: 'monospace', fontSize: '16px', color: IDE.keyword
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    const refreshShake = () => shakeRow.setText('[ SCREEN SHAKE: ' + (Motion.shake ? 'ON' : 'OFF') + ' ]');
+    refreshShake();
+    shakeRow.on('pointerover', () => shakeRow.setColor(IDE.white));
+    shakeRow.on('pointerout', () => shakeRow.setColor(IDE.keyword));
+    shakeRow.on('pointerdown', () => {
+      Sfx.unlock();
+      Motion.setShake(!Motion.shake);
+      refreshShake();
+      Sfx.blip();
+    });
+    panel.add(shakeRow);
 
     gear.on('pointerover', () => gear.setColor('#ffffff'));
     gear.on('pointerout', () => gear.setColor('#9d9d9d'));
