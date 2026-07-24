@@ -19,6 +19,10 @@ const BOSS_WIN_TIME = 25;        // clock floor after clearing a boss (fresh sta
 const MAX_TYPED = 24;
 const FESTIVAL_CHANCE = 0.35;
 const FESTIVAL_TIME = 20;
+const FESTIVAL_MIN_TIME = 15;    // clock floor when a festival starts — mirrors
+                                  // BOSS_WIN_TIME; the main clock still drains
+                                  // DURING the round (that risk is intentional),
+                                  // this only stops it opening already-critical
 const FESTIVAL_CREDIT = 15;
 const FESTIVAL_TIME_BONUS = 2;
 const ENEMY_STRIKE_EVERY = 10;   // seconds between the front monster's hits
@@ -1068,6 +1072,14 @@ class GameScene extends Phaser.Scene {
   // --- festivals ---
 
   startFestival(type) {
+    // The main clock keeps draining under the festival (see update) — that's
+    // real risk by design, but it must not open the round already-dead: a
+    // level-up can land the player at a near-zero clock a split second before
+    // the 35% festival roll fires, so they'd get a "type a pattern!" prompt
+    // with no realistic chance to answer. Floor it, same pattern as
+    // BOSS_WIN_TIME; the ongoing stall-and-die risk mid-round is untouched.
+    if (this.timeLeft < FESTIVAL_MIN_TIME) this.timeLeft = FESTIVAL_MIN_TIME;
+
     const cx = this.scale.width / 2;
     const pool = this.shuffle(LANGUAGES.slice()).slice(0, 6);
 
