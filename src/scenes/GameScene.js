@@ -811,18 +811,40 @@ class GameScene extends Phaser.Scene {
     const pos = this.celebrate();
 
     if (this.bossMode) {
+      const b = this.bossMode;
       const m = this.comboMult();
-      const bonus = (1.5 + 0.25 * w.length) * this.bossMode.lang.timeMult;
+      // where does this pattern sit in the chain? on it, off it, or off-order
+      const onChain = !!(b.seq && w === b.seq[b.seqAt]);
+      const brokeChain = !!(b.seq && !onChain && b.seq.includes(w));
+      const bonus = ((1.5 + 0.25 * w.length) * b.lang.timeMult + this.boonTime) *
+        (onChain ? 2 : 1);
       this.addTime(bonus);
-      this.addScore(w.length * 15 * m);   // boss hits are worth more than a plain word
+      this.addScore(w.length * 15 * m * (onChain ? 2 : 1));
       this.gainCredits(CREDIT_PER_WORD);
       this.tickMult();
       this.refreshCredits();
-      this.floatText('BOSS HIT!' + (m > 1 ? ' ×' + m : '') + '  +' + bonus.toFixed(1) + 's');
+      let dmg = 1;
+      if (onChain) {
+        dmg = 3;
+        b.seqAt++;
+        this.floatText('CHAIN ' + b.seqAt + '/3!  ×2  +' + bonus.toFixed(1) + 's');
+        Sfx.win();
+      } else if (brokeChain) {
+        // Typed a chain pattern out of order: it's spent, and the boss recovers.
+        // +2 because the pattern still deals its 1 below — at +1 the two cancelled
+        // and the HP bar didn't move, which made "boss recovers" a lie on screen.
+        b.hp = Math.min(b.max, b.hp + 2);
+        this.floatText('CHAIN BROKEN — boss recovers');
+        this.shakePanel();
+      } else {
+        this.floatText('BOSS HIT!' + (m > 1 ? ' ×' + m : '') + '  +' + bonus.toFixed(1) + 's');
+      }
       this.maybeDrop(pos);
-      this.bossMode.hp--;
+      b.hp -= dmg;
+      if (brokeChain || (b.seq && b.seqAt >= b.seq.length)) this.newBossSeq();
+      else this.refreshBossSeq();
       this.refreshLangHud();
-      if (this.bossMode.hp <= 0) this.beatBoss();
+      if (b.hp <= 0) this.beatBoss();
       return;
     }
 
@@ -1496,8 +1518,12 @@ class GameScene extends Phaser.Scene {
   startBoss() {
     this.clearTransitionGuard();
     this.transitioning = false;
-    const hp = 12 + this.stageIndex * 3;
-    this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES) };
+    // 18, up from 12: chain links hit for 3, so the old bar fell in four inputs
+    // — the fight was over before its own mechanic had been read once. At 18 a
+    // clean run is two full chains, and a player ignoring the chain still has a
+    // fight rather than a wall.
+    const hp = 18 + this.stageIndex * 4;
+    this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES), seq: null, seqAt: 0 };
     this.blankPerfect();   // the boss is an interstitial — no perfect-pace tag
     this.found.clear();
     this.clearDeprecation();
@@ -1508,10 +1534,44 @@ class GameScene extends Phaser.Scene {
     this.feedback('BOSS FIGHT! type ' + this.bossMode.lang.name + ' patterns!', IDE.error);
     this.shakeCam(200, 0.005);
     Sfx.hit();
+    this.newBossSeq();
+  }
+
+  // --- boss exploit chain ---
+  //
+  // The boss used to be a normal level wearing a crown: same act, different word
+  // list, HP instead of a target. Now it names three of its own patterns, in
+  // order, on screen — an EXPLOIT CHAIN. Follow the chain and each link hits for
+  // three HP instead of one and the clock jumps; any other valid pattern still
+  // works but only chips, and breaking the order mid-chain lets the boss heal a
+  // point. So the boss finally asks for something the levels never do: not "how
+  // many patterns do you know" but "can you hit these three, in this order,
+  // right now" — and it's readable to a player who knows nothing about the
+  // language, which is the same accessibility bargain ASSIST makes.
+  newBossSeq() {
+    const b = this.bossMode;
+    if (!b) return;
+    const pool = b.lang.words.filter(w => !this.found.has(w) && w.length >= 3);
+    if (pool.length < 3) { b.seq = null; this.refreshLangHud(); return; }
+    b.seq = this.shuffle(pool.slice()).slice(0, 3);
+    b.seqAt = 0;
+    this.refreshBossSeq();
+  }
+
+  refreshBossSeq() {
+    const b = this.bossMode;
+    if (!b || !b.seq) { this.eolText.setVisible(false); return; }
+    this.tweens.killTweensOf(this.eolText);
+    const line = b.seq.map((w, i) =>
+      i < b.seqAt ? '✓' : (i === b.seqAt ? '▶ ' + w : w)).join('   ');
+    this.eolText.setText('EXPLOIT CHAIN:  ' + line)
+      .setColor(b.seqAt > 0 ? '#dcdcaa' : IDE.error).setAlpha(1).setVisible(true);
   }
 
   beatBoss() {
     this.transitioning = true;
+    this.tweens.killTweensOf(this.eolText);
+    this.eolText.setVisible(false);
     this.armTransitionGuard(12, 'beatBoss');   // death anim + stage card ≈ 5s
     this.bossMode = null;
     this.langIndex = 0;
