@@ -432,8 +432,13 @@ class GameScene extends Phaser.Scene {
     if (e.key === 'Enter') {
       this.submit();
     } else if (e.key === 'Backspace') {
-      this.typed = this.typed.slice(0, -1);
-      this.refreshInput();
+      // only act when there's something to delete — gives delete the same audio
+      // feedback typing has, and skips a redundant refreshInput on an empty line.
+      if (this.typed) {
+        this.typed = this.typed.slice(0, -1);
+        Sfx.back();
+        this.refreshInput();
+      }
     } else if (e.key.length === 1 && !/\s/.test(e.key) && this.typed.length < MAX_TYPED) {
       this.typed += e.key.toLowerCase();
       Sfx.type();
@@ -595,9 +600,21 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // A quick upward scale-pop on the big countdown when a word buys time — ties
+  // the core "typing buys time" loop to the timer itself (the Count Down theme).
+  // Skipped while low: update() drives a per-frame scale/tremble on the timer
+  // under 10s, and a tween here would fight it. Cheap transform, no re-raster.
+  pulseTimer() {
+    if (this._timerLow) return;
+    this.tweens.killTweensOf(this.timerText);
+    this.timerText.setScale(1.18);
+    this.tweens.add({ targets: this.timerText, scale: 1, duration: 180, ease: 'Quad.easeOut' });
+  }
+
   celebrate() {
     this.hintText.setText('');
     this.flashPanel(IDE.greenHex);
+    this.pulseTimer();   // every landed word buys time — pop the countdown to show it
     Sfx.pickup();
     this.burstFx.explode(14);
     if (this.bossMode) return this.battle.bossHit();
