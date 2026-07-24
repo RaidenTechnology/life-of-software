@@ -299,14 +299,18 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '46px', color: IDE.white, fontStyle: 'bold'
     }).setOrigin(0.5);
     // this run's stats so far — populated in togglePause() each time you pause, so
-    // a mid-run breather doubles as a scoreboard (score/wpm/accuracy/best combo)
-    // without leaving the field or reaching the End screen.
-    this.pauseStats = this.add.text(cx, pcy + 12, '', {
-      fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
+    // a mid-run breather doubles as a run dashboard without leaving the field or
+    // reaching the End screen. Two centred lines: skill (score/wpm/accuracy) on
+    // top, the run's spoils (best combo / credits banked / loot / time survived)
+    // below — credits + loot were otherwise invisible until the End screen. The
+    // block sits a touch lower (pcy+16) so two lines clear the 46px PAUSED title.
+    this.pauseStats = this.add.text(cx, pcy + 16, '', {
+      fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa',
+      align: 'center', lineSpacing: 4
     }).setOrigin(0.5);
     // shows the sound state live: this is a keyboard game, so M toggles mute right
     // here (see onKey's paused branch) instead of forcing a mouse trip to the gear.
-    this.pauseHint = this.add.text(cx, pcy + 44, '', {
+    this.pauseHint = this.add.text(cx, pcy + 50, '', {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
     this.refreshPauseHint();
@@ -1787,8 +1791,14 @@ class GameScene extends Phaser.Scene {
       const acc = this.submitsTotal ? Math.round(100 * this.submitsOk / this.submitsTotal) : 100;
       const t = Math.max(0, Math.round(this.elapsed));
       const survived = Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
-      this.pauseStats.setText('SCORE ' + this.runScore + ' · ' + wpm + ' wpm · ' +
-        acc + '% acc · best combo ' + this.maxCombo + ' · survived ' + survived);
+      // line 1 = skill, line 2 = the run's spoils. credits + loot were otherwise
+      // invisible mid-run (only the End screen showed loot); fmtC/lootCount are
+      // always-valid state, so this stays crash-safe during a boss/festival pause
+      // (unlike langIndex, which is out of range while a boss is up).
+      this.pauseStats.setText(
+        'SCORE ' + this.runScore + ' · ' + wpm + ' wpm · ' + acc + '% acc\n' +
+        'best combo ' + this.maxCombo + ' · ' + this.fmtC(this.credits) + ' credits · ' +
+        this.lootCount + ' loot · survived ' + survived);
       this.refreshPauseHint();   // the gear may have flipped mute since we built it
     }
     this.pauseUI.setVisible(this.paused);
