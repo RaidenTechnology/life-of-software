@@ -1686,3 +1686,52 @@ the effect readout shows the ×N). Genuine fresh logic bugs remain mined out aft
 ~20 passes; the surviving value is presentation and playtest tuning, not defect
 hunting — but this pass shows the *newly-added* features are still worth
 re-auditing for feel defects even when the old state machines are clean.
+
+## Auto-dev log - 20260724-review pass 5
+
+Re-read the whole game end to end (index.html, all of src/, languages.js, README
+and this NOTES history). `node --check` clean on all ten JS files. As in the last
+several passes the flagged state machines re-traced clean — pause ↔ menu ↔
+festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/HUD/status
+gates, the pass-4 terminal-'off' PERFECT logic, checkpoint monotonicity + the p→
+STAGE·language decode on both End sites, the daily seed/PB split, the bag-full
+purchase block, and the "missing PNG → code-drawn/degraded" fallbacks. I also
+re-checked the boss-HP-vs-pool starve math (max boss HP 27 at Survival, smallest
+word pool ~38, so it can't starve) and the accuracy bookkeeping (empty submits and
+genuine duplicates both correctly excluded). No crash/deadlock surfaced and I did
+not invent one — after ~20 passes the genuine logic bugs are mined out. So this
+pass is a single, self-contained FEEL feature, committed on its own.
+
+**Feel — green edge pulse when you buy back a big chunk of the clock**
+
+The countdown had a red screen-edge `warnFrame` that ramps up as time runs out
+(the tension side of "Count Down"), but nothing marked the *opposite* beat —
+pushing the clock back. Added `flashGain()`, a one-shot green edge pulse that is
+the exact symmetric counterpart to the red frame, fired at the three LIVE-field
+moments a big refill actually lands: `levelUp()` (+10s, +5s on a perfect),
+potion use in `useItem()` (+10..60s), and the armor death-save in `update()`
+(snatched back from 0 — the biggest relief beat there is). It sits at depth 7,
+just UNDER the red frame (depth 8), so a gain taken while still inside the red
+zone reads as *escaping* it instead of hiding it.
+
+Deliberately NOT fired on: the per-word +1.5s/+2s gains (too small and far too
+frequent — they already have the timer scale-pop `pulseTimer()` + the floating
+"+Ns" readout), and the boss-win `BOSS_WIN_TIME` cushion (that plays under the
+full-screen depth-20 stage overlay, where a depth-7 pulse would never be seen —
+so wiring it would be dead code). One always-on rectangle, alpha driven by a
+single tween, so it costs nothing when idle; `killTweensOf` first means a potion
+used right after a level-up restarts the pulse cleanly rather than stacking fades
+that cut it short — the same one-tween-at-a-time discipline the feedback / shake /
+hint-clear paths already use. `node --check` passes.
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance
+and the grade thresholds remain deliberate-but-untuned playtest calls; the itch
+presentation captures (the language road / a festival / the PERFECT-LEVEL banner /
+the grade stamp / the live PERFECT tag / now the green gain pulse) + the README's
+final checklist item (name + cover + screenshots) remain the top non-code work.
+The festival credit popup still prints the flat `+15 credits` under a live sword
+multiplier (a design call — the effect readout shows the ×N). As pass 4 noted, the
+surviving value is presentation and playtest tuning plus re-auditing newly-added
+juice, not defect hunting — this pass's green pulse is itself the kind of small
+feel touch worth a feel-defect re-check next pass (its interaction with the red
+frame and the level-up ulti animation is the thing to eyeball on a real playthrough).
