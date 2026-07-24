@@ -915,3 +915,59 @@ and one standing-leftover quality fix. Three code commits + this log.
   STAGE·LEVEL label (as the checkpoint/menu lines do) is small polish left undone.
 - With the re-stage gate in, `refreshLangHud`'s remaining per-word work is all
   cheap text/rect updates — no known churn sites left in the battle strip.
+
+## Auto-dev log - 20260724-1509 pass 1
+
+Ninth active-development pass on Opus 4.8. Re-read all 10 source files (all pass
+`node --check`) plus NOTES, and re-ran the data-integrity scan: all 25 word lists
+are clean (0 duplicates / uppercase / whitespace / over-`MAX_TYPED` / missing-meta),
+and the smallest pool (38) still exceeds max boss HP (27). The state machines the
+prompt calls out — strike flags, festival/boss/menu exclusivity, death-save timing,
+tick cadence — are all sound after eight prior passes, so **no fresh logic bug
+surfaced this pass and none was invented**. Instead this pass closed the two
+standing leftovers with real code and fixed a genuine correctness/quality nit in
+the RNG. Three code commits + this log.
+
+**Feature shipped**
+
+1. **Richer daily leaderboard entry (closes the pass-7/8 decode leftover AND the
+   pass-5 missing-wpm note).** `los_daily_<date>` stored only `{p, words}`, and the
+   end-screen daily-best line showed a bare `N patterns` — so the seeded daily
+   could never surface speed/score without a re-run, and its target didn't read
+   like the normal-mode BEST line. The daily write now persists
+   `{p, words, wpm, score}`, and the end screen decodes the stored `p` into
+   `STAGE · <language>` (p = (stageIndex + lap) · 25 + langIndex; the stage index
+   saturates at SURVIVAL and laps pile on beyond it, matching `showStage`), with
+   `· N wpm` appended when present. `wpm` is optional so entries written by older
+   builds still render. Decode math verified against three hand-computed cases
+   (HARD/L18, SURVIVAL lap 0, SURVIVAL lap 2). MenuScene's compact daily label is
+   left as word-count only to avoid overflow — the end screen is where the detail
+   belongs.
+
+**Quality / correctness**
+
+2. **SHOP button anchored to BAG's rendered width so they can't overlap
+   (960x540 layout, a fresh UI nit).** `bagBtn`/`shopBtn` sat at fixed `x=16`/`x=130`,
+   but `[ BAG 12/12 ]` renders to ~x=133 at fontSize-15 monospace, so a two-digit
+   bag count clipped into `[ SHOP ]`. `refreshBag()` (already called on every bag
+   change) now sets `shopBtn.x = bagBtn.x + bagBtn.width + 14`, correct for any
+   count and robust to future `INV_MAX` changes. No prior pass touched this row.
+
+3. **Fair Fisher-Yates festival shuffle instead of the biased `sort` trick.**
+   `startFestival` drew its 6-language pool with
+   `LANGUAGES.slice().sort(() => this.rand() - 0.5)` — a comparator that isn't a
+   consistent ordering, so the shuffle is non-uniform. Under the daily's *seeded*
+   RNG that bias is deterministic, skewing which languages appear in the daily's
+   festivals. Replaced with an in-place `shuffle()` helper (Fisher-Yates driven by
+   `this.rand`), so the pool is now uniformly random and the daily stays fair.
+
+**Leftover for next passes**
+
+- Festival balance (entering at low time is dangerous) remains a deliberate-but-
+  untuned playtest call — a small one-time clock cushion on festival start or a
+  slightly larger `+2s`/answer are the standing options. Still a playtest call,
+  not a code call, so left alone.
+- Genuine fresh *bugs* are now exhausted across nine passes; future passes are
+  best spent on tuning (needs playtests) or presentation polish (an itch capture
+  showing the language road / a festival), not on hunting for logic defects that
+  the earlier passes have already closed.
