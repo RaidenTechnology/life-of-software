@@ -444,6 +444,16 @@ class GameScene extends Phaser.Scene {
     }
 
     if (this.activeFound.has(w)) {
+      // Re-submitting a pattern you already cleared is a no-op, not an attempt:
+      // the game already treats it as neither a hit nor a mistake — soft blip
+      // (not the wrong buzzer), no combo break, no perfect-clear penalty. The
+      // accuracy stat is the one place that still contradicted that, docking you
+      // for it (submitsTotal++ above with no matching submitsOk). Pass-4 removed
+      // this docking for the *false* "already typed" rejections it fixed; undo
+      // the attempt count here so a genuine duplicate doesn't dent accuracy either
+      // (a headline End/daily/share stat). Ranking is unaffected — it sorts on
+      // progress → words → score, never accuracy.
+      this.submitsTotal--;
       this.feedback('"' + w + '" already typed', IDE.dim);
       Sfx.blip();
       return;
