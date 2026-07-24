@@ -1459,3 +1459,53 @@ are now applied across the whole HUD — timer, labels, credits, badges,
 best-combo, festival clock, and the input line — so that vein of perf work is
 essentially exhausted; the remaining wins are gameplay-feel and presentation, not
 churn-cutting.
+
+## Auto-dev log - 20260724-review pass 1
+
+Re-read all 10 source files (all pass `node --check`) plus the full NOTES
+history. As in the last several passes the flagged state machines re-traced
+clean — strike self-heal, festival/boss/menu exclusivity, tick cadence,
+death-save timing, the pause-exit `this.time.paused` reset, checkpoint
+monotonicity, the daily-best `p` decode (matches `saveCheckpoint`'s
+`(stageIndex+lap)*N+langIndex`), bag-full purchase blocking, and the
+"missing PNG → code-drawn placeholder" degradation (boss / scene_ / splash /
+pause / title all guarded). No crash or deadlock surfaced. This pass instead
+fixed one genuine **metric-consistency** defect that had survived every prior
+pass, and I deliberately did **not** invent filler around it. One code commit
++ this log.
+
+**Fix — accuracy no longer docks you for re-typing an already-cleared pattern**
+
+`submit()` counts every non-empty submission as an attempt (`submitsTotal++`,
+GameScene.js:439) before adjudicating it. A word you already cleared this
+level/boss/festival lands in the `activeFound.has(w)` branch, which the rest of
+the game treats as a **no-op, not a mistake** — soft `Sfx.blip()` (not the wrong
+buzzer), no `combo = 0`, no `levelMistakes++`. The one place that contradicted
+that classification was the accuracy stat: the attempt stayed counted with no
+matching `submitsOk`, so a genuine duplicate silently dented accuracy — a
+headline number on the End screen, the daily entry, and the shareable result
+string.
+
+This is the same docking **pass-4** (NOTES `20260723 pass 4`, ~line 280) called
+out and removed for the *false* "already typed" rejections it fixed (the
+`sw`-festival shared-`used` collision), which established the project's stance
+that an already-typed event must not touch accuracy. This pass completes that
+stance for the real-duplicate case: `this.submitsTotal--` in the already-typed
+branch so the attempt nets to zero. Verified against the two readers
+(`finish()` and `togglePause()`'s pause board) — both compute
+`submitsTotal ? round(100*submitsOk/submitsTotal) : 100`, so they stay in
+agreement. The growth-festival path returns *before* this branch, so its count
+is untouched; wrong words still count (real mistakes). Zero balance impact —
+time/score/credits/difficulty untouched, and ranking sorts on
+progress → words → score, never accuracy. `node --check` passes.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance (a deliberate-but-untuned playtest call, needs a play session not a code
+guess); itch presentation captures (language road / a festival / the
+PERFECT-LEVEL banner) + the README's final checklist item (name + cover +
+screenshots) remain the top non-code work. One remaining metric wrinkle noted
+but *not* changed this pass (it's a genuine design call, not a defect): the
+festival credit popup prints the flat `+15 credits` even when a sword multiplier
+is live, so it understates the real (capped-at-100) gain — the effect readout
+already shows the `×N credits` buff, so it's informative, just not summed in the
+popup. Worth a design decision before touching.
