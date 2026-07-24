@@ -104,7 +104,8 @@ class GameScene extends Phaser.Scene {
     this.lastTickSecond = -1;
     this.strikeTimer = 0;
     this._shaking = false;
-    this._timerLow = false;   // tracks the big timer's low-time recolor state
+    this._timerLow = false;   // tracks the big timer's low-time (<=10s) scale/frame state
+    this._timerBand = 'normal';  // gates the 3-band timer recolor (normal/warn/low)
     this._lastShownSec = -1;  // last integer second painted to the timer text
     // refreshLangHud runs on EVERY correct word; these gate the expensive battle
     // re-stage / re-tier so it fires only when the value actually changes (see
@@ -1762,18 +1763,26 @@ class GameScene extends Phaser.Scene {
       this.menuClockBar.width = this.menuClockBar._fullW *
         Phaser.Math.Clamp(this.timeLeft / START_TIME, 0, 1);
     }
-    // Phaser's Text.setColor re-renders the glyph texture on every call, even
-    // when the color is unchanged — so recolor the big timer only when it
-    // crosses the 10s line, not 60x/second for the whole (mostly >10s) run.
     const low = s <= 10;
+    // Three-band recolor for the big timer: >20s normal, 11..20s amber (an early
+    // "you're falling behind" cue before it's critical), <=10s red. Phaser's
+    // Text.setColor re-renders the glyph texture on every call, even when the
+    // color is unchanged — so gate it on the band and recolor only on a crossing,
+    // not 60x/second (the same once-per-cross discipline the old two-state gate
+    // used, with one added amber step).
+    const band = low ? 'low' : (s <= 20 ? 'warn' : 'normal');
+    if (band !== this._timerBand) {
+      this._timerBand = band;
+      this.timerText.setColor(band === 'low' ? IDE.error : band === 'warn' ? '#dcdcaa' : IDE.text);
+    }
+    // The <=10s scale-pulse / warn-frame / tick machinery keys off `low` alone
+    // (amber is not "low" — it only recolors). Leaving the low zone (level-up /
+    // boss / potion refilled the clock) resets those AND the tick memory:
+    // otherwise, if the last tick before the refill fired at s=10 and the clock
+    // drains back to exactly 10, s === lastTickSecond and that re-entry second's
+    // tick is silently swallowed. Reset so the first second back under 10 ticks.
     if (low !== this._timerLow) {
       this._timerLow = low;
-      this.timerText.setColor(low ? IDE.error : IDE.text);
-      // Leaving the low zone (level-up / boss / potion refilled the clock) also
-      // clears the tick memory: otherwise, if the last tick before the refill
-      // fired at s=10 and the clock drains back to exactly 10, s === lastTickSecond
-      // and that re-entry second's tick is silently swallowed. Reset so the first
-      // second back under 10 always ticks.
       if (!low) { this.timerText.setScale(1); this.warnFrame.setAlpha(0); this.lastTickSecond = -1; }
     }
     if (low) {
