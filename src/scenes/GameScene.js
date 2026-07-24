@@ -1663,9 +1663,16 @@ class GameScene extends Phaser.Scene {
       this._hudLabelKey = labelKey;
       this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length + ' · ' + this.lang.name)
         .setColor(this.lang.color);
+      // The theme is "Count Down", but every progression number counts UP (LEVEL
+      // 1→25, STAGE names rising). Surface the one descending counter the road
+      // hides: languages LEFT before this stage's boss, ticking 24→0 and resetting
+      // each stage — the road read as a countdown, not a climb. On the last
+      // language (fills the road → boss) it reads BOSS NEXT instead of "0 to boss".
+      const toBoss = LANGUAGES.length - 1 - this.langIndex;
+      const bossTag = toBoss <= 0 ? ' · ⚔ BOSS NEXT' : ' · ' + toBoss + ' to boss';
       this.stageText.setText('STAGE ' + STAGES[this.stageIndex].name +
         (this.survivalLap > 0 ? ' · LAP ' + (this.survivalLap + 1) : '') +
-        ' · target ' + this.targetScore());
+        ' · target ' + this.targetScore() + bossTag);
       this.progressFill.fillColor = Phaser.Display.Color.HexStringToColor(this.lang.color).color;
     }
     this.progressFill.width = 180 * Math.min(1, this.score / this.targetScore());
