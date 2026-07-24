@@ -18,9 +18,24 @@ class EndScene extends Phaser.Scene {
     this.daily = !!data.daily;
   }
 
+  // Typing grade — a single-letter verdict on this run's SKILL, from the two
+  // normalized metrics (speed + accuracy). Each rank needs BOTH: you can't
+  // S-rank on raw speed with sloppy accuracy, nor on perfect accuracy while
+  // crawling. Purely cosmetic — it never feeds ranking, the PB or balance, so
+  // the thresholds are a free tuning knob (a jam-feel guess, refine on playtest).
+  typingGrade() {
+    const w = this.wpm, a = this.acc;
+    if (w >= 55 && a >= 96) return 'S';
+    if (w >= 42 && a >= 90) return 'A';
+    if (w >= 28 && a >= 82) return 'B';
+    if (w >= 16 && a >= 70) return 'C';
+    return 'D';
+  }
+
   create() {
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
     const lang = LANGUAGES[this.langIndex];
+    this.grade = this.typingGrade();
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText(this.win ? 'exit code 0' : 'exit code 1 — time is up');
@@ -33,6 +48,22 @@ class EndScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '46px',
       color: this.win ? IDE.comment : IDE.error, fontStyle: 'bold'
     }).setOrigin(0.5);
+
+    // typing-grade stamp in the left margin — a report-card verdict on the run's
+    // speed+accuracy, in the empty side space so it crowds nothing. S gold down
+    // to D red; it pops on entry so the rank reads at a glance and on a screenshot.
+    const gColors = { S: '#ff9800', A: '#6a9955', B: '#569cd6', C: '#a0a0a0', D: '#f44747' };
+    const gx = cx - 250, gy = cy - 96;
+    this.add.text(gx, gy - 34, 'GRADE', {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
+    }).setOrigin(0.5);
+    const gStamp = this.add.text(gx, gy, this.grade, {
+      fontFamily: 'monospace', fontSize: '72px', color: gColors[this.grade], fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.add.circle(gx, gy, 46, 0x000000, 0)
+      .setStrokeStyle(3, Phaser.Display.Color.HexStringToColor(gColors[this.grade]).color, 0.85);
+    gStamp.setScale(2).setAlpha(0);
+    this.tweens.add({ targets: gStamp, scale: 1, alpha: 1, duration: 320, ease: 'Back.easeOut' });
 
     // personal best bookkeeping (progress = total levels cleared overall).
     // Daily runs are excluded from the global PB: they load the shared bag and
@@ -195,7 +226,8 @@ class EndScene extends Phaser.Scene {
     this.shareStr = 'Life of Software ' + dailyTag + '— ' + this.stage +
       (this.lap > 0 ? ' lap ' + (this.lap + 1) : '') + ' · ' + lang.name +
       ' (L' + (this.langIndex + 1) + '/' + LANGUAGES.length + ') · ' + this.finalScore +
-      ' pts · ' + this.wpm + ' wpm · ' + this.acc + '% acc · x' + this.maxCombo + ' combo' +
+      ' pts · ' + this.wpm + ' wpm · ' + this.acc + '% acc · x' + this.maxCombo + ' combo · ' +
+      this.grade + '-rank' +
       // a run that beat the stored best reads as an improvement when pasted into
       // the itch comments, not just a raw stat line (mirrors the on-screen banner).
       (sharePB ? ' · ▲ ' + (this.daily ? 'NEW DAILY BEST' : 'NEW PB') : '');
