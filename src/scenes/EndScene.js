@@ -49,6 +49,11 @@ class EndScene extends Phaser.Scene {
     const beats = !best || progress > best.p ||
       (progress === best.p && this.words > best.words) ||
       (progress === best.p && this.words === best.words && this.finalScore > (best.score || 0));
+    // did this run set a record worth advertising in the shared result string?
+    // Only tag it when there was a PRIOR best to beat — a first-ever run has
+    // nothing to improve on, so "NEW PB" would read oddly in a public comment.
+    let sharePB = false;
+    if (!this.daily && beats && best) sharePB = true;
     if (!this.daily && beats) {
       try {
         localStorage.setItem('los_best', JSON.stringify({
@@ -65,7 +70,11 @@ class EndScene extends Phaser.Scene {
       const dk = 'los_daily_' + new Date().toISOString().slice(0, 10);
       let dbest = null;
       try { dbest = JSON.parse(localStorage.getItem(dk) || 'null'); } catch (e) {}
-      if (!dbest || progress > dbest.p || (progress === dbest.p && this.words > dbest.words)) {
+      const beatDaily = !dbest || progress > dbest.p || (progress === dbest.p && this.words > dbest.words);
+      // same rule as the global tag: only advertise a daily record when there
+      // was an earlier daily entry today to actually beat.
+      if (beatDaily && dbest) sharePB = true;
+      if (beatDaily) {
         // widen the daily entry with wpm/score (was {p, words}) so a daily result
         // card / leaderboard can show speed + score without re-running the seed.
         try {
@@ -186,7 +195,10 @@ class EndScene extends Phaser.Scene {
     this.shareStr = 'Life of Software ' + dailyTag + '— ' + this.stage +
       (this.lap > 0 ? ' lap ' + (this.lap + 1) : '') + ' · ' + lang.name +
       ' (L' + (this.langIndex + 1) + '/' + LANGUAGES.length + ') · ' + this.finalScore +
-      ' pts · ' + this.wpm + ' wpm · ' + this.acc + '% acc · x' + this.maxCombo + ' combo';
+      ' pts · ' + this.wpm + ' wpm · ' + this.acc + '% acc · x' + this.maxCombo + ' combo' +
+      // a run that beat the stored best reads as an improvement when pasted into
+      // the itch comments, not just a raw stat line (mirrors the on-screen banner).
+      (sharePB ? ' · ▲ ' + (this.daily ? 'NEW DAILY BEST' : 'NEW PB') : '');
 
     this.add.text(cx, cy + 164, 'ENTER recompile  ·  M menu  ·  C copy result', {
       fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
