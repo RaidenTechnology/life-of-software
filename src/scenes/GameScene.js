@@ -132,6 +132,7 @@ class GameScene extends Phaser.Scene {
     this.submitsTotal = 0;
     this.submitsOk = 0;
     this.lootCount = 0;
+    this.timeBought = 0;     // total seconds your play added back to the clock (see addTime)
 
     // loot state
     this.inventory = Items.load();
@@ -433,6 +434,17 @@ class GameScene extends Phaser.Scene {
     this.credits = Math.min(CREDIT_MAX, this.credits + base * this.creditMult);
   }
 
+  // Every EARNED clock increment routes through here so the run can tally how many
+  // seconds your play clawed back from the countdown — the most on-theme number a
+  // "Count Down" game can end on (surfaced on the End screen). Rescue floors (the
+  // boss-win / festival-start cushions) and the armor death-save are deliberately
+  // NOT counted: they're safety nets, not time you earned. The clock has no upper
+  // cap, so a bare += is the whole story.
+  addTime(sec) {
+    this.timeLeft += sec;
+    this.timeBought += sec;
+  }
+
   // Run-total score: the HUD SCORE and the End headline. this.score still tracks
   // per-level progress toward the target (and resets each level); runScore keeps
   // climbing across levels, bosses and festivals so the number you finish on is
@@ -568,7 +580,7 @@ class GameScene extends Phaser.Scene {
     if (this.bossMode) {
       const m = this.comboMult();
       const bonus = (1.5 + 0.25 * w.length) * this.bossMode.lang.timeMult;
-      this.timeLeft += bonus;
+      this.addTime(bonus);
       this.addScore(w.length * 15 * m);   // boss hits are worth more than a plain word
       this.gainCredits(CREDIT_PER_WORD);
       this.tickMult();
@@ -586,7 +598,7 @@ class GameScene extends Phaser.Scene {
       this.festival.count++;
       this.addScore(w.length * 10 * m);
       this.gainCredits(FESTIVAL_CREDIT);
-      this.timeLeft += FESTIVAL_TIME_BONUS;
+      this.addTime(FESTIVAL_TIME_BONUS);
       this.tickMult();
       this.refreshCredits();
       this.floatText((m > 1 ? '×' + m + '  ' : '') + '+' + FESTIVAL_CREDIT +
@@ -601,7 +613,7 @@ class GameScene extends Phaser.Scene {
     const bonus = (1.5 + 0.25 * w.length) * this.lang.timeMult;
     this.score += points;
     this.addScore(points);
-    this.timeLeft += bonus;
+    this.addTime(bonus);
     this.gainCredits(CREDIT_PER_WORD);
     this.tickMult();
 
@@ -645,7 +657,7 @@ class GameScene extends Phaser.Scene {
     const m = this.comboMult();
     this.addScore(f.word.length * 10 * m);
     this.gainCredits(FESTIVAL_CREDIT);
-    this.timeLeft += FESTIVAL_TIME_BONUS;
+    this.addTime(FESTIVAL_TIME_BONUS);
     this.tickMult();
     this.refreshCredits();
     this.floatText((m > 1 ? '×' + m + '  ' : '') + '+' + FESTIVAL_CREDIT +
@@ -834,7 +846,7 @@ class GameScene extends Phaser.Scene {
     } else if (T.key === 'armor') {
       this.deathSave = Math.max(this.deathSave, T.save[r]);
     } else if (T.key === 'potion') {
-      this.timeLeft += T.time[r];
+      this.addTime(T.time[r]);
       this.flashGain();   // a potion is the biggest single refill (+10..60s)
     } else if (T.key === 'scroll') {
       this.hintTokens += T.hints[r];
@@ -1190,9 +1202,9 @@ class GameScene extends Phaser.Scene {
     this.recentText.setText('');
     this.hintText.setText('');
     this.feedbackText.setText('');
-    this.timeLeft += LEVELUP_TIME_BONUS;
+    this.addTime(LEVELUP_TIME_BONUS);
     if (perfect) {
-      this.timeLeft += PERFECT_TIME_BONUS;
+      this.addTime(PERFECT_TIME_BONUS);
       this.addScore(perfectScore);
       this.gainCredits(PERFECT_CREDIT);
       this.refreshCredits();
@@ -1230,7 +1242,7 @@ class GameScene extends Phaser.Scene {
     this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES) };
     this.blankPerfect();   // the boss is an interstitial — no perfect-pace tag
     this.found.clear();
-    this.timeLeft += 10;
+    this.addTime(10);
     this.strikeTimer = 0;
     this.battle.spawnBoss();
     this.refreshLangHud();
@@ -1555,6 +1567,9 @@ class GameScene extends Phaser.Scene {
       acc: this.submitsTotal ? Math.round(100 * this.submitsOk / this.submitsTotal) : 100,
       maxCombo: this.maxCombo,
       loot: this.lootCount,
+      // total seconds your play clawed back from the countdown this run — the
+      // most on-theme end stat a Count Down game has (see addTime).
+      bought: Math.round(this.timeBought),
       // total active play time held off the clock — the survival headline for a
       // "Count Down" game. this.elapsed excludes paused/transition time (it's the
       // same clock the wpm divisor uses), so it reads as time actually SPENT racing

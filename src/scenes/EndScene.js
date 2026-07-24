@@ -15,6 +15,9 @@ class EndScene extends Phaser.Scene {
     this.acc = data.acc === undefined ? 100 : data.acc;
     this.maxCombo = data.maxCombo || 0;
     this.loot = data.loot || 0;
+    // seconds this run's play added back to the clock (GameScene.addTime). Optional
+    // on read — older callers predate it — so it just shows 0 if absent.
+    this.bought = data.bought || 0;
     // NOT this.time — that's Phaser.Scene's Clock; clobbering it would break every
     // this.time.* call the scene machinery makes. Store the run duration separately.
     this.survived = data.time || 0;
@@ -151,7 +154,8 @@ class EndScene extends Phaser.Scene {
 
     this.add.text(cx, cy - 16,
       this.wpm + ' wpm · ' + this.acc + '% accuracy · max combo ' + this.maxCombo +
-      ' · ' + this.loot + ' loot · survived ' + this.fmtDuration(this.survived), {
+      ' · ' + this.loot + ' loot · survived ' + this.fmtDuration(this.survived) +
+      ' · bought back ' + this.fmtDuration(this.bought), {
         fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa'
       }).setOrigin(0.5);
 
