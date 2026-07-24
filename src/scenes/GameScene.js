@@ -501,13 +501,23 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshCombo(pulse) {
-    if (this.combo < 2) { this.comboText.setText(''); return; }
+    if (this.combo < 2) { this.comboText.setText(''); this._comboTier = 1; return; }
     const m = this.combo >= 15 ? 3 : this.combo >= 5 ? 2 : 1;
     this.comboText.setText('COMBO ' + this.combo + (m > 1 ? ' · score ×' + m : ''))
       .setColor(m >= 3 ? '#ff9800' : m >= 2 ? '#dcdcaa' : '#a0d0a0');
+    // Crossing INTO a new score-multiplier tier (×2 at 5, ×3 at 15) is the moment
+    // the combo starts paying off — mark it with a bigger springy pop + a bright
+    // rising chirp so the payoff is felt, not just recolored. Plain pulses keep
+    // the small nudge. Only fires on the word that crosses the line.
+    const milestone = pulse && m > this._comboTier;
+    this._comboTier = m;
     if (pulse) {
-      this.comboText.setScale(1.25);
-      this.tweens.add({ targets: this.comboText, scale: 1, duration: 150 });
+      this.comboText.setScale(milestone ? 1.7 : 1.25);
+      this.tweens.add({
+        targets: this.comboText, scale: 1,
+        duration: milestone ? 280 : 150, ease: milestone ? 'Back.easeOut' : 'Linear'
+      });
+      if (milestone) Sfx.pickup();
     }
   }
 
