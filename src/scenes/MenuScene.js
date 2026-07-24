@@ -156,8 +156,12 @@ class MenuScene extends Phaser.Scene {
 
     const hw = this.scale.width - 120, hh = 400;
     const helpUI = this.add.container(0, 0).setDepth(60).setVisible(false);
-    helpUI.add(this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x08060e, 0.82)
-      .setInteractive());   // dim swallows clicks to the menu beneath
+    // dim: swallows clicks to the menu beneath AND closes on a click, matching
+    // how the in-game bag/shop modal dismisses — one consistent overlay idiom.
+    const helpDim = this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x08060e, 0.82)
+      .setInteractive();
+    helpDim.on('pointerdown', () => toggleHelp());
+    helpUI.add(helpDim);
     helpUI.add(this.add.rectangle(cx, cy, hw, hh, IDE.panel).setStrokeStyle(2, IDE.border));
     helpUI.add(this.add.text(cx, cy - hh / 2 + 26, '// how to play — life_of_software', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.comment, fontStyle: 'bold'
