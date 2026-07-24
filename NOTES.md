@@ -1250,3 +1250,51 @@ codebase claims but did not fully honor.
 balance still needs a play session; `▲ new PB` comparison in the shareable result
 string; in-run BAG/SHOP keyboard shortcuts (only Tab is free); itch presentation
 captures + README final checklist.
+
+## Auto-dev log - 20260724-1653 pass 1
+
+Re-read all 10 source files (all pass `node --check`) plus the full NOTES
+history. Consistent with passes 9-14, the state machines the prompt calls out —
+strike flags, festival/boss/menu exclusivity, tick cadence, death-save timing,
+the pause-exit clock — are all sound, and re-tracing them surfaced no fresh
+logic bug, so **none was invented.** Also confirmed a non-bug worth recording:
+`finish()` is only ever called with `win=false` (the game is endless — survival
+laps never terminate), so EndScene's "BUILD SUCCESSFUL / exit code 0" branch is
+intentional dead-code headroom, not a reachable state. This pass shipped the
+oldest recorded-but-unbuilt leftover and cut one genuine per-keystroke
+allocation in a fresh area. Two code commits + this log.
+
+**Feature shipped**
+
+1. **Shareable result string now flags a NEW PB / NEW DAILY BEST — the
+   recorded-but-unbuilt leftover from the last two logs.** The End-screen result
+   card reported raw stats but never signalled that the run was an improvement,
+   so a line pasted into the itch comments read identically whether you'd just
+   set a personal best or posted your worst attempt. It now appends `· ▲ NEW PB`
+   (or `· ▲ NEW DAILY BEST` on daily runs) when the run beat the stored best,
+   reusing the same `beats` predicate that drives the on-screen NEW PERSONAL BEST
+   banner so the two always agree, and adding a parallel `beatDaily` check for
+   the per-day key. Gated on there being a PRIOR best to beat (`beats && best`)
+   so a first-ever run — which has nothing to improve on — doesn't tag itself
+   "NEW PB" in a public comment. Turns a pasted daily result into a visible
+   race, which is the whole point of the shared seed during voting.
+
+**Quality / perf (fresh area)**
+
+2. **Growth-festival name lookup cached instead of rebuilt per keystroke.**
+   `typedColor()` runs on every keystroke via `refreshInput()`, and its
+   growth-festival branch `flatMap`'d a fresh 12-entry array (each pooled
+   language's name + abbr, lowercased) every time just to color-check the input.
+   The pool is fixed for the festival's lifetime, so the array is now built once
+   at `startFestival` (`festival.names`) and read from there — removing a
+   per-keystroke allocation on the game's fastest input path. No prior pass
+   touched `typedColor`, so this is a genuinely fresh churn site, in the same
+   spirit as the `floatText` / `burstFx` / `deathFx` pooling earlier passes did.
+
+**Leftover for next passes** — genuine fresh *logic bugs* are exhausted across
+fifteen passes; the remaining value is tuning and presentation, not defect
+hunting. Standing items: festival low-time balance (needs a play session, not a
+code guess); in-run BAG/SHOP keyboard shortcuts (only Tab is free and needs
+`addCapture` + iframe-focus care — still worth a dedicated pass, not a drive-by);
+itch presentation captures (language road / a festival / the PERFECT-LEVEL
+banner) + the README's final checklist item (name + cover + screenshots).
