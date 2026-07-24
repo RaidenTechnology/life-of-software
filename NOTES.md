@@ -1509,3 +1509,70 @@ festival credit popup prints the flat `+15 credits` even when a sword multiplier
 is live, so it understates the real (capped-at-100) gain — the effect readout
 already shows the `×N credits` buff, so it's informative, just not summed in the
 popup. Worth a design decision before touching.
+
+## Auto-dev log - 20260724-review pass 2
+
+Re-read all 10 source files (all pass `node --check`) plus the full NOTES
+history. As in the last several passes the flagged state machines re-traced
+clean — strike self-heal (the ulti/spawnBoss stale-flag path), festival/boss/
+menu exclusivity, tick cadence, death-save timing, the pause-exit `time.paused`
+reset, checkpoint monotonicity, the daily-best `p` decode, bag-full purchase
+blocking, and the "missing PNG → code-drawn placeholder" degradation. No crash
+or deadlock surfaced and none was invented. This pass fixed one genuine
+correctness+perf defect in a fresh site (the continuous decor emitters), shipped
+a small self-contained feature (a typing grade), and fixed a real presentation
+overflow on the share card. Three code commits + this log.
+
+**Fix — demon fire-fountain emitters keep running when frozen/hidden**
+
+The demon stage's fire fountains (`Battle.decor`) are raw Phaser particle
+emitters advanced by the scene's core update loop — NOT scene tweens or timers.
+So two "everything stops now" paths silently missed them:
+- **ESC pause.** `togglePause()` freezes `this.time.paused` + `tweens.timeScale
+  = 0`, but the fountains kept spouting behind the frozen pause overlay — a
+  visible "paused but fire still animating" tell.
+- **Festivals.** `startFestival` calls `battle.setVisible(false)`, which only
+  hid the emitters' rendering; they kept spawning particles unseen every frame
+  of every festival on the demon/survival stage (wasted per-frame work).
+
+Fixed at the source: `setVisible` now toggles the emitters' `active` alongside
+`visible`, and a new `Battle.setDecorActive(on)` (called from `togglePause`)
+halts/resumes them for the pause — `setActive(false)` skips their preUpdate so
+existing particles hang in place (reading as paused) and none spawn.
+`setDecorActive` gates *resume* on the strip's own visibility (`this.bg.visible`)
+so a pause taken mid-festival can't bring them back emitting while still hidden.
+No-op on every non-demon stage (`decor` is empty). This is a genuinely fresh
+churn site — every prior perf pass gated setText/setColor re-rasters on the HUD;
+none touched the emitter lifecycle. `node --check` passes.
+
+**Feature — typing grade (S/A/B/C/D) on the End screen + share string**
+
+Each run now ends with a single-letter skill verdict, a report-card stamp in the
+End screen's empty left margin (S gold → D red, popping in on `Back.easeOut` so
+it reads at a glance and on a screenshot). It's derived from the two normalized
+metrics, speed and accuracy, and every rank needs BOTH — you can't S-rank on raw
+wpm with sloppy accuracy nor on perfect accuracy while crawling (S 55/96, A
+42/90, B 28/82, C 16/70, else D). Folded into the shareable result string
+(`... · S-rank`) so a pasted itch comment carries the verdict. Purely cosmetic —
+it never feeds ranking, the PB, the checkpoint or balance, so the thresholds are
+a free tuning knob (a jam-feel guess; refine on a real play session, same status
+as the standing festival-balance leftover). Verified the tiers behave across a
+grid of wpm/acc pairs.
+
+**Fix — shareable result box hugs its text (long results no longer spill)**
+
+The share card's frame was a fixed width (`screen - 120`), but the string length
+varies a lot: a daily run with a long language name, a NEW DAILY BEST tag and now
+the grade rank is far wider than a short early run and overflowed the box toward
+the screen edges. Now the text is built first, its font stepped down (12→9) until
+it fits the screen, then the frame is sized to hug the actual text width (capped
+to the screen); the text's depth is raised so it stays above the now-later frame.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance and the NEW grade thresholds are both deliberate-but-untuned playtest
+calls (cosmetic for the grade, so low-risk); itch presentation captures (the
+language road / a festival / the PERFECT-LEVEL banner / the new grade stamp) +
+the README's final checklist item (name + cover + screenshots) remain the top
+non-code work. The festival credit popup still prints the flat `+15 credits`
+even under a live sword multiplier (a design call, not a defect — the effect
+readout already shows the `×N` buff).
