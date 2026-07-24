@@ -8,6 +8,10 @@
 // and a daily SHOP sells four rotating items for credits.
 
 const HINT_COST = 20;
+// Seconds between hints. The button is the paid, precise assist (you choose the
+// moment, you pay for it, you still type the word); ASSIST is the free, rationed
+// one. Without a cooldown the paid one made the rationed one pointless.
+const HINT_COOLDOWN = 8;
 const FESTIVAL_HINT_COST = 10;
 const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
@@ -200,6 +204,7 @@ class GameScene extends Phaser.Scene {
     this.boonHint = 0;        // hint discount
     this.boonCombo = false;   // x3 combo tier at 10 instead of 15
     this.boonRefill = 0;      // seconds granted at each level start
+    this._hintNextAt = 0;     // elapsed before which the hint button is recharging
     this.hintTokens = 0;
     this.creditMult = 1;
     this.multWords = 0;
@@ -1976,11 +1981,23 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
+    // One hint at a time, HINT_COOLDOWN apart. Credits come in at ~5 a word
+    // against a 20-credit hint, so an uncapped button was a stream of answers
+    // for four words' work — ten hints in one second, measured — while ASSIST
+    // next to it is rationed to one short pattern per 40s. The button was the
+    // back door out of that rule.
+    if (this.elapsed < this._hintNextAt) {
+      this.feedback('hint recharging — ' +
+        Math.ceil(this._hintNextAt - this.elapsed) + 's', IDE.dim);
+      Sfx.blip();
+      return;
+    }
+
     let w;
     if (this.festival && this.festival.type === 'growth') {
       w = this.festival.lang.name.toLowerCase();
     } else {
-      const remaining = this.activeLang.words
+      let remaining = this.activeLang.words
         .filter(x => !this.activeFound.has(x) && !this.dead.has(x));
       // nothing left to hint at — say so instead of eating the click silently
       // (no credits are spent either way; the charge happens below).
@@ -1989,15 +2006,39 @@ class GameScene extends Phaser.Scene {
         Sfx.blip();
         return;
       }
-      w = Phaser.Utils.Array.GetRandom(remaining);
+      // A one-character pattern can't be hinted at without simply being handed
+      // over, so keep those out of the pool while anything longer is left.
+      const longer = remaining.filter(x => x.length > 1);
+      if (longer.length) remaining = longer;
+      if (this.eol && remaining.includes(this.eol.word)) {
+        // a pattern is on its deprecation notice right now: that's the one worth
+        // paying for — it's about to be unwritable, and it pays double if caught
+        w = this.eol.word;
+      } else if (this.typed) {
+        // hint on what the player is actually reaching for, if anything matches
+        const m = remaining.filter(x => x.startsWith(this.typed));
+        w = m.length ? this.pickFrom(m) : this.pickFrom(remaining);
+      } else {
+        // otherwise the most valuable thing left: score scales with length
+        w = remaining.slice().sort((a, b) => b.length - a.length)[0];
+      }
     }
 
     if (free) this.hintTokens--; else this.credits -= cost;
+    this._hintNextAt = this.elapsed + HINT_COOLDOWN;
     this.refreshCredits();
-    const shown = Math.ceil(w.length / 2);
-    const masked = (w.slice(0, shown) + '_'.repeat(w.length - shown)).split('').join(' ');
+    // floor, not ceil, and never the whole pattern: at ceil a 1-2 character
+    // pattern came out fully revealed ("p" hinted as "p"), which isn't a hint,
+    // it's the answer with a price tag.
+    const shown = Math.max(1, Math.floor(w.length / 2));
+    const masked = (w.slice(0, shown) + '_'.repeat(Math.max(1, w.length - shown)))
+      .split('').join(' ');
     this.hintText.setText('// hint: ' + masked);
-    this.typed = w.slice(0, shown);
+    // The hint no longer types itself into the input. It used to write the
+    // revealed half for you — which turned a 1-character pattern into a free
+    // word (hint, then ENTER) and, worse, threw away whatever you were already
+    // typing: mid-"func", a hint replaced it with "ima". You get the letters;
+    // you still do the typing.
     this.refreshInput();
     Sfx.hint();
     // one auto-clear at a time: buying a second hint within 6s used to leave the
@@ -2257,11 +2298,17 @@ class GameScene extends Phaser.Scene {
     // it doesn't re-raster — so it stays ungated.
     const creditStr = 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX;
     if (creditStr !== this._creditStr) { this._creditStr = creditStr; this.creditText.setText(creditStr); }
-    const hintStr = this.hintTokens > 0
-      ? '[ HINT FREE ×' + this.hintTokens + ' ]'
-      : '[ HINT -' + this.hintCost + ' ]';
+    // the cooldown has to be on the button, not just in the rejection message —
+    // a button that answers a click with "no" and looks unchanged reads as broken
+    const cooling = Math.max(0, Math.ceil(this._hintNextAt - this.elapsed));
+    const hintStr = cooling > 0
+      ? '[ HINT ' + cooling + 's ]'
+      : (this.hintTokens > 0
+        ? '[ HINT FREE ×' + this.hintTokens + ' ]'
+        : '[ HINT -' + this.hintCost + ' ]');
     if (hintStr !== this._hintStr) { this._hintStr = hintStr; this.hintBtn.setText(hintStr); }
-    this.hintBtn.setAlpha(this.hintTokens > 0 || this.credits >= this.hintCost ? 1 : 0.4);
+    this.hintBtn.setAlpha(cooling > 0 ? 0.4
+      : (this.hintTokens > 0 || this.credits >= this.hintCost ? 1 : 0.4));
     const fx = [];
     if (this.multWords > 0) fx.push('×' + this.creditMult + ' credits (' + this.multWords + 'w)');
     if (this.deathSave > 0) fx.push('SAVE ' + this.deathSave + 's');
@@ -2472,6 +2519,9 @@ class GameScene extends Phaser.Scene {
       // the SOS shelf's trigger is time-based, and a player who is genuinely
       // stuck isn't pressing keys — so it can't rely on refreshInput alone.
       this.refreshAssist();
+      // same reason for the hint button's cooldown readout: it counts down on
+      // its own, with no scoring event to repaint it.
+      this.refreshCredits();
       // live WPM + accuracy in the status bar — refreshed once/sec, same 15s-floor
       // divisor and accuracy formula as the end-screen headline (and the pause
       // board), so the live readout can never disagree with the final report. A
