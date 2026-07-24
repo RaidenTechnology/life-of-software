@@ -1,7 +1,11 @@
-# gen_menu.py — the menu KEY-ART splash (menu_splash.png, 960x540): a dramatic
-# Blender pixel-art battle diorama shown on the title screen to catch the eye.
-# Composed so the upper-center stays dark/skyey for the title + text, with the
-# hero and a monster horde staged along the lower band.
+# gen_menu.py — the menu KEY-ART splash (menu_splash.png, 960x540): a Blender-
+# rendered environment (sky, ground, distant trees, glow) with the REAL in-game
+# hero/monster sprites (hero5.png, en_ork.png, en_demon_boss.png) composited on
+# top at native pixel size. Earlier versions modeled a separate, more detailed
+# hero/monster in 3D for this splash — but that geometry was far more complex
+# than the actual game sprites, and squeezing it into the same low native
+# resolution turned it into a blurry smear on downscale. Compositing the exact
+# sprites the game already uses guarantees this reads identically crisp.
 #
 # Run: blender --background --factory-startup --python blender/gen_menu.py
 
@@ -81,15 +85,6 @@ def box(px,py,w,h,color,y=0.0,depth=6,bevel=0.06,rough=0.7,emit=0.0):
     m=o.modifiers.new("b",'BEVEL'); m.width=bevel; m.segments=2; m.limit_method='NONE'
     return o
 
-def cyl(px,py_bottom,r,hgt,color,y=0.0,verts=12,emit=0.0):
-    bpy.ops.mesh.primitive_cylinder_add(vertices=verts,radius=r*S,depth=hgt*S,
-        location=(wx(px),y,wz(py_bottom)+hgt*S/2))
-    o=bpy.context.active_object; o.data.materials.append(mat(color,0.6,emit)); return o
-
-def sph(px,py,r,color,y=0.0,emit=0.0,flat=1.0):
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3,radius=r*S,location=(wx(px),y,wz(py)))
-    o=bpy.context.active_object; o.scale=(1,flat,1); o.data.materials.append(mat(color,0.55,emit)); return o
-
 def cone(px,py_bottom,r,hgt,color,y=0.0,verts=4,emit=0.0):
     bpy.ops.mesh.primitive_cone_add(vertices=verts,radius1=r*S,radius2=0,depth=hgt*S,
         location=(wx(px),y,wz(py_bottom)+hgt*S/2))
@@ -148,68 +143,28 @@ def vignette():
     nt.links.new(em.outputs[0],mix.inputs[2]); nt.links.new(mix.outputs[0],out.inputs[0])
     m.blend_method='BLEND'; o.data.materials.append(m)
 
-# ---- a detailed hero, ~150px tall, heroic stance, facing right ----
-def hero(cx, scale=1.0, y=0.0):
-    def P(dx,dy,w,h,c,yy=0.0,d=7,em=0.0,rg=0.6):
-        box(cx+dx*scale, GROUND-(dy+h)*scale, w*scale, h*scale, c, y=y+yy, depth=d*scale, emit=em, rough=rg)
-    armor=0x6a4fb3; trim=0xc9a227; skin=0xf0c29a
-    # legs
-    P(-16,0,11,34,0x37474f); P(5,0,11,34,0x37474f)
-    P(-17,-2,13,6,0x14181c); P(4,-2,13,6,0x14181c)        # boots
-    # torso (deep) + plate detail
-    P(-18,30,36,40,armor, d=12)
-    P(-18,52,36,4,0x4a3580, d=12.2)                        # chest line
-    P(-16,64,32,6,trim, d=12.4, em=0.25)                   # collar trim
-    # belt + buckle
-    P(-18,26,36,7,0x5d4037, d=12.4); P(-4,26,8,7,trim, d=12.6, em=0.3)
-    # shoulders (rounded) + arms + hands
-    sph(cx-18*scale, GROUND-(62)*scale, 9*scale, armor, y=y-3*scale)
-    sph(cx+18*scale, GROUND-(62)*scale, 9*scale, armor, y=y-3*scale)
-    P(-24,34,8,22,armor, d=8); P(16,30,8,20,armor, d=8)
-    sph(cx-20*scale, GROUND-(32)*scale, 5*scale, skin, y=y-4*scale)   # left hand
-    sph(cx+20*scale, GROUND-(28)*scale, 5*scale, skin, y=y-4*scale)   # right hand
-    # head + helmet + plume + face
-    sph(cx, GROUND-(80)*scale, 12*scale, skin, y=y, flat=0.92)
-    P(-13,80,26,10,armor, d=11)                            # helmet band
-    P(-5,90,10,10,0xd32f2f, d=6)                           # plume
-    # eyes: white + dark pupil + highlight
-    P(-8,72,5,4,0xffffff, d=12.2, yy=-3, rg=0.4); P(3,72,5,4,0xffffff, d=12.2, yy=-3, rg=0.4)
-    P(-7,72,2,3,0x20140a, d=12.4, yy=-3.5); P(4,72,2,3,0x20140a, d=12.4, yy=-3.5)
-    P(-7,74,1,1,0xffffff, d=12.6, yy=-4, em=0.6); P(4,74,1,1,0xffffff, d=12.6, yy=-4, em=0.6)
-    # shield on left arm (forward)
-    box(cx-26*scale, GROUND-46*scale, 12*scale, 30*scale, 0x4e342e, y=y-6*scale, depth=4*scale)
-    sph(cx-26*scale, GROUND-46*scale, 5*scale, 0xb0bec5, y=y-8*scale, emit=0.3)
-    # raised sword (right), glowing blade
-    box(cx+22*scale, GROUND-40*scale, 5*scale, 10*scale, 0x5d4037, y=y-6*scale, depth=4*scale)  # grip
-    box(cx+18*scale, GROUND-50*scale, 14*scale, 4*scale, trim, y=y-6*scale, depth=4.5*scale, emit=0.3)  # guard
-    box(cx+23*scale, GROUND-96*scale, 5*scale, 48*scale, 0xdfe7ec, y=y-6*scale, depth=4*scale, rough=0.2, emit=0.15)  # blade
-    cone(cx+25.5*scale, GROUND-96*scale, 4*scale, 10*scale, 0xffffff, y=y-6*scale, verts=3, emit=0.5)  # tip
+# ---- composite the REAL game sprites onto the rendered background, at native
+# pixel size (no scaling at all) so they stay exactly as crisp as in-game ----
+def load_rgba(path):
+    img = bpy.data.images.load(path)
+    import numpy as np
+    w, h = img.size
+    arr = np.array(img.pixels[:]).reshape(h, w, 4)
+    bpy.data.images.remove(img)
+    return arr
 
-# ---- a monster silhouette (ork-ish), facing left ----
-def ork(cx, scale=1.0, y=0.0):
-    def P(dx,dy,w,h,c,yy=0.0,d=6,em=0.0):
-        box(cx+dx*scale, GROUND-(dy+h)*scale, w*scale, h*scale, c, y=y+yy, depth=d*scale, emit=em)
-    body=0x4a7030
-    P(-13,0,9,26,0x2b471c); P(6,0,9,26,0x2b471c)
-    P(-16,22,32,26,body, d=10)
-    sph(cx-16*scale, GROUND-40*scale, 8*scale, body, y=y-2*scale)
-    sph(cx+16*scale, GROUND-40*scale, 8*scale, body, y=y-2*scale)
-    sph(cx, GROUND-52*scale, 11*scale, 0x5d8a3c, y=y, flat=0.9)      # head
-    P(-7,50,4,3,0xffee58, d=10.4, yy=-3, em=0.9); P(3,50,4,3,0xffee58, d=10.4, yy=-3, em=0.9)  # eyes
-    P(-6,42,3,6,0xffffff, d=10.2, yy=-3); P(3,42,3,6,0xffffff, d=10.2, yy=-3)  # tusks
-
-def demon(cx, scale=1.0, y=0.0):
-    def P(dx,dy,w,h,c,yy=0.0,d=6,em=0.0):
-        box(cx+dx*scale, GROUND-(dy+h)*scale, w*scale, h*scale, c, y=y+yy, depth=d*scale, emit=em)
-    body=0xb42222
-    cone(cx-16*scale, GROUND-58*scale, 12*scale, 30*scale, 0x3a0d0d, y=y+3*scale, verts=3)  # wing
-    cone(cx+16*scale, GROUND-58*scale, 12*scale, 30*scale, 0x3a0d0d, y=y+3*scale, verts=3)
-    P(-12,0,8,24,0x6d1b1b); P(5,0,8,24,0x6d1b1b)
-    P(-15,20,30,28,body, d=10)
-    sph(cx, GROUND-50*scale, 10*scale, 0xcf3030, y=y, flat=0.9)
-    cone(cx-7*scale, GROUND-56*scale, 3*scale, 12*scale, 0x2d1b12, y=y, verts=3)  # horns
-    cone(cx+7*scale, GROUND-56*scale, 3*scale, 12*scale, 0x2d1b12, y=y, verts=3)
-    P(-7,48,4,3,0xffee58, d=10.4, yy=-3, em=1.0); P(3,48,4,3,0xffee58, d=10.4, yy=-3, em=1.0)
+def paste(bg, fg, x, y):
+    """Alpha-composite fg onto bg with fg's top-left at (x,y); native size only,
+    no resampling — clips silently if it runs past bg's edges."""
+    import numpy as np
+    fh, fw = fg.shape[:2]
+    bh, bw = bg.shape[:2]
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(bw, x + fw), min(bh, y + fh)
+    if x1 <= x0 or y1 <= y0: return
+    fg_s = fg[y0 - y:y1 - y, x0 - x:x1 - x]
+    a = fg_s[..., 3:4]
+    bg[y0:y1, x0:x1] = fg_s[..., :4] * a + bg[y0:y1, x0:x1] * (1 - a)
 
 def build():
     reset()
@@ -225,32 +180,48 @@ def build():
     box(0,GROUND-2,W,3,0x2a1c3a, y=-1.5, depth=0.6)
     # midground fog
     box(0,GROUND-22,W,22,0x241634, y=6, depth=0.3, emit=0.15)
-    # hero (hero, big) centre-left; monster horde to the right (smaller = further)
-    demon(792, scale=0.62, y=2.5)
-    ork(690, scale=0.72, y=1.5)
-    ork(610, scale=0.6, y=3.0)
-    hero(300, scale=1.5, y=-2.0)
     vignette()
     dst=os.path.join(ASSETS,"menu_splash.png")
     tmp=dst+".ss.png"
     bpy.context.scene.render.filepath=tmp
     bpy.ops.render.render(write_still=True)
-    downscale(tmp, dst, W//PIXEL_SCALE, H//PIXEL_SCALE)
+    nw, nh = W//PIXEL_SCALE, H//PIXEL_SCALE
+    bg = downscale_arr(tmp, nw, nh)
     try: os.remove(tmp)
     except Exception: pass
+
+    # composite the REAL in-game sprites at native pixel size — hero big on the
+    # left, a small monster pair on the right (matches the old 3D composition's
+    # layout, but guaranteed pixel-identical to what you fight in-game).
+    # feet on the ground line (+2px so they sit into the grass, not float above)
+    ground_n = GROUND // PIXEL_SCALE
+    def feet(a, x): paste(bg, a, x, ground_n - a.shape[0] + 2)
+    hero_a = load_rgba(os.path.join(ASSETS, "hero5.png"))
+    ork_a = load_rgba(os.path.join(ASSETS, "en_ork.png"))
+    demon_a = load_rgba(os.path.join(ASSETS, "en_demon_boss.png"))
+    feet(hero_a, 14)     # hero, left
+    feet(ork_a, 100)     # front monster (40px wide -> 100..140)
+    feet(demon_a, 148)   # boss, right (40px wide -> 148..188), clear gap
+
+    save_png(bg, dst)
     print("WROTE menu_splash.png")
 
-def downscale(src, dst, w, h):
+def downscale_arr(src, w, h):
     import numpy as np
     img = bpy.data.images.load(src)
     W2, H2 = img.size
     px = np.array(img.pixels[:]).reshape(H2, W2, 4)
     fy, fx = H2 // h, W2 // w
     px = px.reshape(h, fy, w, fx, 4).mean(axis=(1, 3))
+    bpy.data.images.remove(img)
+    return px
+
+def save_png(arr, dst):
+    h, w = arr.shape[:2]
     out = bpy.data.images.new("o", width=w, height=h, alpha=True)
-    out.pixels = px.reshape(-1).tolist()
+    out.pixels = arr.reshape(-1).tolist()
     out.filepath_raw = dst; out.file_format = 'PNG'; out.save()
-    bpy.data.images.remove(img); bpy.data.images.remove(out)
+    bpy.data.images.remove(out)
 
 os.makedirs(ASSETS, exist_ok=True)
 build()

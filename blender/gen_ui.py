@@ -87,11 +87,11 @@ def pause_panel():
     print("WROTE pause_panel.png")
 
 def title_panel():
-    # wide, short banner sized to sit behind "LIFE OF SOFTWARE" + the subtitle
-    # line on the menu — opaque dark body so the title reads regardless of
-    # what's happening in the key-art splash behind it, glow rim ties it to
-    # the same IDE-window language as pause_panel.
-    W,H,S=760,190,0.02
+    # wide, short banner sized to hug JUST the title + subtitle line on the menu
+    # (shorter than before so it no longer overlaps the description paragraph
+    # below it). Opaque dark body so the title reads over the busy key-art, glow
+    # rim ties it to the same IDE-window language as pause_panel.
+    W,H,S=740,130,0.02
     reset(W,H,S)
     U=lambda px:px*S
     cx=U(W/2); cz=U(H/2)

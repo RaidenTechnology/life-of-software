@@ -41,31 +41,34 @@ class MenuScene extends Phaser.Scene {
     // opaque dark glass, same IDE-window language as the pause panel) — the
     // title needs to stay readable regardless of what's happening in the
     // splash art behind it, which a flat alpha scrim alone can't guarantee.
+    // title plate spans y≈[cy-195 .. cy-65]; title + subtitle live inside it.
     if (this.textures.exists('title_panel')) {
-      this.add.image(cx, cy - 119, 'title_panel').setDepth(-50);
+      this.add.image(cx, cy - 130, 'title_panel').setDepth(-50);
     }
 
-    // two-tone title, like syntax highlighting
+    // two-tone title, like syntax highlighting (origin y=0.5 so it centres on
+    // its baseline row inside the plate).
     const t1 = this.add.text(0, 0, 'LIFE OF', {
-      fontFamily: 'monospace', fontSize: '56px', color: IDE.keyword, fontStyle: 'bold'
-    });
+      fontFamily: 'monospace', fontSize: '52px', color: IDE.keyword, fontStyle: 'bold'
+    }).setOrigin(0, 0.5);
     const t2 = this.add.text(0, 0, ' SOFTWARE', {
-      fontFamily: 'monospace', fontSize: '56px', color: IDE.stringy, fontStyle: 'bold'
-    });
+      fontFamily: 'monospace', fontSize: '52px', color: IDE.stringy, fontStyle: 'bold'
+    }).setOrigin(0, 0.5);
     const totalW = t1.width + t2.width;
-    t1.setPosition(cx - totalW / 2, cy - 150);
-    t2.setPosition(cx - totalW / 2 + t1.width, cy - 150);
+    t1.setPosition(cx - totalW / 2, cy - 146);
+    t2.setPosition(cx - totalW / 2 + t1.width, cy - 146);
 
-    this.add.text(cx, cy - 78, '// a Raiden Technology game — GMTK 2026: Count Down', {
-      fontFamily: 'monospace', fontSize: '15px', color: IDE.comment
+    this.add.text(cx, cy - 104, '// a Raiden Technology game — GMTK 2026: Count Down', {
+      fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy - 18,
+    // description sits clearly BELOW the title plate (plate bottom ≈ cy-65).
+    this.add.text(cx, cy - 20,
       'Type the language\'s patterns before time runs out: import, async, fn, => ...\n' +
       'Every correct pattern grants TIME + SCORE + CREDITS.\n' +
       'Clear all ' + LANGUAGES.length + ' languages to raise the STAGE: Very Easy → Survival.',
       {
-        fontFamily: 'monospace', fontSize: '15px', color: IDE.text,
+        fontFamily: 'monospace', fontSize: '14px', color: IDE.text,
         align: 'center', lineSpacing: 8
       }).setOrigin(0.5);
 
