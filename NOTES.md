@@ -1298,3 +1298,66 @@ code guess); in-run BAG/SHOP keyboard shortcuts (only Tab is free and needs
 `addCapture` + iframe-focus care — still worth a dedicated pass, not a drive-by);
 itch presentation captures (language road / a festival / the PERFECT-LEVEL
 banner) + the README's final checklist item (name + cover + screenshots).
+
+## Auto-dev log - 20260724-1720 pass 1
+
+Re-read all 10 source files (all pass `node --check`) plus the full NOTES
+history. Consistent with prior passes, the state machines — strike flags,
+festival/boss/menu exclusivity, tick cadence, death-save timing — re-traced
+clean, so no logic bug was invented. Instead this pass extended an invariant the
+codebase *claims but did not fully honor*, shipped the oldest standing leftover
+as a real feature, and cut a genuine per-word re-raster in a fresh area. Three
+code commits + this log.
+
+**Robustness fix (fresh area — full-screen art)**
+
+1. **`scene_<type>`, `menu_splash` and `pause_panel` now degrade gracefully
+   instead of painting Phaser's green `__MISSING` fill.** Last pass closed the
+   boss-sprite hole in the "every sprite degrades to a code-drawn placeholder if
+   its PNG is missing" invariant — but three PNGs were still unguarded, and
+   worse, they're *full-screen*: `Battle.makeTextures` code-draws the battle-strip
+   `bg_<type>` textures as a fallback, yet the full-screen `scene_<type>`
+   atmosphere, the menu splash and the pause window have **no** code fallback.
+   A single flaky itch-CDN 404 / cache miss on `scene_ork.png` would render a
+   green screen behind the entire play field — a far worse failure than one green
+   boss. Fixed at the point of use: a new `applySceneBg()` hides the backdrop
+   layer when its PNG is absent (the dark editor `backgroundColor` shows through);
+   the pause overlay drops its window image (dim + PAUSED text still carry it);
+   the menu skips its splash (scrim + bg remain). No new art, and the PNGs are
+   used whenever they load. This actually closes the invariant's last gaps.
+
+**Feature shipped (the standing "Tab is free" leftover)**
+
+2. **TAB opens/closes the BAG mid-run.** For a keyboard-first typing game, the
+   only in-run route to the inventory was the mouse — every plain letter collides
+   with word input, so the parked idea (recorded across several logs) was to use
+   the one free key, Tab. Now `TAB` toggles the BAG, so a player can pop a
+   potion/armor or salvage loot without leaving the keys. Captured via
+   `addCapture('TAB')` so it can't tab focus out of the itch iframe, and routed
+   through the existing `toggleMenu()` so it inherits every guard (no-op while
+   paused / transitioning / in a festival) and closes the bag — or swaps from the
+   shop — on the next press. Surfaced in the status-bar hint (`· TAB bag`).
+
+**Quality / perf (fresh churn site)**
+
+3. **Stopped re-rasterizing the LEVEL/STAGE HUD labels on every correct word.**
+   `refreshLangHud()` runs on every landed word, but its LEVEL/STAGE labels and
+   the progress bar's fill color are constant for the whole level — yet it re-ran
+   `setText`/`setColor` (each re-rasters the glyph texture) and `HexStringToColor`
+   (an alloc + string parse) each time. Gated the label rebuild on a
+   level/stage/lap key (the exact per-word re-raster gate the timer, festival
+   clock and best-combo readouts already use); only the score-driven progress-bar
+   *width* stays ungated. The redundant per-word `setMusicTempo` call is gated on
+   its computed bpm too. The label key is invalidated in `startFestival` (which
+   clobbers `langText`), so `endFestival` rebuilds the real labels; the boss
+   branch is self-correcting because the stage always advances on boss exit. No
+   prior pass touched these label sets — a genuinely fresh churn site, same
+   spirit as the earlier timer/clock/badge gates.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance (needs a play session, not a code guess); in-run *SHOP* keyboard access
+(now that BAG has TAB, SHOP could take a second captured key — but there's no
+other obviously-free one, so it's parked); itch presentation captures (language
+road / a festival / the PERFECT-LEVEL banner) + the README's final checklist item
+(name + cover + screenshots). With the `scene_`/`splash`/`pause` fallbacks in,
+the "every sprite degrades gracefully" invariant is now honored end to end.
