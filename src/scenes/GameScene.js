@@ -653,6 +653,14 @@ class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: this.perfectText, alpha: 0, delay: 900, duration: 400 });
       return;
     }
+    // 'off' is terminal for the rest of the level: once a mistake breaks the pace,
+    // a perfect clear is no longer possible, so the tag can never light green again
+    // this level. Return here so the per-word refresh can't (a) re-raster the tag
+    // back to blank and, more importantly, (b) kill the "✗ PERFECT LOST" flash's
+    // own fade tween the instant the next correct word lands — which, on a fast
+    // typing game, wiped the break flash long before it finished playing. The next
+    // level clears 'off' via blankPerfect() in levelUp so the tag arms again.
+    if (this._perfectState === 'off') return;
     // "on" needs at least one landed word this level — a fresh level (score 0)
     // shows nothing until you've actually earned the streak worth protecting.
     const state = (this.levelMistakes === 0 && this.score > 0) ? 'on' : 'idle';
@@ -973,6 +981,13 @@ class GameScene extends Phaser.Scene {
     const perfect = this.levelMistakes === 0;
     const perfectScore = perfect ? 50 + (this.stageIndex + this.survivalLap) * 25 : 0;
     this.levelMistakes = 0;
+    // Re-arm the live PERFECT tag for the fresh level. A level that broke pace
+    // leaves _perfectState terminally 'off' (see refreshPerfect); reset it here —
+    // the only normal-play path that starts a new language level — so the next
+    // level's first word can light the tag green again. Boss/festival do the same
+    // via blankPerfect. Safe during the level-clear transition: the road overlay
+    // covers the field, so blanking the tag is invisible.
+    this.blankPerfect();
     this.langIndex++;
     this.saveCheckpoint();   // clearing a language (e.g. HTML -> CSS) is a checkpoint
     this.score = 0;   // per-level progress resets; the HUD keeps showing runScore
