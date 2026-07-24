@@ -177,16 +177,54 @@ class EndScene extends Phaser.Scene {
     again.on('pointerdown', recompile);
     toMenu.on('pointerdown', backToMenu);
 
-    this.add.text(cx, cy + 164, 'ENTER to recompile  ·  M to return to the menu', {
+    // Shareable result card: a compact, screenshot-friendly one-liner plus a
+    // COPY button (and the C key). The daily runs on a shared seed, so pasting
+    // your result into the itch comments turns the daily into a leaderboard race
+    // — and comment activity during voting drives an entry's visibility. Built
+    // from run data already in scope; no new state.
+    const dailyTag = this.daily ? 'DAILY ' + new Date().toISOString().slice(0, 10) + ' ' : '';
+    this.shareStr = 'Life of Software ' + dailyTag + '— ' + this.stage +
+      (this.lap > 0 ? ' lap ' + (this.lap + 1) : '') + ' · ' + lang.name +
+      ' (L' + (this.langIndex + 1) + '/' + LANGUAGES.length + ') · ' + this.finalScore +
+      ' pts · ' + this.wpm + ' wpm · ' + this.acc + '% acc · x' + this.maxCombo + ' combo';
+
+    this.add.text(cx, cy + 164, 'ENTER recompile  ·  M menu  ·  C copy result', {
       fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
     }).setOrigin(0.5);
 
+    // the result string itself, framed and shown so it reads/screenshots even if
+    // the clipboard write is blocked (sandboxed itch iframes can refuse it).
+    const box = this.add.rectangle(cx, cy + 192, this.scale.width - 120, 24, 0x1c1c1d)
+      .setStrokeStyle(1, IDE.border);
+    this.add.text(cx, cy + 192, this.shareStr, {
+      fontFamily: 'monospace', fontSize: '12px', color: IDE.stringy
+    }).setOrigin(0.5);
+
+    const copyBtn = this.add.text(cx, cy + 218, '[ COPY RESULT · C ]', {
+      fontFamily: 'monospace', fontSize: '14px', color: IDE.keyword
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    copyBtn.on('pointerover', () => copyBtn.setColor(IDE.white));
+    copyBtn.on('pointerout', () => copyBtn.setColor(IDE.keyword));
+    const copyResult = () => {
+      Sfx.unlock();
+      const done = (ok) => copyBtn.setText(ok ? '[ COPIED ✓ ]' : '[ COPY BLOCKED — screenshot it ]')
+        .setColor(ok ? IDE.comment : IDE.error);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(this.shareStr).then(() => done(true)).catch(() => done(false));
+        } else { done(false); }
+      } catch (e) { done(false); }
+      Sfx.blip();
+    };
+    copyBtn.on('pointerdown', copyResult);
+
     // Keyboard is the whole game — let it drive the End screen too, so a player
-    // whose hands never left the keys can restart (ENTER/SPACE) or bail to the
-    // menu (M/ESC) without reaching for the mouse.
+    // whose hands never left the keys can restart (ENTER/SPACE), bail to the
+    // menu (M/ESC) or copy the result (C) without reaching for the mouse.
     this.input.keyboard.on('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') recompile();
       else if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') backToMenu();
+      else if (e.key === 'c' || e.key === 'C') copyResult();
     });
   }
 }
