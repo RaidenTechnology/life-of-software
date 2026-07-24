@@ -1227,3 +1227,26 @@ Three code commits + this log.
   with word input; only Tab is free and needs `addCapture` + iframe-focus care).
 - Presentation polish (itch captures of the road / a festival / the PERFECT
   banner) + the README's final checklist item remain the top non-code work.
+
+## Auto-dev log - 20260724-review pass 1
+
+Robustness fix in a fresh area (the boss render path). The game's stated safety
+net — "all art is code-drawn; makeTextures() skips any key already loaded, so
+every sprite degrades to a code-drawn placeholder if its PNG is missing"
+(battle.js:8) — had exactly one hole: the **boss** sprite. `Battle.makeTextures`
+code-draws `en_ork`…`en_demon`, but nothing draws `en_<type>_boss`; that key
+exists only because `BootScene` loads `assets/en_<type>_boss.png` (BootScene.js:36).
+`spawnBoss` used `'en_' + type + '_boss'` unconditionally, so a single flaky boss
+PNG (itch CDN hiccup / cache miss) would render the boss as Phaser's green
+`__MISSING` texture while every other sprite survived. Fixed at the point of use:
+`spawnBoss` now falls back to the always-code-drawn base monster texture
+(`en_<type>`) when the boss key is absent — the existing 2.6x scale still reads as
+a boss. Two-line guard, no per-monster crown redraw, so zero risk to the shipped
+art path (the PNG is used whenever it loads). `node --check src/battle.js` passes.
+This closes the last gap in the "every sprite degrades gracefully" invariant the
+codebase claims but did not fully honor.
+
+**Leftover for next passes** — unchanged from prior logs: festival low-time
+balance still needs a play session; `▲ new PB` comparison in the shareable result
+string; in-run BAG/SHOP keyboard shortcuts (only Tab is free); itch presentation
+captures + README final checklist.

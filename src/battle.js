@@ -587,7 +587,13 @@ class Battle {
     this.enemies.forEach(e => { s.tweens.killTweensOf(e); e.destroy(); });
     this.enemies = [];
     this.bossActive = true;
-    const key = 'en_' + Battle.TYPES[this.typeIndex] + '_boss';   // crowned boss variant
+    const type = Battle.TYPES[this.typeIndex];
+    // Crowned boss PNG is loaded by BootScene. If it ever fails to load (flaky
+    // itch CDN, cache miss), fall back to the always-code-drawn base monster so
+    // the boss never renders as Phaser's green __MISSING texture — same graceful
+    // degradation every other sprite gets. The 2.6x scale still reads as a boss.
+    let key = 'en_' + type + '_boss';   // crowned boss variant
+    if (!s.textures.exists(key)) key = 'en_' + type;
     const b = s.add.image(620, this.groundY - 34, key)
       .setScale(2.6).setAlpha(0);
     s.tweens.add({ targets: b, alpha: 1, duration: 400 });
