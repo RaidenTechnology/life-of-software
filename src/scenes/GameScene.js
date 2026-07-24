@@ -140,9 +140,13 @@ class GameScene extends Phaser.Scene {
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
-    status.right.setText(this.daily
+    // keep the right status handle + its base label: update() appends a live
+    // WPM readout to it once per second (a typing game should show your speed).
+    this.statusRight = status.right;
+    this._statusBase = this.daily
       ? 'DAILY CHALLENGE — ' + new Date().toISOString().slice(0, 10)
-      : 'GMTK 2026 — Count Down');
+      : 'GMTK 2026 — Count Down';
+    this.statusRight.setText(this._statusBase);
 
     // chiptune loop; tempo rises with the stage
     Sfx.startMusic(94);
@@ -1408,6 +1412,12 @@ class GameScene extends Phaser.Scene {
     if (s !== this._lastShownSec) {
       this._lastShownSec = s;
       this.timerText.setText(String(s));
+      // live WPM in the status bar — refreshed once/sec, same 15s-floor divisor
+      // as the end-screen headline so a fast early run can't post an absurd rate.
+      if (this.wordsTyped > 0 && this.elapsed > 2) {
+        const wpm = Math.round(this.wordsTyped / Math.max(this.elapsed / 60, 15 / 60));
+        this.statusRight.setText(this._statusBase + ' · ' + wpm + ' wpm');
+      }
       if (inMenu && this.menuClock) {
         this.menuClock.setText('⏱ CLOCK RUNNING · ' + s + 's')
           .setColor(s <= 10 ? IDE.error : '#dcdcaa');
