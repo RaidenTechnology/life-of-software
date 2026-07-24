@@ -685,7 +685,16 @@ class GameScene extends Phaser.Scene {
     this.flashPanel(IDE.greenHex);
     this.pulseTimer();   // every landed word buys time — pop the countdown to show it
     Sfx.pickup();
-    this.burstFx.explode(14);
+    // Combo heat: the correct-word burst grows AND warms with the score-multiplier
+    // tier, so a hot streak visibly hits harder on the field — not just in the
+    // COMBO readout's recolor. Runs after combo++ in every scoring path (normal /
+    // boss / festival), so the tier is current. The ×3 tint matches the ×3 readout
+    // colour (gold, IDE-orange) for a consistent "streak is paying off" language.
+    // setParticleTint re-sets the shared burst emitter each pop, so it's a cheap
+    // transform — no new objects — and every explode leaves it in a known state.
+    const tier = this.comboMult();   // 1 / 2 / 3
+    this.burstFx.setParticleTint(tier >= 3 ? 0xff9800 : tier >= 2 ? 0xb5e853 : IDE.greenHex);
+    this.burstFx.explode(14 + (tier - 1) * 8);   // 14 / 22 / 30 particles
     if (this.bossMode) return this.battle.bossHit();
     return this.festival ? null : this.battle.attack();
   }
