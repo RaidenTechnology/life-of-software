@@ -345,3 +345,61 @@ Object.entries({
   const lang = LANGUAGES.find(l => l.name === name);
   if (lang) lang.rule = rule;
 });
+
+// --- growth-festival signatures ---
+//
+// The growth round asks "which language is this pattern from?" — and for most of
+// the ladder that question has no honest answer. 837 of the 1276 patterns here
+// appear in more than one list, and the ones that don't are often worse: `tuple`
+// lives only in PYTHON's list, so a player who answered C++ (std::tuple, right
+// there in the standard library) was told they were wrong. The question the game
+// was really asking was "which of our hand-written arrays contains this string",
+// which is not a question anyone can fairly answer.
+//
+// So the round now draws ONLY from these: patterns that genuinely belong to one
+// language and would not be claimed by another. Keywords with no equivalent
+// elsewhere (`elif`, `deriving`, `impl`), the language's own sigils (`>>=`,
+// `<?php`, `%>%`), its stdlib's distinctive names (`putstrln`, `console`), its
+// tooling (`cargo`, `pip`). Anything a working programmer could reasonably put
+// in two columns is out, however tempting: no `class`, no `map`, no `tuple`.
+//
+// Validated at load below: every signature must exist in its own language's word
+// list and in no other. A language with none simply doesn't appear in growth
+// rounds — better a smaller pool than an unfair question.
+const LANG_SIGNATURES = {
+  HTML:       ['doctype', 'iframe', 'textarea', 'href'],
+  CSS:        ['z-index', 'rgba', 'vh', 'vw'],
+  PYTHON:     ['nonlocal', 'pass', 'except', 'dict'],
+  JAVASCRIPT: ['document', 'window', 'promise', 'fetch'],
+  LUA:        ['ipairs', 'pairs', 'tostring', 'tonumber'],
+  RUBY:       ['puts', 'attr_accessor', 'rescue', 'to_s'],
+  PHP:        ['isset', 'empty', '.='],
+  SQL:        ['having', 'distinct', 'inner', 'rollback'],
+  DART:       ['mixin', 'factory', 'late', 'required'],
+  TYPESCRIPT: ['keyof', 'infer', 'satisfies', 'declare'],
+  JAVA:       ['synchronized', 'transient', 'native'],
+  KOTLIN:     ['companion', 'lateinit', 'reified', 'suspend'],
+  'C#':       ['linq', 'delegate', 'writeline'],
+  FLUTTER:    ['scaffold', 'stateless', 'stateful', 'appbar'],
+  SWIFT:      ['deinit', 'mutating', 'protocol'],
+  GO:         ['chan', 'fallthrough', 'fmt', 'recover'],
+  BASH:       ['chmod', 'sudo', 'awk', 'esac'],
+  PERL:       ['qw', 'bless', 'wantarray', '=~'],
+  R:          ['%>%', 'ggplot', 'dplyr', 'data.frame'],
+  C:          ['printf', 'malloc', 'stdio', 'scanf'],
+  'C++':      ['cout', 'endl', 'iostream', 'nullptr'],
+  ZIG:        ['comptime', 'errdefer', 'anytype', 'orelse'],
+  RUST:       ['impl', 'crate', 'dyn', '&mut'],
+  HASKELL:    ['putstrln', 'deriving', 'newtype', '>>='],
+  ASSEMBLY:   ['mov', 'eax', 'jmp', 'nop']
+};
+
+// Keep only signatures that are real: present in their own language's list, and
+// in nobody else's. A typo or a word that quietly appears in a second list would
+// otherwise put the exact unfair question back on screen.
+LANGUAGES.forEach(lang => {
+  const sigs = LANG_SIGNATURES[lang.name] || [];
+  lang.signatures = sigs.filter(w =>
+    lang.words.includes(w) &&
+    LANGUAGES.every(o => o === lang || !o.words.includes(w)));
+});

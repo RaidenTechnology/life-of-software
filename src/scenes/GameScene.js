@@ -1861,26 +1861,39 @@ class GameScene extends Phaser.Scene {
     if (this.timeLeft < FESTIVAL_MIN_TIME) this.timeLeft = FESTIVAL_MIN_TIME;
 
     const cx = this.scale.width / 2;
-    const pool = this.shuffle(LANGUAGES.slice()).slice(0, 6);
+    // growth asks "which language is this?", so its pool can only contain
+    // languages that have signature patterns to ask about
+    const source = type === 'growth'
+      ? LANGUAGES.filter(l => (l.signatures || []).length) : LANGUAGES.slice();
+    const pool = this.shuffle(source).slice(0, 6);
 
     const c = this.add.container(0, 0).setDepth(5).setAlpha(0);
     c.add(this.add.text(cx, 150,
       type === 'sw' ? '★ SOFTWARE FESTIVAL ★' : '★ GROWTH FESTIVAL ★', {
         fontFamily: 'monospace', fontSize: '22px', color: '#dcdcaa', fontStyle: 'bold'
       }).setOrigin(0.5));
-    const spacing = 56, x0 = cx - (pool.length - 1) * spacing / 2;
+    const spacing = 92, x0 = cx - (pool.length - 1) * spacing / 2;
     const badges = pool.map((lang, i) => {
-      const b = UI.badge(this, x0 + i * spacing, 198, lang, 18);
+      const b = UI.badge(this, x0 + i * spacing, 192, lang, 18);
       c.add(b);
+      // Name every badge. The growth round asks you to TYPE a language's name
+      // while showing you a camel, an elephant and a lambda — that's a quiz on
+      // mascot trivia sitting in front of the actual question, and it's the same
+      // recall problem ASSIST exists to solve. The names are the answer SET, not
+      // the answer: you still have to know which one owns the pattern.
+      c.add(this.add.text(x0 + i * spacing, 224, lang.name.toLowerCase(), {
+        fontFamily: 'monospace', fontSize: '11px',
+        color: type === 'growth' ? IDE.text : IDE.dim
+      }).setOrigin(0.5));
       return b;
     });
-    const prompt = this.add.text(cx, 234, '', {
+    const prompt = this.add.text(cx, 252, '', {
       fontFamily: 'monospace', fontSize: '16px', color: IDE.text, fontStyle: 'bold'
     }).setOrigin(0.5);
     c.add(prompt);
     // the main clock keeps draining under the festival now (see update) — this
     // in-banner readout warns that, and shows how long the round itself lasts.
-    const clock = this.add.text(cx, 262, '', {
+    const clock = this.add.text(cx, 278, '', {
       fontFamily: 'monospace', fontSize: '13px', color: IDE.error, fontStyle: 'bold'
     }).setOrigin(0.5);
     c.add(clock);
@@ -1899,8 +1912,11 @@ class GameScene extends Phaser.Scene {
 
     this.battle.setVisible(false);
     this.blankPerfect();   // the festival is an interstitial — no perfect-pace tag
-    this.langText.setText(type === 'sw' ? 'SOFTWARE FESTIVAL' : 'GROWTH FESTIVAL')
-      .setColor('#dcdcaa');
+    // the banner says which festival this is, in 22px, in the middle of the
+    // screen — the HUD line saying it a second time is just noise. Use the slot
+    // for the thing the banner does NOT say: what a correct answer is worth.
+    this.langText.setText('+' + FESTIVAL_TIME_BONUS + 's · +' + FESTIVAL_CREDIT +
+      ' credits per answer').setColor('#dcdcaa');
     // we've just clobbered the gated LEVEL/STAGE labels; force endFestival's
     // refreshLangHud() to rebuild them (the langIndex/stage is otherwise unchanged
     // across the festival, so the label-key gate would skip the restore).
@@ -1930,11 +1946,16 @@ class GameScene extends Phaser.Scene {
   pickGrowthRound() {
     const f = this.festival;
     let lang = null, word = null, guard = 0;
+    // Signatures only (LANG_SIGNATURES in data/languages.js). The old filter
+    // asked for a word no OTHER POOLED language listed — which let through
+    // "tuple" (only PYTHON's array has it) and then told a player who answered
+    // C++ they were wrong, with std::tuple sitting in the standard library. The
+    // question is only fair for patterns that genuinely belong to one language,
+    // so those are the only ones it may ask.
     while (!word && ++guard < 25) {
       lang = this.pickFrom(f.pool);
-      const unique = lang.words.filter(w =>
-        !f.used.has(w) && f.pool.every(o => o === lang || !o.words.includes(w)));
-      if (unique.length) word = this.pickFrom(unique);
+      const unused = (lang.signatures || []).filter(w => !f.used.has(w));
+      if (unused.length) word = this.pickFrom(unused);
     }
     if (!word) { this.endFestival(); return; }
     f.lang = lang;
