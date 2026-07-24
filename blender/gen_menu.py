@@ -13,6 +13,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.normpath(os.path.join(HERE, "..", "assets"))
 GROUND = 452   # ground top in px (lower band for the action)
 
+# pixel-art match: render natively LOW-RES (like the character sprites) instead
+# of full 960x540, then Phaser upscales with NEAREST — same chunky-pixel
+# language as hero/monster sprites, instead of a smooth high-res render.
+PIXEL_SCALE = 5             # 960/5=192, 540/5=108 native render size
+SS = 3                       # supersample factor for crisp edges pre-downscale
+
 def hx(v):
     r=((v>>16)&255)/255.0; g=((v>>8)&255)/255.0; b=(v&255)/255.0
     def lin(c): return c/12.92 if c<=0.04045 else ((c+0.055)/1.055)**2.4
@@ -25,12 +31,14 @@ def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc=bpy.context.scene
     sc.render.engine='BLENDER_EEVEE'
-    sc.render.resolution_x=W; sc.render.resolution_y=H
+    # native LOW res (W/PIXEL_SCALE x H/PIXEL_SCALE), supersampled for crisp
+    # edges pre-downscale — Phaser then upscales with NEAREST to fill 960x540.
+    sc.render.resolution_x=(W//PIXEL_SCALE)*SS; sc.render.resolution_y=(H//PIXEL_SCALE)*SS
     sc.render.film_transparent=False
-    sc.render.filter_size=1.4
+    sc.render.filter_size=1.0
     try:
-        sc.eevee.taa_render_samples=64
-        sc.eevee.use_gtao=True
+        sc.eevee.taa_render_samples=48
+        sc.eevee.use_gtao=False   # flat/no-AO — matches the character-sprite fix
     except Exception: pass
     sc.render.image_settings.file_format='PNG'
     sc.view_settings.view_transform='Standard'
@@ -223,9 +231,26 @@ def build():
     ork(610, scale=0.6, y=3.0)
     hero(300, scale=1.5, y=-2.0)
     vignette()
-    bpy.context.scene.render.filepath=os.path.join(ASSETS,"menu_splash.png")
+    dst=os.path.join(ASSETS,"menu_splash.png")
+    tmp=dst+".ss.png"
+    bpy.context.scene.render.filepath=tmp
     bpy.ops.render.render(write_still=True)
+    downscale(tmp, dst, W//PIXEL_SCALE, H//PIXEL_SCALE)
+    try: os.remove(tmp)
+    except Exception: pass
     print("WROTE menu_splash.png")
+
+def downscale(src, dst, w, h):
+    import numpy as np
+    img = bpy.data.images.load(src)
+    W2, H2 = img.size
+    px = np.array(img.pixels[:]).reshape(H2, W2, 4)
+    fy, fx = H2 // h, W2 // w
+    px = px.reshape(h, fy, w, fx, 4).mean(axis=(1, 3))
+    out = bpy.data.images.new("o", width=w, height=h, alpha=True)
+    out.pixels = px.reshape(-1).tolist()
+    out.filepath_raw = dst; out.file_format = 'PNG'; out.save()
+    bpy.data.images.remove(img); bpy.data.images.remove(out)
 
 os.makedirs(ASSETS, exist_ok=True)
 build()

@@ -1,6 +1,8 @@
-# gen_ui.py — Blender pixel-art UI pieces. Currently: the ESC/pause panel
-# (pause_panel.png, transparent) — a retro "IDE window" slab with a glowing
-# accent frame and corner bolts. Phaser draws PAUSED + hints on top.
+# gen_ui.py — Blender pixel-art UI pieces:
+#  - pause_panel.png: ESC/pause "IDE window" slab, glowing frame + corner bolts.
+#  - title_panel.png: a wide backing plate behind the menu title text, so it
+#    stays readable over the busy key-art splash instead of just an alpha scrim.
+# Phaser draws the actual text on top of both.
 #
 # Run: blender --background --factory-startup --python blender/gen_ui.py
 
@@ -84,6 +86,22 @@ def pause_panel():
     bpy.ops.render.render(write_still=True)
     print("WROTE pause_panel.png")
 
+def title_panel():
+    # wide, short banner sized to sit behind "LIFE OF SOFTWARE" + the subtitle
+    # line on the menu — opaque dark body so the title reads regardless of
+    # what's happening in the key-art splash behind it, glow rim ties it to
+    # the same IDE-window language as pause_panel.
+    W,H,S=760,190,0.02
+    reset(W,H,S)
+    U=lambda px:px*S
+    cx=U(W/2); cz=U(H/2)
+    slab(cx,1.0,cz, U(W-16),U(H-16),0.3, 0x569cd6, emit=2.2, bevel=0.15)   # glow rim
+    slab(cx,0.4,cz, U(W-32),U(H-32),0.9, 0x14141c, emit=0.0, bevel=0.2)   # dark glass body
+    bpy.context.scene.render.filepath=os.path.join(ASSETS,"title_panel.png")
+    bpy.ops.render.render(write_still=True)
+    print("WROTE title_panel.png")
+
 os.makedirs(ASSETS,exist_ok=True)
 pause_panel()
+title_panel()
 print("ALL_DONE")

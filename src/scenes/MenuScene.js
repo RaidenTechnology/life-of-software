@@ -23,12 +23,27 @@ class MenuScene extends Phaser.Scene {
     }
 
     // Blender key-art splash behind everything (hero facing the monster horde
-    // at dusk), with a dark scrim so the title/menu text stays readable. Guard
-    // the PNG: if it failed to load, skip it so the scrim + dark bg show through
-    // instead of Phaser's green __MISSING fill.
-    if (this.textures.exists('menu_splash')) this.add.image(cx, cy, 'menu_splash').setDepth(-100);
+    // at dusk), with a dark scrim so the title/menu text stays readable. The
+    // source PNG is rendered natively LOW-RES (192x108) and scaled up here with
+    // NEAREST filtering — same chunky-pixel look as the hero/monster sprites,
+    // instead of a smooth high-res render. Guard the PNG: if it failed to load,
+    // skip it so the scrim + dark bg show through instead of Phaser's green
+    // __MISSING fill.
+    if (this.textures.exists('menu_splash')) {
+      this.textures.get('menu_splash').setFilter(Phaser.Textures.FilterMode.NEAREST);
+      this.add.image(cx, cy, 'menu_splash')
+        .setDisplaySize(this.scale.width, this.scale.height).setDepth(-100);
+    }
     this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x0a0812, 0.42)
       .setDepth(-99);
+
+    // Blender-rendered backing plate behind the title block (glowing rim +
+    // opaque dark glass, same IDE-window language as the pause panel) — the
+    // title needs to stay readable regardless of what's happening in the
+    // splash art behind it, which a flat alpha scrim alone can't guarantee.
+    if (this.textures.exists('title_panel')) {
+      this.add.image(cx, cy - 119, 'title_panel').setDepth(-50);
+    }
 
     // two-tone title, like syntax highlighting
     const t1 = this.add.text(0, 0, 'LIFE OF', {
