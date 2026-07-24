@@ -66,7 +66,13 @@ class EndScene extends Phaser.Scene {
       let dbest = null;
       try { dbest = JSON.parse(localStorage.getItem(dk) || 'null'); } catch (e) {}
       if (!dbest || progress > dbest.p || (progress === dbest.p && this.words > dbest.words)) {
-        try { localStorage.setItem(dk, JSON.stringify({ p: progress, words: this.words })); } catch (e) {}
+        // widen the daily entry with wpm/score (was {p, words}) so a daily result
+        // card / leaderboard can show speed + score without re-running the seed.
+        try {
+          localStorage.setItem(dk, JSON.stringify({
+            p: progress, words: this.words, wpm: this.wpm, score: this.finalScore
+          }));
+        } catch (e) {}
       }
     }
 
@@ -132,7 +138,19 @@ class EndScene extends Phaser.Scene {
       let db = null;
       try { db = JSON.parse(localStorage.getItem('los_daily_' + new Date().toISOString().slice(0, 10)) || 'null'); } catch (e) {}
       if (db) {
-        this.add.text(cx, cy + 132, "today's daily best: " + db.words + ' patterns', {
+        // decode the stored progress p into STAGE · language (the same way the
+        // normal-mode BEST line reads), so the daily target isn't just a bare
+        // word count. p = (stageIndex + lap) * LANGUAGES.length + langIndex; the
+        // stage index saturates at SURVIVAL and laps pile on beyond it. wpm is
+        // only present on entries written by this build onward, so it's optional.
+        const sp = Math.floor((db.p || 0) / LANGUAGES.length);
+        const li = (db.p || 0) % LANGUAGES.length;
+        const stName = STAGES[Math.min(sp, STAGES.length - 1)].name;
+        const lap = Math.max(0, sp - (STAGES.length - 1));
+        const label = "today's daily best: " + db.words + ' patterns · STAGE ' +
+          stName + (lap > 0 ? ' lap ' + (lap + 1) : '') + ' · ' + LANGUAGES[li].name +
+          (db.wpm ? ' · ' + db.wpm + ' wpm' : '');
+        this.add.text(cx, cy + 132, label, {
           fontFamily: 'monospace', fontSize: '13px', color: IDE.stringy
         }).setOrigin(0.5);
       }
