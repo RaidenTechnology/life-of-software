@@ -1325,6 +1325,24 @@ class GameScene extends Phaser.Scene {
     cur.box.setStrokeStyle(3, 0xffffff);
     const next = mkNode(fromIdx + 1, spacing, 0.45);
 
+    // Echo the HUD's descending "N to boss" counter here, so the "Count Down"
+    // theme is felt at every level-clear transition — not only in the corner HUD.
+    // The road you're sliding onto is the DESTINATION level (fromIdx + 1), so the
+    // count matches what refreshLangHud will show the instant the overlay clears
+    // (both use LANGUAGES.length - 1 - <that level's index>). It ticks 24 → 0 down
+    // the stage and reads "the road fills — BOSS awaits" on the last language (the
+    // level that ends the stage), mirroring the HUD's "⚔ BOSS NEXT". stageIndex is
+    // unchanged across a level-clear (only a boss raises it), so the stage name is
+    // still the current one. Static per-transition; it lives on the fading overlay.
+    const toBoss = LANGUAGES.length - 1 - (fromIdx + 1);
+    const stageName = STAGES[this.stageIndex].name;
+    overlay.add(this.add.text(cx, cy + 110, toBoss <= 0
+      ? '⚔ the road fills — the ' + stageName + ' BOSS awaits'
+      : toBoss + ' language' + (toBoss === 1 ? '' : 's') + ' down the road to the ' +
+        stageName + ' boss', {
+        fontFamily: 'monospace', fontSize: '15px', color: '#dcdcaa', fontStyle: 'bold'
+      }).setOrigin(0.5));
+
     this.tweens.add({ targets: overlay, alpha: 1, duration: 400 });
 
     this.time.delayedCall(1000, () => {
