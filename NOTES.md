@@ -2091,3 +2091,70 @@ non-printable keys are free, so a keyboard HINT route has no *intuitive* key —
 stays parked rather than bound to an arbitrary arrow/function key. The festival
 credit popup still prints the flat `+15 credits` under a live sword multiplier (a
 design call — the effect readout shows the ×N).
+
+## Auto-dev log - 20260724-review pass 12
+
+Re-read the whole game end to end (index.html, all ten JS files, languages.js,
+README, this NOTES history) and re-ran `node --check` on every file — clean. As
+in the last several passes the flagged state machines re-traced clean: pause ↔
+menu ↔ festival ↔ boss ↔ death, the strike-flag self-heal, the once/sec timer/
+HUD/credits gates + the three-band recolor, the terminal-'off' PERFECT logic, the
+p→STAGE·language checkpoint decode on both End sites, the daily seed/PB split, the
+bag-full purchase block, the music pause/resume, the keyboard bag/shop routes +
+the ↑/↓ column-wrap math, the gated `shakeCam` wrapper, the blur auto-pause
+guards, and the "missing PNG → code-drawn/degraded" fallbacks. I also re-verified
+the boss-HP-vs-pool starve math (max boss HP 27 at Survival vs smallest pool Lua
+38 — safe) and the accuracy bookkeeping (empty submits and genuine duplicates both
+correctly excluded). **No fresh logic bug surfaced and — per this project's
+discipline — none was invented.** After ~31 passes the defect surface is mined
+out; the balance items (festival low-time, grade/amber thresholds) stay parked as
+playtest calls. So this pass shipped two small, self-contained wins, each on its
+own commit.
+
+**Feel — live combo next-tier teaser (`→ ×N at M`) on the field**
+
+The ×2-at-5 / ×3-at-15 score-multiplier tiers were documented in HOW TO PLAY, but
+on the field the COMBO readout only showed the multiplier *after* you crossed the
+line — a building streak gave no sense of what it was climbing toward. `refreshCombo`
+now appends a `→ ×N at M` teaser toward the NEXT tier (thresholds mirror
+`comboMult`'s 5/15 exactly, so the promise can't drift from what actually pays
+out), and self-drops the teaser once you're at the top ×3 tier. So the readout
+reads `COMBO 3 → ×2 at 5` early, `COMBO 7 · score ×2 → ×3 at 15` mid-streak, and
+`COMBO 15 · score ×3` at the cap. It's a right-aligned readout, so the extra
+characters grow leftward into empty HUD space (no overlap with the lang/progress
+rows above or the best-combo line below), and it rides the `setText` that
+`refreshCombo` already runs on every landed word — no new per-frame or per-word
+re-raster. Pure legibility/juice: no scoring/time/credit path touched, and the
+milestone-pop logic (keyed on `m > _comboTier`) is unchanged. `node --check`
+passes on the one touched file (GameScene.js).
+
+**Feature — persist best "time survived" and headline it on the menu**
+
+A game literally themed on a countdown never kept how long your BEST run held the
+clock off zero — the global `los_best` record carried stage / words / wpm / score
+but not duration, even though the survived stat already reaches the End screen,
+share card and pause board. `EndScene` now stores `time: this.survived` (the same
+active-play elapsed the End headline uses) alongside the best when a run sets a new
+PB, and `MenuScene`'s BEST line appends `M:SS survived`. The field is read-optional
+(older bests predate it, guarded with `best.time ?`), so there's no migration and
+an old record simply shows the line without the survived tail; the M:SS is inlined
+in MenuScene (it has no `fmtDuration`, and it's a one-liner). Scope kept honest:
+this only widens the normal-mode `los_best` write and its menu readout — the
+daily/PB split, the in-run PB target (`GameScene` reads only `los_best.score`), and
+the End-screen ranking are all untouched. Now the menu greets a returning player
+with their best survival time, the most on-theme number the game has. `node --check`
+passes on both touched files (EndScene.js, MenuScene.js).
+
+**Leftover for next passes** — unchanged standing items: festival low-time balance
+and the grade/amber thresholds remain deliberate-but-untuned playtest calls (a real
+play session, not a code guess). The itch presentation captures (language road / a
+festival / the PERFECT-LEVEL banner / the grade stamp / the live PERFECT tag / the
+green gain pulse / the survived stat + amber band / the how-to-play panel / the
+keyboard-operable bag with numbered shop cards / the accessibility settings row /
+the tiered combo burst / now the combo next-tier teaser + the menu survival stat)
+plus the README's final checklist item (name + cover + screenshots) remain the top
+non-code work. The HINT is still the one during-play action without a keyboard
+route (every printable key collides with word input, so no intuitive binding
+exists — parked, not forgotten). The festival credit popup still prints the flat
+`+15 credits` under a live sword multiplier (a design call — the effect readout
+shows the ×N).
