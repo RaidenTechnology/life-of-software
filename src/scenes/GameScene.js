@@ -54,6 +54,18 @@ class GameScene extends Phaser.Scene {
     return arr[Math.floor(this.rand() * arr.length)];
   }
 
+  // In-place Fisher-Yates using this.rand (seeded for the daily). The old
+  // sort(() => this.rand() - 0.5) idiom is a biased, non-uniform shuffle — the
+  // comparator isn't a consistent ordering — so festival language pools weren't
+  // drawn uniformly, and under the seeded daily RNG the bias was deterministic.
+  shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rand() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
   create() {
     this.score = 0;          // per-level score — drives the level target/progress bar, resets each level
     this.runScore = 0;       // cumulative run score — the honest headline number, never resets mid-run
@@ -960,7 +972,7 @@ class GameScene extends Phaser.Scene {
 
   startFestival(type) {
     const cx = this.scale.width / 2;
-    const pool = LANGUAGES.slice().sort(() => this.rand() - 0.5).slice(0, 6);
+    const pool = this.shuffle(LANGUAGES.slice()).slice(0, 6);
 
     const c = this.add.container(0, 0).setDepth(5).setAlpha(0);
     c.add(this.add.text(cx, 150,
