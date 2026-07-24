@@ -107,6 +107,7 @@ class GameScene extends Phaser.Scene {
     this.menuC = null;
     this.menuClock = null;
     this.menuClockBar = null;
+    this._hintClear = null;   // pending hintText auto-clear timer (see buyHint)
 
     const cx = this.scale.width / 2;
 
@@ -1067,7 +1068,12 @@ class GameScene extends Phaser.Scene {
     this.typed = w.slice(0, shown);
     this.refreshInput();
     Sfx.hint();
-    this.time.delayedCall(6000, () => this.hintText.setText(''));
+    // one auto-clear at a time: buying a second hint within 6s used to leave the
+    // first hint's timer pending, and it would blank the *newer* hint early when
+    // it fired (same stacked-timer class as the feedback/shake fixes). Cancel the
+    // previous clear before scheduling this one.
+    if (this._hintClear) this._hintClear.remove(false);
+    this._hintClear = this.time.delayedCall(6000, () => this.hintText.setText(''));
   }
 
   finish(win) {
