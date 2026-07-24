@@ -1494,6 +1494,9 @@ class GameScene extends Phaser.Scene {
     this.pauseUI.setVisible(this.paused);
     this.time.paused = this.paused;
     this.tweens.timeScale = this.paused ? 0 : 1;
+    // the demon fire-fountain emitters aren't scene tweens/timers, so the two
+    // freezes above miss them — halt/resume them explicitly (see Battle.setDecorActive).
+    if (this.battle) this.battle.setDecorActive(!this.paused);
     // the chiptune is a raw setInterval, not a scene timer, so freeze/thaw it
     // explicitly — otherwise it plays on through the pause.
     if (this.paused) Sfx.pauseMusic(); else Sfx.resumeMusic();

@@ -699,6 +699,24 @@ class Battle {
   }
 
   setVisible(v) {
-    [this.bg, this.hero, ...this.enemies, ...this.decor].forEach(o => o.setVisible(v));
+    [this.bg, this.hero, ...this.enemies].forEach(o => o.setVisible(v));
+    // decor = the demon stage's continuous fire-fountain emitters. They're raw
+    // particle emitters advanced by the scene's core update loop — NOT scene
+    // tweens/timers — so setVisible(false) alone only hides their rendering while
+    // they keep spawning particles unseen (wasted per-frame work during every
+    // festival on the demon/survival stage). Toggle active WITH visible so they
+    // truly stop/resume in step with the strip.
+    this.decor.forEach(o => { o.setVisible(v); o.setActive(v); });
+  }
+
+  // Freeze/thaw the continuous decor emitters for the ESC pause. Same reason as
+  // above: they aren't scene tweens/timers, so this.time.paused / tweens.timeScale
+  // leave them spouting behind the (frozen) pause overlay. setActive(false) skips
+  // their preUpdate, so existing particles hang in place — reading as "paused" —
+  // and no new ones spawn. Never resume them while the strip is hidden (a pause
+  // taken DURING a festival): gate on the strip's own visibility so they don't
+  // come back emitting unseen.
+  setDecorActive(on) {
+    this.decor.forEach(d => d.setActive(on && this.bg.visible));
   }
 }
