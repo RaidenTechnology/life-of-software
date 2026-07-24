@@ -871,11 +871,17 @@ class GameScene extends Phaser.Scene {
           : 'CHAIN ' + b.seqAt + '/3!  ×2  +' + bonus.toFixed(1) + 's');
         Sfx.win();
       } else if (brokeChain) {
-        // Typed a chain pattern out of order: it's spent, and the boss recovers.
-        // +2 because the pattern still deals its 1 below — at +1 the two cancelled
-        // and the HP bar didn't move, which made "boss recovers" a lie on screen.
-        b.hp = Math.min(b.max, b.hp + 2);
-        this.floatText('CHAIN BROKEN — boss recovers');
+        // Out of order. This used to HEAL the boss, and measurement said that was
+        // the wrong call: a player still learning the chain types the link they
+        // can spell rather than the one marked ▶, and the profile that does it
+        // took 29 inputs while watching the bar climb 11 times. Being punished
+        // for the natural mistake, with no explanation on screen, is what "the
+        // boss doesn't take damage" felt like. It's still a valid pattern of the
+        // boss's language, so it lands its ordinary 1 — you simply lose the 3x
+        // the chain was offering, and a fresh chain is drawn because the link you
+        // spent can't be asked for again.
+        this.floatText('out of order — chain reset');
+        this.feedback('the chain wanted "' + b.seq[b.seqAt] + '" first', IDE.error);
         this.shakePanel();
       } else {
         this.floatText('BOSS HIT!' + (m > 1 ? ' ×' + m : '') + '  +' + bonus.toFixed(1) + 's');
@@ -1582,11 +1588,11 @@ class GameScene extends Phaser.Scene {
   startBoss() {
     this.clearTransitionGuard();
     this.transitioning = false;
-    // 18, up from 12: chain links hit for 3, so the old bar fell in four inputs
-    // — the fight was over before its own mechanic had been read once. At 18 a
-    // clean run is two full chains, and a player ignoring the chain still has a
-    // fight rather than a wall.
-    const hp = 18 + this.stageIndex * 4;
+    // 15 + 3/stage. 12 was over in four inputs, before the chain could be read
+    // once; 18 (measured) took a player who hadn't grasped the chain yet 29
+    // inputs against a bar that kept climbing. 15 is five clean links, or
+    // fifteen ordinary patterns for someone ignoring the chain entirely.
+    const hp = 15 + this.stageIndex * 3;
     this.bossMode = { hp, max: hp, lang: this.pickFrom(LANGUAGES), seq: null, seqAt: 0 };
     this.blankPerfect();   // the boss is an interstitial — no perfect-pace tag
     this.found.clear();
@@ -1626,8 +1632,11 @@ class GameScene extends Phaser.Scene {
     const b = this.bossMode;
     if (!b || !b.seq) { this.eolText.setVisible(false); return; }
     this.tweens.killTweensOf(this.eolText);
+    // Bracket the links that aren't live yet. One Text object can't colour words
+    // individually, but brackets say "later" plainly enough — and the whole
+    // out-of-order problem starts with three words that look equally typeable.
     const line = b.seq.map((w, i) =>
-      i < b.seqAt ? '✓' : (i === b.seqAt ? '▶ ' + w : w)).join('   ');
+      i < b.seqAt ? '✓' : (i === b.seqAt ? '▶ ' + w : '[' + w + ']')).join('   ');
     // Name the language ON the chain line. It's already in the HUD's top-left
     // corner, but this line sits directly above the input where the eye actually
     // is during a fight — and a boss speaks a language picked at random from the
