@@ -52,6 +52,24 @@ class MenuScene extends Phaser.Scene {
         align: 'center', lineSpacing: 8
       }).setOrigin(0.5);
 
+    // shared actions — bound to both pointer clicks and keys (this is a typing
+    // game; the menu should answer the keyboard too, not just the mouse).
+    const startNew = () => {
+      Sfx.unlock();          // first user gesture → audio allowed from here on
+      Sfx.blip();
+      // pass resume:false explicitly — Phaser keeps the previous scene data when
+      // start() is called with none, which would silently resume a NEW GAME.
+      this.scene.start('Game', { resume: false });
+    };
+    const startDaily = () => {
+      Sfx.unlock(); Sfx.blip();
+      this.scene.start('Game', { daily: true });
+    };
+    const startContinue = () => {
+      Sfx.unlock(); Sfx.blip();
+      this.scene.start('Game', { resume: true });
+    };
+
     // CONTINUE — resume from the checkpoint (furthest section cleared), if any
     let ckpt = null;
     try { ckpt = JSON.parse(localStorage.getItem('los_ckpt') || 'null'); } catch (e) {}
@@ -59,19 +77,16 @@ class MenuScene extends Phaser.Scene {
       const st = STAGES[Math.min(ckpt.stageIndex || 0, STAGES.length - 1)];
       const ln = LANGUAGES[Math.min(ckpt.langIndex || 0, LANGUAGES.length - 1)];
       const cont = this.add.text(cx, cy + 30,
-        '[ CONTINUE — STAGE ' + st.name + ' · ' + ln.name + ' ]', {
+        '[ CONTINUE — STAGE ' + st.name + ' · ' + ln.name + ' · ENTER ]', {
           fontFamily: 'monospace', fontSize: '16px', color: IDE.stringy, fontStyle: 'bold'
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
       cont.on('pointerover', () => cont.setColor(IDE.white));
       cont.on('pointerout', () => cont.setColor(IDE.stringy));
-      cont.on('pointerdown', () => {
-        Sfx.unlock(); Sfx.blip();
-        this.scene.start('Game', { resume: true });
-      });
+      cont.on('pointerdown', startContinue);
     }
 
     const start = this.add.text(cx, cy + 58,
-      ckpt ? '[ NEW GAME ]' : '[ CLICK TO START ]', {
+      ckpt ? '[ NEW GAME · N ]' : '[ PRESS ENTER OR CLICK ]', {
         fontFamily: 'monospace', fontSize: '24px', color: IDE.white
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.tweens.add({
@@ -85,7 +100,7 @@ class MenuScene extends Phaser.Scene {
     let dbest = null;
     try { dbest = JSON.parse(localStorage.getItem('los_daily_' + today) || 'null'); } catch (e) {}
     const daily = this.add.text(cx, cy + 92, '[ DAILY CHALLENGE — ' + today +
-      (dbest ? ' · best ' + dbest.words + 'w' : '') + ' ]', {
+      (dbest ? ' · best ' + dbest.words + 'w' : '') + ' · D ]', {
         fontFamily: 'monospace', fontSize: '15px', color: IDE.stringy
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     daily.on('pointerover', () => daily.setColor(IDE.white));
@@ -103,17 +118,16 @@ class MenuScene extends Phaser.Scene {
       UI.badge(this, x0 + col * spacing, cy + 156 + row * 38, lang, 13);
     });
 
-    start.on('pointerdown', () => {
-      Sfx.unlock();          // first user gesture → audio allowed from here on
-      Sfx.blip();
-      // pass resume:false explicitly — Phaser keeps the previous scene data when
-      // start() is called with none, which would silently resume a NEW GAME.
-      this.scene.start('Game', { resume: false });
-    });
-    daily.on('pointerdown', () => {
-      Sfx.unlock();
-      Sfx.blip();
-      this.scene.start('Game', { daily: true });
+    start.on('pointerdown', startNew);
+    daily.on('pointerdown', startDaily);
+
+    // keyboard: ENTER/SPACE = the primary action (CONTINUE if there's a
+    // checkpoint, else NEW GAME — matching what the eye lands on first), plus N
+    // for a fresh run and D for the daily. Also serves as the audio-unlock gesture.
+    this.input.keyboard.on('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { ckpt ? startContinue() : startNew(); }
+      else if (e.key === 'n' || e.key === 'N') startNew();
+      else if (e.key === 'd' || e.key === 'D') startDaily();
     });
   }
 }
