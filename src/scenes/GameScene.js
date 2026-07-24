@@ -247,6 +247,19 @@ class GameScene extends Phaser.Scene {
       this.scale.width, this.scale.height, 0xff2233, 0)
       .setStrokeStyle(64, 0xff2233).setDepth(8).setAlpha(0);
 
+    // reusable ring of floating "+N / +Ns" popups. floatText() fires on every
+    // landed word — the fastest UI churn in the game — and used to add + destroy
+    // a Text each time. Preallocate a small pool and recycle round-robin instead;
+    // built last so they sit above the panel/HUD (below the depth-8 warn frame,
+    // matching the old on-demand ordering). 6 covers realistic overlap at 900ms.
+    this._floatPool = [];
+    this._floatIdx = 0;
+    for (let i = 0; i < 6; i++) {
+      this._floatPool.push(this.add.text(0, 0, '', {
+        fontFamily: 'monospace', fontSize: '22px', color: IDE.comment, fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0));
+    }
+
     this.input.keyboard.on('keydown', (e) => this.onKey(e));
 
     this.refreshLangHud();
@@ -1178,13 +1191,14 @@ class GameScene extends Phaser.Scene {
   }
 
   floatText(msg) {
-    const t = this.add.text(this.panel.x, this.panel.y - 50, msg, {
-      fontFamily: 'monospace', fontSize: '22px', color: IDE.comment, fontStyle: 'bold'
-    }).setOrigin(0.5);
-    this.tweens.add({
-      targets: t, y: t.y - 40, alpha: 0, duration: 900,
-      onComplete: () => t.destroy()
-    });
+    // recycle the next pooled popup instead of spawning a new Text per word.
+    // Kill any in-flight tween on it first (a still-rising one from a fast streak)
+    // so the reset position/alpha takes cleanly.
+    const t = this._floatPool[this._floatIdx];
+    this._floatIdx = (this._floatIdx + 1) % this._floatPool.length;
+    this.tweens.killTweensOf(t);
+    t.setText(msg).setPosition(this.panel.x, this.panel.y - 50).setAlpha(1);
+    this.tweens.add({ targets: t, y: t.y - 40, alpha: 0, duration: 900 });
   }
 
   flashPanel(color) {
