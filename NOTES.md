@@ -1361,3 +1361,59 @@ other obviously-free one, so it's parked); itch presentation captures (language
 road / a festival / the PERFECT-LEVEL banner) + the README's final checklist item
 (name + cover + screenshots). With the `scene_`/`splash`/`pause` fallbacks in,
 the "every sprite degrades gracefully" invariant is now honored end to end.
+
+## Auto-dev log - 20260724-1737 pass 1
+
+Re-read all 10 source files (all pass `node --check`) plus the full NOTES history.
+Consistent with the last several passes, the state machines the prompt calls out
+— strike flags, festival/boss/menu exclusivity, tick cadence, death-save timing,
+the pause-exit clock, checkpoint monotonicity — re-traced clean, and the
+"every sprite degrades to a code-drawn placeholder if its PNG is missing"
+invariant is now honored end to end (boss / scene_ / splash / pause all guarded
+in prior passes). So **no fresh logic bug surfaced and none was invented.** This
+pass instead shipped the oldest standing leftover as a real feature, cut a
+genuine per-word re-raster in a fresh churn site no perf pass had reached, and
+added a read-only quality touch. Three code commits + this log.
+
+**Feature shipped (the standing "in-run SHOP keyboard access" leftover)**
+
+1. **TAB now cycles the in-run panels: closed → BAG → SHOP → closed.** For a
+   keyboard-first typing game the SHOP still had no keyboard route — every plain
+   letter collides with word input, and TAB (the one free, iframe-captured key)
+   only toggled the BAG (from the shop it swapped to the bag, so the shop could
+   only ever be *opened* by mouse). TAB now cycles through both panels, giving the
+   shop the keyboard access recorded-but-parked across several logs. The mouse
+   `[BAG]`/`[SHOP]` buttons still open each panel directly; `cycleMenu()` shares
+   `toggleMenu()`'s guards (no-op while over/dying/transitioning/paused/in a
+   festival) so the keyboard route inherits every safety the mouse buttons have.
+   Status-bar hint updated `TAB bag` → `TAB bag/shop`.
+
+**Quality / perf (fresh churn site — refreshCredits)**
+
+2. **Gated refreshCredits()'s three setText re-rasters.** `refreshCredits()` runs
+   on every landed word (the fastest scoring path), but `Text.setText` re-rasters
+   the glyph texture on every call — and the hint label (`[ HINT -20 ]`) and the
+   effect line (empty when no buff is up) are constant across most words, so ~all
+   of those per-word calls re-rendered an identical texture. Gated the
+   credit/hint/effect `setText` calls on their computed strings so only genuine
+   changes re-raster — the exact per-word gate the timer, HUD labels, festival
+   clock and best-combo readouts already use. No prior perf pass touched
+   `refreshCredits`, so this is a genuinely fresh churn site. `setAlpha` only
+   tints (no re-raster) so it stays ungated; the credit number caps at
+   `CREDIT_MAX`, so gating it also stops the capped-100/100 tail from re-rastering.
+
+**Quality (read-only)**
+
+3. **The ESC pause overlay now shows this run's live stats.** It showed only
+   PAUSED + the resume/quit hint; it now surfaces SCORE · WPM · accuracy · best
+   combo, snapshotted in `togglePause()` each time you pause, using the same
+   15s-floor wpm divisor and accuracy formula the End screen uses so the pause
+   board and the final report always agree. Zero balance impact — a mid-run
+   breather now doubles as a scoreboard without leaving the field.
+
+**Leftover for next passes** — unchanged standing items: festival low-time
+balance (still a deliberate-but-untuned playtest call, needs a play session not a
+code guess); itch presentation captures (language road / a festival / the
+PERFECT-LEVEL banner) + the README's final checklist item (name + cover +
+screenshots) remain the top non-code work. With SHOP now on TAB, in-run panel
+access is complete on the keyboard.
