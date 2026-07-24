@@ -143,6 +143,8 @@ class GameScene extends Phaser.Scene {
     this.menuC = null;
     this.menuClock = null;
     this.menuClockBar = null;
+    this.bagSel = -1;          // keyboard-selected bag slot (see menuKey/bagKey)
+    this.shopStockCache = null; // the open shop's stock, for keyboard buys (shopKey)
     this._hintClear = null;   // pending hintText auto-clear timer (see buyHint)
 
     const cx = this.scale.width / 2;
@@ -347,8 +349,12 @@ class GameScene extends Phaser.Scene {
     }
 
     // capture TAB so the bag shortcut (see onKey) never tab-moves focus out of
-    // the game canvas / itch iframe onto browser chrome.
+    // the game canvas / itch iframe onto browser chrome. Capture the arrow keys
+    // too: they drive the keyboard-first bag/shop navigation (see menuKey) and
+    // are unused during play, so capturing them only stops the itch page from
+    // scrolling under the game when you steer the inventory grid.
     this.input.keyboard.addCapture('TAB');
+    this.input.keyboard.addCapture('UP,DOWN,LEFT,RIGHT');
     this.input.keyboard.on('keydown', (e) => this.onKey(e));
 
     this.refreshLangHud();
@@ -432,7 +438,11 @@ class GameScene extends Phaser.Scene {
     // leftover; the mouse [BAG]/[SHOP] buttons still open each panel directly.
     if (e.key === 'Tab') { this.cycleMenu(); return; }
     if (this.menuOpen) {
-      if (e.key === 'Escape') this.closeMenu();
+      // The bag/shop are now fully keyboard-operable (this is a keyboard-first
+      // game — every other screen answers the keys, so the panels should too).
+      // menuKey handles ESC-close plus per-panel navigation/actions; nothing
+      // else leaks through to word input while a panel is up.
+      this.menuKey(e);
       return;
     }
     if (this.transitioning) return;
@@ -826,7 +836,9 @@ class GameScene extends Phaser.Scene {
     if (this.over || this.dying || this.transitioning || this.paused || this.festival) return;
     const next = this.menuOpen === 'bag' ? 'shop' : this.menuOpen === 'shop' ? null : 'bag';
     this.closeMenu();
-    if (next === 'bag') this.openBag(-1);
+    // TAB is the keyboard route, so pre-select the first item — U/S then act with
+    // no steering step. (The mouse [BAG] button still opens with nothing selected.)
+    if (next === 'bag') this.openBag(this.inventory.length ? 0 : -1);
     else if (next === 'shop') this.openShop();
   }
 
@@ -888,9 +900,10 @@ class GameScene extends Phaser.Scene {
 
   openBag(selected) {
     this.menuOpen = 'bag';
+    this.bagSel = selected;   // remember the highlighted slot for keyboard nav (bagKey)
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
     const c = this.menuShell('INVENTORY  (' + this.inventory.length + '/' + INV_MAX + ')',
-      'click an item, then USE it or SALVAGE it for credits · ESC closes');
+      'click or ↑↓←→ / 1-9 to pick · U use · S salvage · ESC closes');
 
     const cols = 6, size = 78;
     const x0 = cx - (cols - 1) * size / 2;
@@ -943,7 +956,8 @@ class GameScene extends Phaser.Scene {
     this.menuOpen = 'shop';
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
     const stock = Items.shopStock();
-    const c = this.menuShell('SHOP — ' + stock.day, 'new stock every day · bought items go to your bag · ESC closes');
+    this.shopStockCache = stock;   // so keyboard buys (shopKey → buyStock) hit the same stock
+    const c = this.menuShell('SHOP — ' + stock.day, 'click or press 1-4 to buy · bought items go to your bag · ESC closes');
 
     // A full bag auto-salvages incoming loot for a fraction of its value — fine
     // for a random drop, but a paid purchase would then charge full price and
@@ -976,20 +990,106 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
       if (!sold && !full && afford) {
         btn.setInteractive({ useHandCursor: true });
-        btn.on('pointerdown', () => {
-          this.credits -= price;
-          Items.markSold(stock, i);
-          this.addItem(item, true);
-          this.refreshCredits();
-          this.closeMenu();
-          this.openShop();
-        });
+        btn.on('pointerdown', () => this.buyStock(i));
       }
       c.add(btn);
     });
     c.add(this.add.text(cx, cy + 160, 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX, {
       fontFamily: 'monospace', fontSize: '15px', color: IDE.text
     }).setOrigin(0.5));
+  }
+
+  // Buy shop slot i — shared by the mouse BUY button and the 1-4 keyboard route
+  // (shopKey). Re-validates sold/bag-full/affordability itself so the keyboard
+  // path is as safe as the (only-wired-when-buyable) mouse button; an invalid
+  // press is a soft buzzer, since the card already shows SOLD / BAG FULL / price.
+  buyStock(i) {
+    const stock = this.shopStockCache;
+    if (!stock) return;
+    const item = stock.items[i];
+    if (!item || stock.sold.includes(i) ||
+        this.inventory.length >= INV_MAX ||
+        this.credits < RARITIES[item.r].price) {
+      Sfx.wrong();
+      return;
+    }
+    this.credits -= RARITIES[item.r].price;
+    Items.markSold(stock, i);
+    this.addItem(item, true);
+    this.refreshCredits();
+    this.closeMenu();
+    this.openShop();
+  }
+
+  // --- keyboard control for the bag/shop panels (this is a keyboard-first game) ---
+
+  // Dispatch a keypress while a panel is open. ESC always closes; otherwise the
+  // active panel handles it. Called from onKey's menu branch, so nothing here can
+  // leak into word input.
+  menuKey(e) {
+    if (e.key === 'Escape') { this.closeMenu(); return; }
+    if (this.menuOpen === 'bag') this.bagKey(e);
+    else if (this.menuOpen === 'shop') this.shopKey(e);
+  }
+
+  // Bag navigation: ↑↓←→ steer the dense 6-wide item grid (inventory is packed,
+  // so slot index === inventory index and slots ≥ length are empty), 1-9 jump to
+  // a slot, U/ENTER use the selected item, S salvages it. Re-opens the panel to
+  // repaint the selection highlight — the same closeMenu→openBag idiom the mouse
+  // click path uses, so no new render path.
+  bagKey(e) {
+    const n = this.inventory.length;
+    if (n === 0) return;
+    const key = e.key, cols = 6, sel = this.bagSel, has = sel >= 0 && sel < n;
+
+    if (key >= '1' && key <= '9') {
+      const idx = key.charCodeAt(0) - 49;   // '1' → slot 0
+      if (idx < n) this.reopenBag(idx);
+      return;
+    }
+    if (key === 'ArrowRight') { this.reopenBag(has ? (sel + 1) % n : 0); return; }
+    if (key === 'ArrowLeft')  { this.reopenBag(has ? (sel - 1 + n) % n : n - 1); return; }
+    if (key === 'ArrowDown') {
+      // down a row, wrapping to the top of the same column when it runs off the end
+      this.reopenBag(has ? (sel + cols < n ? sel + cols : sel % cols) : 0);
+      return;
+    }
+    if (key === 'ArrowUp') {
+      // up a row, wrapping to the bottom-most filled slot in the same column
+      if (!has) { this.reopenBag(0); return; }
+      let j = sel % cols;
+      while (j + cols < n) j += cols;
+      this.reopenBag(sel - cols >= 0 ? sel - cols : j);
+      return;
+    }
+    if (key === 'Enter' || key === 'u' || key === 'U') {
+      if (has) { this.useItem(sel); this.afterBagAction(sel); }
+    } else if (key === 's' || key === 'S') {
+      if (has) { this.salvageItem(sel); this.afterBagAction(sel); }
+    }
+  }
+
+  // repaint the bag with a new selection (mirrors the mouse slot-click flow)
+  reopenBag(sel) {
+    this.closeMenu();
+    this.openBag(sel);
+  }
+
+  // After a keyboard USE/SALVAGE removes the item at prevSel, keep a sensible
+  // selection so you can act on several items in a row without re-steering:
+  // the item that slid into that slot (or the new last one), or none if empty.
+  afterBagAction(prevSel) {
+    const n = this.inventory.length;
+    this.closeMenu();
+    this.openBag(n === 0 ? -1 : Math.min(prevSel, n - 1));
+  }
+
+  // Shop: number keys 1-4 buy the matching card (see buyStock's own guards).
+  shopKey(e) {
+    const key = e.key;
+    if (key < '1' || key > '9') return;
+    const i = key.charCodeAt(0) - 49;
+    if (this.shopStockCache && i < this.shopStockCache.items.length) this.buyStock(i);
   }
 
   // --- level flow ---
