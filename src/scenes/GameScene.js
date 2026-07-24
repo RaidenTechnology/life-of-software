@@ -970,6 +970,11 @@ class GameScene extends Phaser.Scene {
       const card = this.add.rectangle(x, y, 150, 190, 0x1c1c1d)
         .setStrokeStyle(2, sold ? IDE.border : RARITIES[item.r].tint);
       c.add(card);
+      // the keyboard buy-key for this card, in its corner, so the '1-4 to buy'
+      // note maps to something visible instead of the player guessing left-to-right.
+      c.add(this.add.text(x - 65, y - 85, String(i + 1), {
+        fontFamily: 'monospace', fontSize: '13px', color: IDE.dim, fontStyle: 'bold'
+      }).setOrigin(0, 0).setAlpha(sold ? 0.4 : 1));
       c.add(this.add.image(x, y - 60, ITEM_TYPES[item.t].tex).setScale(2).setAlpha(sold ? 0.3 : 1));
       c.add(this.add.text(x, y - 24, RARITIES[item.r].name, {
         fontFamily: 'monospace', fontSize: '13px', color: RARITIES[item.r].color, fontStyle: 'bold'
@@ -1069,8 +1074,12 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // repaint the bag with a new selection (mirrors the mouse slot-click flow)
+  // repaint the bag with a new selection (mirrors the mouse slot-click flow).
+  // A quiet keystroke tick makes keyboard steering feel as responsive as the
+  // rest of the game's input — this path is keyboard-only, so the mouse click
+  // flow (openBag directly) stays silent as before.
   reopenBag(sel) {
+    if (sel !== this.bagSel) Sfx.type();
     this.closeMenu();
     this.openBag(sel);
   }
