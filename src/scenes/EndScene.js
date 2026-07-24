@@ -41,6 +41,10 @@ class EndScene extends Phaser.Scene {
     const progress = (this.stageIndex + (this.lap > 0 ? this.lap : 0)) * LANGUAGES.length + this.langIndex;
     let best = null;
     try { best = JSON.parse(localStorage.getItem('los_best') || 'null'); } catch (e) {}
+    // Capture the previous run-score BEFORE any overwrite below, so the end-screen
+    // delta ("+N over your best" / "N to beat") measures this run against the score
+    // you walked in with — the same number the in-run HUD PB target chases.
+    const prevBestScore = (best && best.score) || 0;
     // rank by how far you got, then words typed, then run score as the final tiebreak
     const beats = !best || progress > best.p ||
       (progress === best.p && this.words > best.words) ||
@@ -66,9 +70,23 @@ class EndScene extends Phaser.Scene {
       }
     }
 
-    this.add.text(cx, cy - 52, 'SCORE ' + this.finalScore, {
+    this.add.text(cx, cy - 58, 'SCORE ' + this.finalScore, {
       fontFamily: 'monospace', fontSize: '32px', color: IDE.text
     }).setOrigin(0.5);
+
+    // how this run's score stacks against your previous best. Skipped for daily
+    // runs (they rank on their own per-day key, not the global best) and when
+    // there's no prior score to compare against.
+    if (!this.daily && prevBestScore > 0) {
+      const d = this.finalScore - prevBestScore;
+      let msg, col;
+      if (d > 0) { msg = '▲ +' + d + ' over your best score!'; col = IDE.comment; }
+      else if (d === 0) { msg = 'matched your best score'; col = '#dcdcaa'; }
+      else { msg = Math.abs(d) + ' to beat your best score'; col = IDE.dim; }
+      this.add.text(cx, cy - 34, msg, {
+        fontFamily: 'monospace', fontSize: '13px', color: col, fontStyle: 'bold'
+      }).setOrigin(0.5);
+    }
 
     this.add.text(cx, cy - 16,
       this.wpm + ' wpm · ' + this.acc + '% accuracy · max combo ' + this.maxCombo +
