@@ -1033,3 +1033,69 @@ readout. Three code commits + this log.
   level transitions (combo only breaks on a wrong pattern today).
 - Presentation polish (an itch capture of the language road / a festival / a
   PERFECT-LEVEL banner) remains the highest-value non-code work left.
+
+## Auto-dev log - 20260724-1558 pass 1
+
+Eleventh active-development pass on Opus 4.8. Re-read all 10 source files (all
+pass `node --check`) plus the full NOTES history, and confirmed the boss +
+loot PNGs from the latest commit are all present (`assets/en_*_boss.png` ×6,
+`assets/it_*.png` ×5), so the boss can't render a broken texture. Passes 9-10
+declared genuine logic bugs exhausted, and re-reading the state machines
+(strike flags, festival/boss/menu exclusivity, tick cadence, death-save) they
+hold — so instead of inventing a "bug", this pass closed a real, unaddressed
+*gap*: **the whole game is keyboard-driven, but every menu was pointer-only.**
+Three focused commits + this log, all one cohesive theme (keyboard nav).
+
+**Features shipped**
+
+1. **Keyboard + main-menu route on the End screen.** The End screen was
+   pointer-only and dead-ended on `[ RECOMPILE ]` (which *resumes* the run from
+   the checkpoint) — from a finished run there was no way to reach the Daily or
+   a fresh New Game without first resuming. Added a `[ MENU ]` button beside
+   RECOMPILE (repositioned RECOMPILE to `cx-96`, MENU at `cx+104`, clear of the
+   checkpoint/daily-best line at `cy+132`), a shared `recompile()`/`backToMenu()`
+   pair bound to both pointer and keys, and a keydown handler: ENTER/SPACE
+   recompiles, M/ESC returns to the menu. A dim hint line advertises the keys.
+   Both handlers call `Sfx.unlock()` first (a keydown is a valid audio-unlock
+   gesture) so restarting via keyboard keeps sound working.
+
+2. **Keyboard controls on the main menu.** START/CONTINUE/DAILY were all
+   click-only. Extracted `startNew` / `startContinue` / `startDaily` and bound
+   both the existing pointer clicks and a new keydown handler: ENTER/SPACE runs
+   the primary action (CONTINUE when a checkpoint exists — matching what the eye
+   lands on — else NEW GAME), N forces a fresh run, D launches the daily. The
+   first keypress also serves as the audio-unlock gesture. Button labels now
+   advertise their key (`· ENTER` on CONTINUE, `· N` on NEW GAME, `· D` on
+   DAILY, `[ PRESS ENTER OR CLICK ]` when there's no checkpoint), and I made
+   sure the advertised key matches the actual binding (ENTER continues when a
+   checkpoint exists, so NEW GAME reads `· N`, not `· ENTER`).
+
+**Quality**
+
+3. **Quit-to-menu from the pause screen (Q).** The last keyboard-nav gap: a
+   paused run could only end by dying or refreshing the tab, so switching to the
+   Daily or a fresh run mid-run meant losing the tab. Handled Q in `onKey`'s
+   paused branch (before the `if (this.paused) return`) → new `quitToMenu()`
+   that `scene.start('Menu')`s; the furthest section reached is already
+   checkpointed on each clear, so CONTINUE still resumes. The scene-shutdown
+   handler stops the (paused) music safely — `stopMusic` is null-timer-safe, and
+   the next run's `startMusic` rebuilds from a null `Sfx.music`. Pause hint copy
+   changed from "type + ENTER to fight the countdown" to "Q to quit to the menu".
+
+**Notes on safety of the keyboard wiring**
+
+- A single physical keydown dispatches once; `scene.start` tears down the old
+  scene's listeners before the next scene registers its own, so no key cascades
+  across scenes. Held-key OS repeat at most fires an extra harmless empty
+  `submit()` in the freshly-started GameScene.
+
+**Leftover for next passes**
+
+- Festival balance (entering at low time is dangerous) is still the standing
+  deliberate-but-untuned playtest call — a code change here needs a playtest, not
+  a guess, so still left alone.
+- Surfacing the run's *best combo* live on the HUD (end screen already shows it)
+  and a small on-HUD combo timer remain the two most concrete unbuilt feel ideas.
+- Presentation polish (an itch capture of the language road / a festival / the
+  PERFECT-LEVEL banner) is still the highest-value non-code work left, plus the
+  README's final checklist item (name + cover + screenshots on the itch page).
