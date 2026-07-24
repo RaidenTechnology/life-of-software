@@ -1161,3 +1161,69 @@ this log, all one theme (the combo readout + the pause-exit path).
   dedicated pass, not a drive-by.
 - Presentation polish (itch captures of the road / a festival / the PERFECT
   banner) + the README's final checklist item remain the top non-code work.
+
+## Auto-dev log - 20260724-1625 pass 1
+
+Thirteenth active-development pass on Opus 4.8. Re-read all 10 source files (all
+pass `node --check`) plus the full NOTES history, and re-ran the data-integrity
+scan from a throwaway Node harness: all 25 word lists are clean — 0 duplicates /
+uppercase / whitespace / over-`MAX_TYPED` / missing-meta / missing-target — so
+the DART duplicate an earlier pass found has not regressed and no new one crept
+in. As passes 9-12 found, the state machines the prompt calls out (strike flags,
+festival/boss/menu exclusivity, tick cadence, death-save, the pause-exit clock)
+are sound, so **no fresh logic bug surfaced and none was invented.** Instead this
+pass shipped the oldest recorded-but-unbuilt feature, cut a genuine per-frame
+render cost no prior perf pass had reached, and fixed one real legacy-data nit.
+Three code commits + this log.
+
+**Quality / perf (fresh area)**
+
+1. **Festival banner clock re-rastered its text every frame — FIXED.** During a
+   festival, `update()` called `festival.clock.setText('⏱ clock runs — festival
+   ends in Ns')` on *every* frame (~60/sec), but the shown `Math.ceil(timeLeft)`
+   only steps once per second — so ~59 of every 60 calls re-rendered an identical
+   glyph texture for the whole festival. This is the exact per-frame `setText`
+   re-raster class earlier passes gated for the big countdown timer (update:1459)
+   and the in-menu clock (update:1468), but the festival banner — added when
+   festivals stopped freezing the clock (pass 20260723-2346) — was never covered.
+   Now a `clockSec` field on the festival object tracks the last shown second and
+   the `setText` fires only when it changes. Pure render-cost cut; the banner
+   reads identically.
+
+**Feature shipped**
+
+2. **Shareable result card + COPY on the End screen — the oldest recorded-but-
+   unbuilt idea (auto-review pass 1 #4, ~2026-07-23).** The End screen reported a
+   run's stats but offered no way to share them. Added a compact one-line summary
+   (`Life of Software — STAGE · language (L n/25) · N pts · N wpm · N% acc · xN
+   combo`, prefixed `DAILY <date>` for daily runs) in a framed box, plus a
+   `[ COPY RESULT ]` button and a **C** key that writes it to the clipboard. The
+   write is fully guarded (`navigator.clipboard?.writeText` in a try/catch with a
+   `.then/.catch`) and the button reports `COPIED ✓` or `COPY BLOCKED — screenshot
+   it`, because a sandboxed itch iframe can refuse clipboard access — and the
+   string stays on screen either way, so it always reads/screenshots. The daily
+   runs one shared seed, so pasting a result into the itch comments turns it into
+   a leaderboard race, and comment activity during voting drives an entry's
+   visibility. The End-screen key hint now reads `ENTER recompile · M menu · C
+   copy result`.
+
+**Fix (legacy-data robustness)**
+
+3. **Menu BEST line could render `undefined wpm`.** The `BEST:` line appended
+   `best.wpm` unconditionally while the adjacent `best.score` was already guarded
+   `(best.score ? … : '')`, so a `los_best` written by a pre-wpm build (or any
+   partial entry lingering in a judge's storage) printed a literal
+   `· undefined wpm`. Guarded `best.wpm` the same way, so the line degrades
+   cleanly on old data. Normal current runs are unaffected (they always store wpm).
+
+**Leftover for next passes**
+
+- Festival low-time balance (entering at low time is dangerous) is still the
+  standing deliberate-but-untuned playtest call — unchanged, needs a play session.
+- With the result card landed, the natural follow-up is a per-run comparison in
+  the shared string (e.g. `▲ new PB` when this run beat the stored best) so a
+  pasted comment reads as an improvement, not just a raw stat line.
+- In-run BAG/SHOP keyboard shortcuts remain parked (every plain letter collides
+  with word input; only Tab is free and needs `addCapture` + iframe-focus care).
+- Presentation polish (itch captures of the road / a festival / the PERFECT
+  banner) + the README's final checklist item remain the top non-code work.
