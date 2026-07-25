@@ -3029,7 +3029,22 @@ class GameScene extends Phaser.Scene {
   refreshLangHud() {
     // tempo only steps with the stage/lap, but this runs on every correct word —
     // gate the (otherwise redundant) setMusicTempo call on the computed value.
-    const bpm = 94 + this.stageIndex * 8 + this.survivalLap * 4;
+    // Tempo starts from the LANGUAGE's own tempo, not a flat 94. languages.js
+    // carries a bpm per language that climbs 84 (HTML) to 120 (ASSEMBLY) — the
+    // audible half of "the ladder gets colder as it gets harder" — and it had no
+    // consumer at all: every language played at the same speed and only the
+    // stage moved it. The stage/lap steps still stack on top, and the whole
+    // thing is capped so a late survival lap cannot run the loop into a blur.
+    //
+    // A boss overrides it: the fight is the one place the ladder's own tempo is
+    // not the point, and a step up in speed is half of why a boss reads as one.
+    //
+    // this.lang is undefined for exactly one moment — the road has just filled
+    // (langIndex === LANGUAGES.length) and startBoss has not run yet — so this
+    // reads defensively rather than trusting the getter.
+    const lm = this.lang && this.lang.music;
+    const baseBpm = this.bossMode ? 116 : (lm && isFinite(lm.bpm) ? lm.bpm : 94);
+    const bpm = Math.min(168, baseBpm + this.stageIndex * 8 + this.survivalLap * 4);
     if (bpm !== this._hudBpm) { this._hudBpm = bpm; Sfx.setMusicTempo(bpm); }
     if (this.bossMode) {
       this.langText.setText('BOSS · ' + this.bossMode.lang.name).setColor(IDE.error);

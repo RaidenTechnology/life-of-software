@@ -2783,3 +2783,35 @@ Console clean across the whole sweep. Widest notice 674px and widest epitaph 570
 of 960, measured across all 25 languages.
 
 `index.html` at `?v=28`.
+
+## Review pass - 20260726 (read the code this time, not the reports)
+
+Two real defects, both invisible to the browser tests that passed the night
+before, because both were "the wiring works" bugs rather than "the wiring
+throws" bugs.
+
+**The per-language tempo was dead data.** languages.js carries a bpm per
+language climbing 84 (HTML) to 120 (ASSEMBLY) — the audible half of the ladder
+getting colder as it gets harder — and NOTHING consumed it. `refreshLangHud`
+still computed the old flat `94 + stage*8 + lap*4`, so all 25 languages played
+at the same speed and only the stage moved it. The language tempo is now the
+base, the stage/lap steps stack on top, the whole thing caps at 168, and a boss
+overrides it at 116 (the fight is the one place the ladder's own tempo is not the
+point). Guarded: `this.lang` is undefined for exactly one moment — the road has
+filled and startBoss has not run — so the base falls back to 94 there.
+Measured: HTML 84, PHP 94, C# 98, R 104, ASSEMBLY 120, and 152 at stage 3 + lap 2.
+
+**The combo pitch ladder flatlined at combo 10.** `Math.min(24, deg + 12*oct)`
+clamped the whole semitone value, so from the tenth keystroke of a streak every
+key played the same 2093Hz square — and the x3 score tier is at 15, so the
+feedback died exactly where the combo starts to matter, and a long streak became
+one piercing note repeated fifty times. The OCTAVE caps now and the degree keeps
+cycling: 523Hz to 1760Hz over the first ten, then a rolling pentatonic at the
+top. Measured across combos 0-30: max 1760Hz, five distinct pitches above 10.
+
+Regression after both: 2 notices / 8 accelerating ticks / 1 lost / 1 rescued from
+real play, tension ramping and standing down, zero live audio timers while
+paused, zero after death, End screen opening on
+`2 deprecation notices. You outran 1 of them.`, console clean.
+
+`index.html` at `?v=29`.

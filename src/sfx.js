@@ -483,8 +483,15 @@ const Sfx = {
   typeCombo(combo) {
     const n = isFinite(combo) ? Math.max(0, Math.floor(combo)) : 0;
     const deg = [0, 2, 4, 7, 9];
-    const semis = Math.min(24, deg[n % 5] + 12 * Math.floor(n / 5));
-    this.tone(this.freq(72 + semis), 0.03, 'square', 0.05 - 0.012 * (semis / 24));
+    // The OCTAVE caps; the degree keeps cycling. Clamping the whole semitone
+    // value (the first cut of this) flatlined every keystroke onto one note from
+    // combo 10 up — which is precisely where a combo starts to matter (the x3
+    // score tier is at 15), so the feedback died exactly when the player earned
+    // it, and a long streak became one piercing square repeated fifty times.
+    // Now the ladder climbs an octave over the first ten keystrokes and then
+    // rolls through the pentatonic at the top: still moving, never above 1760Hz.
+    const semis = deg[n % 5] + 12 * Math.min(1, Math.floor(n / 5));
+    this.tone(this.freq(72 + semis), 0.03, 'square', 0.05 - 0.012 * (semis / 21));
   },
 
   // Low-time tick. Pass the whole seconds left (0..10) and the pitch climbs as the
