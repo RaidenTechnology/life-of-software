@@ -273,7 +273,14 @@ class GameScene extends Phaser.Scene {
 
     // chiptune loop; tempo rises with the stage
     Sfx.startMusic(94);
-    this.events.once('shutdown', () => Sfx.stopMusic());
+    // stopMusic tears its own layers down, but the boss bed and the low-clock
+    // heartbeat are separate voices that a run can die inside — reset them by
+    // hand so the End screen is never played over a boss drum or a heartbeat.
+    this.events.once('shutdown', () => {
+      this.sfx('setBossMode', false);
+      this.sfx('setTension', 0);
+      Sfx.stopMusic();
+    });
 
     this.timerText = this.add.text(cx, 95, String(START_TIME), {
       fontFamily: 'monospace', fontSize: '60px', color: IDE.text, fontStyle: 'bold'
@@ -697,14 +704,29 @@ class GameScene extends Phaser.Scene {
       this.refreshLangHud();
       return;
     }
-    this.eol = { word, left: DEPRECATE_WARN + this.boonEol };
-    this.eolText.setText('⚠ "' + word + '" is being deprecated — write it now!')
+    this.eol = { word, left: DEPRECATE_WARN + this.boonEol, nextTick: null };
+    // Dressed as the real thing. "is being deprecated" is a game telling you a
+    // rule; "deprecated since 3.11, removed in 4.0" is the notice every working
+    // programmer has actually read in a changelog — the same sentence that has
+    // quietly ended careers' worth of code. Same mechanic, and the narrative is
+    // carried by the mechanic's own text instead of a cutscene. Versions come
+    // from the language's own scheme (`depVer` in languages.js); a language
+    // without one keeps the plain wording rather than inventing a version.
+    const v = this.lang.depVer;
+    this.eolText.setText(v && v.since && v.removed
+      ? '⚠ "' + word + '" — deprecated since ' + v.since + ', removed in ' + v.removed +
+        ' — write it now!'
+      : '⚠ "' + word + '" is being deprecated — write it now!')
       .setColor('#dcdcaa').setVisible(true);
     this.tweens.killTweensOf(this.eolText);
     this.eolText.setAlpha(1);
     this.tweens.add({ targets: this.eolText, alpha: 0.45, duration: 400, yoyo: true, repeat: -1 });
     this.teachDeprecation();
-    Sfx.hint();
+    // was Sfx.hint() — the rising chirp the HINT button uses, which read as a
+    // reward for the one event in the game that is a threat. The notice now has
+    // its own falling figure, and it is the only sound in the game that falls.
+    if (typeof Sfx.deprecationNotice === 'function') Sfx.deprecationNotice();
+    else Sfx.hint();
   }
 
   // A VAULT bought while a notice is already ticking should not have to wait for
@@ -763,7 +785,11 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.eolText, alpha: 0, duration: 2200, delay: 1200,
       onComplete: () => this.eolText.setVisible(false) });
     this.flashPanel(0xf44747);
-    Sfx.wrong();
+    // not the wrong-answer buzzer: nothing was answered wrong. A pattern you
+    // could have written is gone for the level — a dead, falling thud, and the
+    // exact inverse of the flourish rescuing one plays.
+    if (typeof Sfx.deprecationLost === 'function') Sfx.deprecationLost();
+    else Sfx.wrong();
     // the target ceiling is derived from the live pool, so it may have just
     // dropped — repaint the HUD's target/progress rather than let it lie.
     this.refreshLangHud();
@@ -790,7 +816,21 @@ class GameScene extends Phaser.Scene {
     if (this.bossMode || this.festival || this.transitioning || this.menuOpen) return;
     if (this.eol) {
       this.eol.left -= dt;
-      if (this.eol.left <= 0) this.finishDeprecation();
+      if (this.eol.left <= 0) { this.finishDeprecation(); return; }
+      // The second countdown, made audible. The notice sits above the input line
+      // and a player mid-word is looking at their own typing, not at it — so the
+      // clock the theme is named for was invisible to the person racing it. The
+      // tick accelerates as the notice runs out (0.67s apart at the top, 0.18s
+      // at the bottom), which is the same shape the run clock's <10s tick uses,
+      // one octave of urgency lower. Scheduled off the notice's own remaining
+      // time rather than a timer, so pausing (which stops update) stops it too.
+      const span = DEPRECATE_WARN + this.boonEol;
+      const step = Math.max(0.18, 0.18 + 0.49 * (this.eol.left / span));
+      if (this.eol.nextTick === null) this.eol.nextTick = this.eol.left - step;
+      if (this.eol.left <= this.eol.nextTick) {
+        this.eol.nextTick = this.eol.left - step;
+        this.sfx('deprecationTick', this.eol.left * 1000);
+      }
       return;
     }
     this.eolTimer += dt;
@@ -950,7 +990,14 @@ class GameScene extends Phaser.Scene {
       }
     } else if (e.key.length === 1 && !/\s/.test(e.key) && this.typed.length < MAX_TYPED) {
       this.typed += e.key.toLowerCase();
-      Sfx.type();
+      // the keystroke click climbs a pentatonic ladder with the live combo, so a
+      // streak literally rises in pitch and a broken one drops back to the floor.
+      // It is the cheapest feedback a typing game has and the loudest thing the
+      // hands feel. Pure function of the combo, so it resets when the combo does.
+      // This one falls back to the flat click rather than to silence: every other
+      // new voice is an addition, but typing going quiet would be a regression.
+      if (typeof Sfx.typeCombo === 'function') Sfx.typeCombo(this.combo);
+      else Sfx.type();
       this.refreshInput();
     }
   }
@@ -1112,6 +1159,9 @@ class GameScene extends Phaser.Scene {
       this.eolTimer = 0;
       this.rescuedCount++;
       this.floatText('SAVED FROM DEPRECATION!  ×2');
+      // the game's best moment gets the game's brightest sound — and it is the
+      // rising answer to the falling notice, so the pair reads as one mechanic.
+      this.sfx('rescued');
     }
     const points = this.wordPay(w) * m * (rescued ? 2 : 1);
     const bonus = ((1.5 + 0.25 * w.length) * this.lang.timeMult + this.boonTime) *
@@ -2145,6 +2195,9 @@ class GameScene extends Phaser.Scene {
   startBoss() {
     this.clearTransitionGuard();
     this.transitioning = false;
+    // the fight gets its own bed — darker progression, a drum the ladder never
+    // has — and beatBoss/death hand the language's music back.
+    this.sfx('setBossMode', true);
     // The boss speaks EVERY language. It used to pick one at random, which made
     // it a wall built out of whichever language you happened not to know — and a
     // strange one to arrive at, since you only reach a boss by clearing all 25.
@@ -2254,7 +2307,15 @@ class GameScene extends Phaser.Scene {
     this.eolText.setVisible(false);
     this.armTransitionGuard(12, 'beatBoss');   // death anim + stage card ≈ 5s
     this.bossMode = null;
+    // hand the bed back to the ladder. setBossMode(false) restores whatever
+    // language was playing when the fight started — which is the LAST language
+    // of the stage you have just left, not the first one of the stage you are
+    // walking into. Measured: after a boss the music sat on the old language
+    // until the first correct word of the new stage rebuilt the HUD label. So
+    // re-apply explicitly, AFTER langIndex is back to 0 (this.lang reads it).
+    this.sfx('setBossMode', false);
     this.langIndex = 0;
+    this.applyMusicProfile();
     this.levelMistakes = 0;   // the fresh stage's first level starts clean
     this.found.clear();   // boss words must not carry into the fresh level
     this.clearDeprecation();
@@ -2344,6 +2405,37 @@ class GameScene extends Phaser.Scene {
         stageName + ' boss', {
         fontFamily: 'monospace', fontSize: '15px', color: '#dcdcaa', fontStyle: 'bold'
       }).setOrigin(0.5));
+
+    // --- the epitaph -------------------------------------------------------
+    //
+    // The run had a prologue and an ending and NOTHING in between: twenty-five
+    // languages fell and the game never said a word about any of them. This is
+    // that missing beat — one line, the obituary of the language you just
+    // cleared, from inside a career that watched it happen (`epitaph` in
+    // languages.js). It lands with the ✓ rather than with the overlay, so the
+    // player reads the tick first and the sentence second.
+    //
+    // y=402: the road strip's badges bottom out around 316 and the "N languages
+    // down the road" line sits at cy+110 = 360, so this is the first clear band
+    // under both, with the overlay's own bottom edge far below it. 14px keeps a
+    // 78-character line (the data's hard cap) at ~655px inside a 960 canvas
+    // (measured across all 25: the widest, PERL, renders at 570px).
+    //
+    // And it LEAVES before the boon draft arrives. offerBoons() paints its three
+    // cards onto this same overlay at 4600ms, over y≈322..442 — measured, the
+    // cards land squarely on top of this line. So the epitaph gets the screen to
+    // itself from 1.0s to 4.3s and is gone by the time the cards drop: 3.3
+    // seconds is long enough to read one sentence and short enough that nobody
+    // waiting to pick a boon is kept waiting by it.
+    const fallen = LANGUAGES[fromIdx];
+    if (fallen && fallen.epitaph) {
+      const ep = this.add.text(cx, 402, '// ' + fallen.epitaph, {
+        fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
+      }).setOrigin(0.5).setAlpha(0);
+      overlay.add(ep);
+      this.tweens.add({ targets: ep, alpha: 1, duration: 700, delay: 1000 });
+      this.tweens.add({ targets: ep, alpha: 0, duration: 400, delay: 4300 });
+    }
 
     this.tweens.add({ targets: overlay, alpha: 1, duration: 400 });
 
@@ -2771,6 +2863,14 @@ class GameScene extends Phaser.Scene {
       // same clock the wpm divisor uses), so it reads as time actually SPENT racing
       // the countdown, not wall time. EndScene formats it M:SS.
       time: Math.round(this.elapsed),
+      // The second countdown's own score, which the End screen never received:
+      // how many patterns were deprecated out from under you, and how many you
+      // got to first. They have been tallied since the mechanic was written
+      // (deprecatedCount/rescuedCount) and were simply never passed — so the run
+      // ended on wpm and accuracy, the two numbers any typing game can print,
+      // while the one pair that belongs to THIS game stayed in the scene.
+      deprecated: this.deprecatedCount,
+      rescued: this.rescuedCount,
       daily: this.daily
     });
   }
@@ -2901,6 +3001,31 @@ class GameScene extends Phaser.Scene {
     else this.sceneBg.setVisible(false);
   }
 
+  // --- audio bridge ------------------------------------------------------
+  //
+  // The synth's new voices (deprecation stingers, per-language music profiles,
+  // the boss bed, the low-clock heartbeat) live in sfx.js and are consumed only
+  // from here. They are called through this one guard on purpose: a voice that
+  // is missing — an older cached sfx.js served by itch out of the browser cache,
+  // a half-loaded script — must degrade to SILENCE, never to a TypeError thrown
+  // in the middle of a run. Sound is a fifth of the score; a black screen is all
+  // of it.
+  sfx(name, ...args) {
+    const fn = Sfx[name];
+    if (typeof fn === 'function') fn.apply(Sfx, args);
+  }
+
+  // Each language carries its own musical identity (root, progression, waves —
+  // see `music` in languages.js), so the ladder audibly descends from bright
+  // HTML into cold Assembly instead of running one loop over all 25. The profile
+  // swap is seamless (the loop keeps its step), so this can fire on any level
+  // change without a click. A language with no `music` block falls back to the
+  // engine's default, which is exactly the old sound.
+  applyMusicProfile() {
+    const l = this.lang;
+    this.sfx('setMusicProfile', l ? l.music : null);
+  }
+
   refreshLangHud() {
     // tempo only steps with the stage/lap, but this runs on every correct word —
     // gate the (otherwise redundant) setMusicTempo call on the computed value.
@@ -2931,6 +3056,10 @@ class GameScene extends Phaser.Scene {
     const labelKey = this.langIndex + ':' + this.stageIndex + ':' + this.survivalLap;
     if (labelKey !== this._hudLabelKey) {
       this._hudLabelKey = labelKey;
+      // The one place that already knows "the level actually changed" — and it
+      // is invalidated (to null) by startFestival/startBoss, so coming back off
+      // a boss re-applies the language's music without its own call site.
+      this.applyMusicProfile();
       const rl = this.lang.rule ? '  ⚑ ' + LANG_RULES[this.lang.rule].label : '';
       this.langText.setText('LEVEL ' + (this.langIndex + 1) + '/' + LANGUAGES.length +
         ' · ' + this.lang.name + rl)
@@ -3311,7 +3440,10 @@ class GameScene extends Phaser.Scene {
     // tick is silently swallowed. Reset so the first second back under 10 ticks.
     if (low !== this._timerLow) {
       this._timerLow = low;
-      if (!low) { this.timerText.setScale(1); this.warnFrame.setAlpha(0); this.lastTickSecond = -1; }
+      if (!low) {
+        this.timerText.setScale(1); this.warnFrame.setAlpha(0); this.lastTickSecond = -1;
+        this.sfx('setTension', 0);   // clock refilled: drop the heartbeat, undim the bed
+      }
     }
     if (low) {
       this.timerText.setScale(1 + (this.timeLeft % 1) * 0.15);
@@ -3319,6 +3451,11 @@ class GameScene extends Phaser.Scene {
       const intensity = Phaser.Math.Clamp((10 - this.timeLeft) / 10, 0, 1);
       const pulse = 0.7 + 0.3 * Math.sin(this.time.now / (70 + s * 12));
       this.warnFrame.setAlpha(intensity * 0.55 * pulse);
+      // the same 0..1 ramp the red frame runs on, handed to the synth: the music
+      // ducks and a sub-bass heartbeat comes up under it. Called every frame on
+      // purpose — the engine ignores a level it is already at, so the ramp is
+      // smooth rather than stepping once at the 10s edge.
+      this.sfx('setTension', intensity);
       if (s !== this.lastTickSecond) {
         this.lastTickSecond = s;
         Sfx.tick(s);   // pitch rises as the count nears zero (see Sfx.tick)

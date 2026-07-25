@@ -47,10 +47,15 @@ class PrologueScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
 
+    // Left as written: it is the strongest four lines in the game and every
+    // rewrite tried came out longer or softer. The ONE change is the em dash on
+    // line 3 → a colon: at 15px the monospace face can drop a non-ASCII dash as
+    // a box, and the colon does the same work (it introduces what obsolescence
+    // looks like) without the risk. Everything else here is ASCII already.
     this.add.text(cx, 118,
       'You have been writing software for as long as you can remember.\n' +
       'None of it is still running.\n\n' +
-      'The languages go obsolete while you are still typing them — a deprecation\n' +
+      'The languages go obsolete while you are still typing them: a deprecation\n' +
       'notice, then silence. Twenty-five of them. One clock. Whatever you can\n' +
       'still remember of each.',
       {

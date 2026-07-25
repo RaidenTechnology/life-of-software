@@ -2720,3 +2720,66 @@ pass for): 34 entries, BASH now 50/50 = 100%. 937 reachable detail entries total
 panel opens on `echo` with a 345-character explanation and no undefined.
 
 `index.html` at `?v=27`. Console clean across the whole sweep.
+
+## Audio + narrative pass - 20260726 early (three parallel agents, one wiring hand)
+
+The jam votes on Creativity / Enjoyment / Narrative / Artwork / Audio, a fifth
+each. Audio was one Am-F-C-G loop across all 25 languages, a flat 880Hz key
+click, and — the part that actually cost votes — the deprecation mechanic, the
+thing the game is named for, made NO SOUND AT ALL. Narrative was a prologue and
+an ending with nothing in between: twenty-five languages fell and the game never
+said a word about any of them.
+
+Split by FILE OWNERSHIP, not by task, so three agents could not collide: one owned
+`sfx.js`, one owned `data/languages.js`, one owned `EndScene.js`/`PrologueScene.js`.
+`GameScene.js`, the version bump, the build and every browser test stayed in one
+hand. The contract (profile shape, voice names) was fixed up front, so the wiring
+was written against it while the engine was still being built.
+
+**Synth** — master bus (gain -> compressor) so the new layers stack without
+clipping; `setMusicProfile` swaps a language's musical identity mid-loop without
+restarting it; `typeCombo` climbs a pentatonic ladder with the live combo and
+caps at +2 octaves; `deprecationNotice/Tick/Lost` and `rescued` give the second
+countdown a falling voice and its rescue the mirrored rising one; `setBossMode`
+borrows the loop for a darker progression plus percussion; `setTension` ducks the
+bed and runs a sub-bass heartbeat under the last ten seconds. Every voice
+early-returns on muted/no-context, and every timer is in one registry that
+`pauseMusic` empties — the raw-setInterval-survives-pause bug has bitten this
+repo before.
+
+**Data** — all 25 languages carry `music` (root descends 50 -> 33, bpm climbs
+84 -> 120, waves triangle/sine -> square -> sawtooth, the last three get the
+flat-2nd move), an `epitaph`, and `depVer`. The notice now reads
+`"otherwise" - deprecated since GHC 9.2, removed in GHC 9.8` — the sentence
+every working programmer has actually read in a changelog.
+
+**Wiring** — all new voices go through one `sfx(name, ...)` guard: a missing
+voice degrades to silence, never to a TypeError (typing and the notice keep
+explicit fallbacks to the old sounds instead). `applyMusicProfile` hangs off the
+one HUD gate that already knows the level changed.
+
+**Two bugs found by testing, neither visible in a diff:**
+- The epitaph at y=402 was measured landing UNDER the boon draft: `offerBoons`
+  paints its cards onto the same overlay at 4600ms over y~322..442. It now fades
+  at 4300 — measured visible 1057ms to 4550ms, boons up at 4701ms, zero frames
+  of overlap.
+- After a boss, `setBossMode(false)` restores the profile from BEFORE the fight —
+  the last language of the stage you just left, not the first of the one you are
+  entering. The music sat wrong until the first correct word rebuilt the HUD.
+  `beatBoss` now re-applies explicitly after `langIndex = 0`.
+
+**Also passed:** `deprecatedCount`/`rescuedCount` were tallied since the mechanic
+was written and never put in the End payload, so the run ended on wpm and
+accuracy — two numbers any typing game can print — while the pair that belongs to
+this one stayed in the scene. The End screen now opens with
+`11 deprecation notices. You outran 4 of them.`
+
+Verified in the browser end to end: per-language profile live across four level
+transitions (JAVASCRIPT root 46, HTML 50), notice/tick/lost/rescued all firing
+from real play, tick gaps measured accelerating 0.60s -> 0.25s, tension ramping
+under 10s and standing down on a refill, boss bed on and handed back, pause
+leaving zero live audio timers, death clearing tension/boss before the End screen.
+Console clean across the whole sweep. Widest notice 674px and widest epitaph 570px
+of 960, measured across all 25 languages.
+
+`index.html` at `?v=28`.

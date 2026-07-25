@@ -4,6 +4,27 @@
 // target/timeMult are computed at the bottom of this file — timeMult from ladder
 // position, target from ladder position AND what the list's own patterns pay.
 // dark: true → badge abbreviation is drawn dark (for light badge colors).
+//
+// music/epitaph/depVer — the three fields the run's ARC is carried in.
+//
+// music is the language's own identity for the chiptune loop in sfx.js: root
+// note, a four-chord progression as offsets from it, the arpeggio colour over
+// each chord, the two oscillator waves and a tempo hint. It descends on purpose.
+// HTML and CSS open bright, high and soft (major arp, triangle/sine, 84 bpm);
+// the middle of the ladder settles into the minor default the game shipped with;
+// RUST, HASKELL and ASSEMBLY sit lowest, on sawtooth, with a flat-2nd inside the
+// progression — the cheapest "something is wrong" move in tonal music. Twenty-
+// five levels of one loop is twenty-five levels of the same level, and a career
+// going obsolete should not sound the same in year one as in year twenty.
+//
+// epitaph is the one line shown when a language falls and the road animates on.
+// It is that language's obituary, drawn from what actually happened to it or to
+// the people who bet a career on it, not a joke and not a lecture. <= 78 chars
+// and ASCII, because it renders in the pixel monospace at 960x540.
+//
+// depVer dresses the deprecation notice as a real changelog line — GameScene
+// prints "deprecated since 3.11, removed in 4.0" — so the versions have to come
+// from the language's own scheme. A language without one keeps the plain wording.
 
 const LANGUAGES = [
   {
@@ -15,7 +36,13 @@ const LANGUAGES = [
       'label', 'select', 'option', 'textarea', 'header', 'footer', 'nav',
       'section', 'article', 'main', 'aside', 'h1', 'h2', 'h3', 'br', 'hr',
       'strong', 'em', 'iframe', 'canvas', 'video', 'audio', 'doctype'
-    ]
+    ],
+    music: {
+      root: 50, steps: [0, 7, 9, 5], arp: [12, 16, 19, 24],
+      bass: 'triangle', lead: 'sine', bpm: 84
+    },
+    epitaph: 'Nobody writes it by hand anymore; a framework emits it, badly.',
+    depVer: { since: '4.01', removed: '5' }
   },
   {
     name: 'CSS', abbr: 'CSS', icon: '🎨', color: '#264de4',
@@ -27,7 +54,13 @@ const LANGUAGES = [
       'z-index', 'overflow', 'cursor', 'align', 'justify', 'gap', 'rem',
       'vh', 'vw', 'rgba', 'calc', 'media', 'important', 'inherit', 'initial',
       'none', 'auto', 'block', 'inline', 'hidden', 'root', 'var'
-    ]
+    ],
+    music: {
+      root: 49, steps: [0, 9, 5, 7], arp: [12, 16, 19, 26],
+      bass: 'triangle', lead: 'triangle', bpm: 86
+    },
+    epitaph: 'Every hack you mastered for layout became three lines of grid.',
+    depVer: { since: 'CSS2.1', removed: 'CSS3' }
   },
   {
     name: 'PYTHON', abbr: 'Py', icon: '🐍', color: '#4b8bbe',
@@ -38,7 +71,13 @@ const LANGUAGES = [
       'global', 'nonlocal', 'del', 'yield', 'async', 'await', 'true', 'false',
       'none', 'self', 'print', 'range', 'len', 'input', 'list', 'dict', 'set',
       'tuple', 'str', 'int', 'float', 'open', '==', '!=', '->', ':=', '**', '//'
-    ]
+    ],
+    music: {
+      root: 47, steps: [0, 5, 7, 3], arp: [12, 16, 19, 24],
+      bass: 'sine', lead: 'square', bpm: 88
+    },
+    epitaph: 'Twelve years porting 2 to 3, for a language that mostly calls C now.',
+    depVer: { since: '3.11', removed: '4.0' }
   },
   {
     name: 'JAVASCRIPT', abbr: 'JS', icon: 'JS', color: '#f7df1e', dark: true,
@@ -51,7 +90,13 @@ const LANGUAGES = [
       'true', 'false', 'console', 'document', 'window', 'map', 'filter',
       'reduce', 'push', 'foreach', 'promise', 'then', 'fetch', 'json',
       '=>', '===', '!==', '...', '&&', '||', '??'
-    ]
+    ],
+    music: {
+      root: 46, steps: [0, 3, -2, 5], arp: [12, 15, 19, 22],
+      bass: 'square', lead: 'square', bpm: 92
+    },
+    epitaph: 'Ten days to design it, thirty years and counting to escape it.',
+    depVer: { since: 'ES5', removed: 'ES2015' }
   },
   {
     name: 'LUA', abbr: 'Lua', icon: '🌙', color: '#51a0cf',
@@ -61,7 +106,13 @@ const LANGUAGES = [
       'false', 'and', 'or', 'not', 'in', 'pairs', 'ipairs', 'print', 'table',
       'string', 'math', 'require', 'tostring', 'tonumber', 'type', 'self',
       'insert', 'remove', 'concat', '..', '~=', '#'
-    ]
+    ],
+    music: {
+      root: 47, steps: [0, 7, 5, 2], arp: [12, 16, 19, 21],
+      bass: 'triangle', lead: 'triangle', bpm: 90
+    },
+    epitaph: 'Embedded in engines, routers and games, credited in no manual.',
+    depVer: { since: '5.1', removed: '5.4' }
   },
   {
     name: 'RUBY', abbr: 'Rb', icon: '💎', color: '#cc342d',
@@ -72,7 +123,13 @@ const LANGUAGES = [
       'until', 'for', 'do', 'begin', 'rescue', 'ensure', 'raise', 'yield',
       'return', 'break', 'next', 'redo', 'retry', 'lambda', 'proc', 'each',
       'map', 'select', 'chomp', 'to_s', 'to_i', '=>', '<=>', '<<'
-    ]
+    ],
+    music: {
+      root: 45, steps: [0, 5, 9, 7], arp: [12, 16, 19, 24],
+      bass: 'triangle', lead: 'square', bpm: 92
+    },
+    epitaph: 'Rails made it famous, then made it the thing teams migrate from.',
+    depVer: { since: '2.7', removed: '3.0' }
   },
   {
     name: 'PHP', abbr: 'php', icon: '🐘', color: '#8993be',
@@ -84,7 +141,13 @@ const LANGUAGES = [
       'switch', 'case', 'break', 'continue', 'return', 'try', 'catch',
       'finally', 'throw', 'null', 'true', 'false', 'abstract', 'final',
       'const', 'global', 'list', '->', '=>', '===', '.='
-    ]
+    ],
+    music: {
+      root: 44, steps: [0, -2, 5, 3], arp: [12, 15, 19, 24],
+      bass: 'square', lead: 'square', bpm: 94
+    },
+    epitaph: 'Half the web still runs on it. Nobody lists it on a resume.',
+    depVer: { since: '7.4', removed: '8.0' }
   },
   {
     name: 'SQL', abbr: 'SQL', icon: '🗃', color: '#e38c00',
@@ -96,7 +159,13 @@ const LANGUAGES = [
       'view', 'and', 'or', 'not', 'null', 'count', 'sum', 'avg', 'min',
       'max', 'between', 'like', 'in', 'as', 'exists', 'begin', 'commit',
       'rollback', 'grant', 'revoke'
-    ]
+    ],
+    music: {
+      root: 45, steps: [0, 5, 0, 7], arp: [12, 15, 19, 24],
+      bass: 'triangle', lead: 'square', bpm: 90
+    },
+    epitaph: 'Buried by every new datastore, still answering the query at 3am.',
+    depVer: { since: 'SQL-92', removed: 'SQL:2003' }
   },
   {
     name: 'DART', abbr: 'Dt', icon: '🎯', color: '#0175c2',
@@ -109,7 +178,13 @@ const LANGUAGES = [
       'async', 'await', 'future', 'stream', 'yield', 'null', 'true', 'false',
       'print', 'late', 'required', 'get', 'is', 'as',
       '=>', '??', '?.', '..'
-    ]
+    ],
+    music: {
+      root: 44, steps: [0, 7, 2, 5], arp: [12, 16, 19, 23],
+      bass: 'triangle', lead: 'square', bpm: 96
+    },
+    epitaph: 'Rejected by the browsers it was built for, saved by a UI toolkit.',
+    depVer: { since: '1.24', removed: '2.0' }
   },
   {
     name: 'TYPESCRIPT', abbr: 'TS', icon: 'TS', color: '#3178c6',
@@ -121,7 +196,13 @@ const LANGUAGES = [
       'async', 'await', 'const', 'let', 'function', 'return', 'class', 'new',
       'import', 'export', 'default', 'generic', 'partial', 'record', 'pick',
       'omit', '=>', '?.', '??', '<>'
-    ]
+    ],
+    music: {
+      root: 43, steps: [0, 3, -2, 7], arp: [12, 15, 19, 24],
+      bass: 'square', lead: 'square', bpm: 98
+    },
+    epitaph: 'You typed every line of it, and at runtime it was JavaScript.',
+    depVer: { since: '4.9', removed: '5.0' }
   },
   {
     name: 'JAVA', abbr: 'J', icon: '☕', color: '#e76f00',
@@ -134,7 +215,13 @@ const LANGUAGES = [
       'boolean', 'float', 'double', 'string', 'enum', 'instanceof',
       'synchronized', 'volatile', 'transient', 'native', 'null', 'true',
       'false', 'main', 'system', 'println', 'record', 'sealed'
-    ]
+    ],
+    music: {
+      root: 42, steps: [0, 5, -4, -2], arp: [12, 15, 19, 24],
+      bass: 'square', lead: 'square', bpm: 96
+    },
+    epitaph: 'Write once, run anywhere, maintain forever, on a runtime from 2014.',
+    depVer: { since: '8', removed: '21' }
   },
   {
     name: 'KOTLIN', abbr: 'Kt', icon: 'K', color: '#7f52ff',
@@ -146,7 +233,13 @@ const LANGUAGES = [
       'package', 'import', 'lateinit', 'lazy', 'suspend', 'inline',
       'reified', 'vararg', 'println', 'listof', 'mapof', 'let', 'also',
       'apply', 'run', 'with', '?:', '!!', '?.'
-    ]
+    ],
+    music: {
+      root: 43, steps: [0, -4, 5, 7], arp: [12, 15, 19, 22],
+      bass: 'triangle', lead: 'square', bpm: 100
+    },
+    epitaph: 'The better Java, at the mercy of what Google announces in May.',
+    depVer: { since: '1.4', removed: '2.0' }
   },
   {
     name: 'C#', abbr: 'C#', icon: 'C#', color: '#9b4f96',
@@ -159,7 +252,13 @@ const LANGUAGES = [
       'while', 'do', 'break', 'continue', 'try', 'catch', 'finally', 'throw',
       'null', 'true', 'false', 'get', 'set', 'event', 'delegate', 'record',
       'console', 'writeline', 'linq', '=>', '??', '?.'
-    ]
+    ],
+    music: {
+      root: 42, steps: [0, 7, -2, 5], arp: [12, 16, 19, 24],
+      bass: 'square', lead: 'square', bpm: 98
+    },
+    epitaph: 'It crossed to Linux at last, years after the room had emptied.',
+    depVer: { since: '8.0', removed: '12.0' }
   },
   {
     name: 'FLUTTER', abbr: 'Fl', icon: '🦋', color: '#54c5f8', dark: true,
@@ -172,7 +271,13 @@ const LANGUAGES = [
       'navigator', 'route', 'push', 'pop', 'animation', 'controller',
       'builder', 'future', 'stream', 'provider', 'align', 'wrap', 'key',
       'child', 'children', 'hero', 'inkwell', 'gesture'
-    ]
+    ],
+    music: {
+      root: 44, steps: [0, 7, 5, 9], arp: [12, 16, 19, 26],
+      bass: 'triangle', lead: 'sine', bpm: 102
+    },
+    epitaph: 'Another render engine, another rewrite, a smaller team each time.',
+    depVer: { since: '2.0', removed: '3.0' }
   },
   {
     name: 'SWIFT', abbr: 'Sw', icon: '🐦', color: '#f05138',
@@ -184,7 +289,13 @@ const LANGUAGES = [
       'true', 'false', 'some', 'any', 'try', 'catch', 'throws', 'async',
       'await', 'actor', 'lazy', 'weak', 'static', 'final', 'private',
       'public', 'print', 'mutating', '??', '->', '?.'
-    ]
+    ],
+    music: {
+      root: 43, steps: [0, 5, 7, 9], arp: [12, 16, 19, 24],
+      bass: 'triangle', lead: 'square', bpm: 100
+    },
+    epitaph: 'Four source-breaking versions before the ground stopped moving.',
+    depVer: { since: '3.0', removed: '5.0' }
   },
   {
     name: 'GO', abbr: 'Go', icon: '🐹', color: '#00add8',
@@ -195,7 +306,13 @@ const LANGUAGES = [
       'fallthrough', 'goto', 'nil', 'true', 'false', 'make', 'new', 'len',
       'cap', 'append', 'copy', 'panic', 'recover', 'println', 'fmt', 'main',
       'error', 'string', 'int', 'bool', ':=', '<-', '=='
-    ]
+    ],
+    music: {
+      root: 41, steps: [0, 5, -2, 0], arp: [12, 15, 19, 24],
+      bass: 'square', lead: 'square', bpm: 104
+    },
+    epitaph: 'It withheld generics for ten years, then shipped them after you left.',
+    depVer: { since: '1.16', removed: '1.22' }
   },
   {
     name: 'BASH', abbr: '>_', icon: '>_', color: '#4eaa25',
@@ -206,7 +323,13 @@ const LANGUAGES = [
       'chown', 'sudo', 'exit', 'return', 'break', 'continue', 'shift',
       'eval', 'exec', 'trap', 'set', 'unset', 'test', 'sleep', 'kill',
       'touch', 'mkdir', 'curl', 'tar', '&&', '||', '>>', '|', '$?'
-    ]
+    ],
+    music: {
+      root: 40, steps: [0, -2, -4, 3], arp: [12, 15, 17, 22],
+      bass: 'sawtooth', lead: 'square', bpm: 106
+    },
+    epitaph: 'Written as a stopgap in 2009, still the last step of every deploy.',
+    depVer: { since: '3.2', removed: '5.0' }
   },
   {
     name: 'PERL', abbr: 'Pl', icon: '🐪', color: '#39457e',
@@ -217,7 +340,13 @@ const LANGUAGES = [
       'defined', 'undef', 'shift', 'push', 'pop', 'splice', 'split', 'join',
       'grep', 'sort', 'keys', 'values', 'each', 'scalar', 'wantarray',
       'bless', 'ref', 'qw', 'eq', 'ne', '=~', '->', '=>', '<=>'
-    ]
+    ],
+    music: {
+      root: 39, steps: [0, -5, 3, -2], arp: [12, 15, 20, 24],
+      bass: 'sawtooth', lead: 'triangle', bpm: 102
+    },
+    epitaph: 'The rewrite that would save it took fifteen years and changed its name.',
+    depVer: { since: '5.8', removed: '6.0' }
   },
   {
     name: 'R', abbr: 'R', icon: 'R', color: '#276dc3',
@@ -228,7 +357,13 @@ const LANGUAGES = [
       'null', 'na', 'true', 'false', 'apply', 'sapply', 'lapply', 'ggplot',
       'dplyr', 'filter', 'mutate', 'select', 'summary', 'plot', 'hist',
       'data.frame', 'rnorm', 'seq', 'rep', '<-', '%>%', '%in%'
-    ]
+    ],
+    music: {
+      root: 40, steps: [0, 3, -4, 5], arp: [12, 15, 19, 22],
+      bass: 'triangle', lead: 'square', bpm: 104
+    },
+    epitaph: 'Pandas arrived, and the arrow you learned to type became an accent.',
+    depVer: { since: '3.6', removed: '4.0' }
   },
   {
     name: 'C', abbr: 'C', icon: 'C', color: '#5c6bc0',
@@ -240,7 +375,13 @@ const LANGUAGES = [
       'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'default',
       'break', 'continue', 'goto', 'null', 'define', 'ifdef', 'endif',
       '->', '&&', '||', '++', '--', '=='
-    ]
+    ],
+    music: {
+      root: 38, steps: [0, -5, -2, 5], arp: [12, 15, 19, 24],
+      bass: 'square', lead: 'sawtooth', bpm: 108
+    },
+    epitaph: 'Fifty years under everything, now written up as a hazard to avoid.',
+    depVer: { since: 'C99', removed: 'C11' }
   },
   {
     name: 'C++', abbr: 'C++', icon: 'C++', color: '#659ad2',
@@ -254,7 +395,13 @@ const LANGUAGES = [
       'while', 'do', 'switch', 'case', 'break', 'continue', 'try', 'catch',
       'throw', 'vector', 'string', 'unique_ptr', 'shared_ptr',
       '::', '->', '<<', '>>', '++', '=='
-    ]
+    ],
+    music: {
+      root: 37, steps: [0, -5, 3, -3], arp: [12, 15, 18, 24],
+      bass: 'sawtooth', lead: 'sawtooth', bpm: 110
+    },
+    epitaph: 'A new standard every three years, a codebase that never left 03.',
+    depVer: { since: 'C++17', removed: 'C++23' }
   },
   {
     name: 'ZIG', abbr: 'Zg', icon: '⚡', color: '#f7a41d', dark: true,
@@ -265,7 +412,13 @@ const LANGUAGES = [
       'return', 'unreachable', 'undefined', 'null', 'true', 'false', 'void',
       'usize', 'u8', 'u32', 'i32', 'f64', 'bool', 'anytype', 'test',
       'orelse', 'and', 'or', 'packed', 'align', 'volatile', 'std'
-    ]
+    ],
+    music: {
+      root: 38, steps: [0, -2, 5, -4], arp: [12, 15, 19, 26],
+      bass: 'sawtooth', lead: 'square', bpm: 112
+    },
+    epitaph: 'Still pre-1.0 after a decade, each release breaking the last one.',
+    depVer: { since: '0.11', removed: '0.13' }
   },
   {
     name: 'RUST', abbr: 'Rs', icon: '🦀', color: '#f74c00',
@@ -278,7 +431,13 @@ const LANGUAGES = [
       'string', 'println', 'main', 'true', 'false', 'i32', 'u32', 'f64',
       'usize', 'str', 'clone', 'derive', 'borrow', 'lifetime',
       '->', '=>', '::', '&&', '&mut'
-    ]
+    ],
+    music: {
+      root: 36, steps: [0, 5, 1, -2], arp: [12, 15, 19, 25],
+      bass: 'sawtooth', lead: 'sawtooth', bpm: 116
+    },
+    epitaph: 'The borrow checker was right. That was never the part that hurt.',
+    depVer: { since: '1.62', removed: '1.85' }
   },
   {
     name: 'HASKELL', abbr: 'λ', icon: 'λ', color: '#5e5086',
@@ -290,7 +449,13 @@ const LANGUAGES = [
       'reverse', 'pure', 'return', 'maybe', 'just', 'nothing', 'either',
       'monad', 'functor', 'guard', 'lambda', 'curry', 'flip',
       '->', '=>', '::', '<-', '>>=', '<$>', '++'
-    ]
+    ],
+    music: {
+      root: 35, steps: [0, 2, -3, 1], arp: [12, 15, 18, 23],
+      bass: 'sawtooth', lead: 'triangle', bpm: 114
+    },
+    epitaph: 'The types were honest; the job listings never were.',
+    depVer: { since: 'GHC 9.2', removed: 'GHC 9.8' }
   },
   {
     name: 'ASSEMBLY', abbr: 'ASM', icon: '⚙', color: '#8a8a8a',
@@ -301,7 +466,13 @@ const LANGUAGES = [
       'shr', 'rol', 'ror', 'nop', 'loop', 'eax', 'ebx', 'ecx', 'edx', 'esi',
       'edi', 'esp', 'ebp', 'rax', 'rbx', 'byte', 'word', 'dword', 'qword',
       'section', 'global', 'extern', 'db', 'dw', 'dd'
-    ]
+    ],
+    music: {
+      root: 33, steps: [0, 1, 0, -1], arp: [12, 13, 19, 24],
+      bass: 'sawtooth', lead: 'sawtooth', bpm: 120
+    },
+    epitaph: 'You knew every cycle by name, until the processor stopped counting.',
+    depVer: { since: 'x86', removed: 'x86-64' }
   }
 ];
 
