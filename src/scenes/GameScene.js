@@ -25,6 +25,12 @@ const START_TIME = 75;
 // the panel at a readable size, and roughly what anyone absorbs in the few
 // seconds this sits between two levels of a timed run.
 const LEARN_CARD_MAX = 5;
+// Seconds handed over on entering a boss. The fight opens on whatever clock the
+// last level left, which can be almost nothing, and the boss pool is every
+// language at once — so this is the knob that decides whether the fight is hard
+// or simply unlucky. Raised from 10 when bosses were reported as too hard on
+// MEDIUM; BOSS_WIN_TIME (the floor on the way OUT) is a separate rescue.
+const BOSS_ENTRY_TIME = 18;
 // Hard ceiling on the countdown. Every landed word buys time and the gains beat
 // the drain, so a competent run used to snowball past an hour on the clock
 // (measured: 3600s+ after ~1600 words) — at which point the countdown, the whole
@@ -409,6 +415,12 @@ class GameScene extends Phaser.Scene {
     // guard the Blender window PNG: if it failed to load, drop it and let the dim
     // + PAUSED text carry the overlay rather than showing a green __MISSING box.
     const pPanel = this.textures.exists('pause_panel') ? this.add.image(cx, pcy, 'pause_panel') : null;
+    // The button row has to fit INSIDE the Blender window art, not merely inside
+    // the canvas. The panel is 560 wide against a 960 screen, so a row that
+    // measured 662 sat comfortably on screen while hanging ~50px off each edge
+    // of the window it is supposed to live in — which is what "the keys overflow"
+    // meant. Without the PNG the whole screen is the frame, so fall back to it.
+    this.pausePanelW = pPanel ? pPanel.width : this.scale.width;
     const pTitle = this.add.text(cx, pcy - 18, 'PAUSED', {
       fontFamily: 'monospace', fontSize: '46px', color: IDE.white, fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -1865,26 +1877,49 @@ class GameScene extends Phaser.Scene {
       this.startBoss();
       return;
     }
-    // road overlay → boon draft → (code review) → back to play. The review is
-    // last so the level-clear beat keeps its rhythm and the card is the thing
-    // you read on the way in to the next language, not an interruption of the
-    // reward. Profile.learn is re-read here (not captured) so turning the notes
-    // off ON the card takes effect from the very next level.
+    // The order of a level-clear, and why the festival moved to the front of it.
+    //
+    // It used to be: road → boons → review → play, and THEN a festival might
+    // start, on top of the language you had already been dropped into. So the
+    // festival was an ambush in the middle of a level, and when it ended you
+    // were just... standing in a level that had begun without ceremony.
+    //
+    // Now the festival is its own section. It runs first, and CLEARING IT is
+    // what triggers the road animation into the next language — so it reads as
+    // a place you went and came back from, and the transition marks the way out
+    // of it. ("festivaller ayrı bir bölüm olsun, festivali bitirince yeni
+    // bölüme geçme animasyonuna gelsin.")
     const resume = () => {
       this.clearTransitionGuard();
       this.transitioning = false;
       this.refreshLangHud();
-      if (this.rand() < FESTIVAL_CHANCE) {
-        this.startFestival(this.rand() < 0.5 ? 'sw' : 'growth');
-      }
     };
-    this.showPath(fromIdx, () => {
-      if (Profile.learn && learned && learned.length) {
-        this.showLearnCard(fromIdx, learned, resume);
-      } else {
-        resume();
-      }
-    }, perfect, perfectScore);
+    const road = () => {
+      // the festival ran with the field live, so take the transition back before
+      // the overlay goes up, and re-arm the guard the festival stood down.
+      this.transitioning = true;
+      this.armTransitionGuard(12, 'levelUp:road');
+      this.showPath(fromIdx, () => {
+        if (Profile.learn && learned && learned.length) {
+          this.showLearnCard(fromIdx, learned, resume);
+        } else {
+          resume();
+        }
+      }, perfect, perfectScore);
+    };
+
+    if (this.rand() < FESTIVAL_CHANCE) {
+      // A festival needs update() running (its own timer, and the main clock
+      // still drains under it), and update() early-returns while transitioning —
+      // so the transition is stood down for the duration and the guard with it.
+      // The banner covers the field and blocks the menus, so nothing else can
+      // reach the run in the meantime.
+      this.clearTransitionGuard();
+      this.transitioning = false;
+      this.startFestival(this.rand() < 0.5 ? 'sw' : 'growth', road);
+      return;
+    }
+    road();
   }
 
   // --- code review: what the patterns you just typed actually meant ---
@@ -2133,8 +2168,16 @@ class GameScene extends Phaser.Scene {
     };
     // Anything counts for 1, so the bar has to be longer than the 15 that stood
     // when only one language's patterns did. The chain is still the fast way
-    // through — five links kill 15 of these 30.
-    const hp = 30 + this.stageIndex * 6;
+    // through — five links kill 12 of these 24.
+    //
+    // Eased from 30 + 6/stage after "bosses are hard even on MEDIUM". Three
+    // things stack against you here that no ordinary level has: the pool is all
+    // 25 languages at once (nothing you have learned narrows it), the clock is
+    // already whatever the last level left you, and the chain punishes a wrong
+    // order by HEALING. 30 hits at MEDIUM was a long time to hold all three. The
+    // shape is unchanged, just less of it — and the entry cushion below went from
+    // +10 to +18 seconds, which is the half that actually decides the fight.
+    const hp = 24 + this.stageIndex * 4;
     this.bossMode = {
       hp, max: hp, lang: merged,
       // the chain still comes from ONE real language, named on the line, so the
@@ -2145,7 +2188,7 @@ class GameScene extends Phaser.Scene {
     this.blankPerfect();   // the boss is an interstitial — no perfect-pace tag
     this.found.clear();
     this.clearDeprecation();
-    this.addTime(10);
+    this.addTime(BOSS_ENTRY_TIME);
     this.strikeTimer = 0;
     this.battle.spawnBoss();
     this.refreshLangHud();
@@ -2448,7 +2491,7 @@ class GameScene extends Phaser.Scene {
 
   // --- festivals ---
 
-  startFestival(type) {
+  startFestival(type, then) {
     // The main clock keeps draining under the festival (see update) — that's
     // real risk by design, but it must not open the round already-dead: a
     // level-up can land the player at a near-zero clock a split second before
@@ -2504,6 +2547,10 @@ class GameScene extends Phaser.Scene {
       // pooled language's name/abbr; the pool is fixed for the round, so build
       // the lookup once here instead of flatMap-ing a fresh array each keystroke.
       names: pool.flatMap(l => [l.name.toLowerCase(), l.abbr.toLowerCase()]),
+      // what to run when the round is over. On a level-clear festival this is
+      // the road overlay into the next language — the festival is a section, and
+      // finishing it is what moves you on. Never called on the death teardown.
+      then: then || null,
       timeLeft: FESTIVAL_TIME, count: 0, clockSec: -1
     };
 
@@ -2606,10 +2653,14 @@ class GameScene extends Phaser.Scene {
     this.refreshInput();
     this.refreshLangHud();
     this.refreshCredits();
-    if (silent) return;
+    if (silent) return;   // torn down by the death path: no summary, no continuation
     this.feedback('festival over — ' + f.count + ' answers, +' +
       (f.count * FESTIVAL_CREDIT) + ' credits', '#dcdcaa');
     Sfx.hint();
+    // hand back to whatever queued the festival (the level-clear road). Delayed
+    // so the summary line and the banner fade are seen before the overlay covers
+    // the field, rather than being wiped on the same frame.
+    if (f.then) this.time.delayedCall(700, f.then);
   }
 
   // --- hints ---
@@ -3033,23 +3084,36 @@ class GameScene extends Phaser.Scene {
   // press, never per frame.
   refreshPauseHint() {
     if (!this.pauseBtns) return;
+    // Fit the row to the screen, don't let it run off the edges.
+    //
+    // Five buttons whose labels carry live state (SOUND: OFF is wider than
+    // SOUND: ON) measured out to more than 960px and the outer two hung off the
+    // canvas — unreachable, since a button you cannot see is a button you cannot
+    // press. The row is laid out at its natural size first, then the whole thing
+    // is scaled down uniformly if it overruns the usable width. Scaling beats
+    // shrinking the font: the hit areas scale with it, and the labels stay
+    // pixel-crisp instead of re-rasterising at fractional sizes.
     const pad = 14, gap = 10;
+    const usable = Math.min(this.scale.width - 24, (this.pausePanelW || this.scale.width) - 32);
     const ws = this.pauseBtns.map((b, i) => {
-      b.txt.setText(this.pauseBtnDefs[i].label());
+      b.txt.setText(this.pauseBtnDefs[i].label()).setScale(1);
       return b.txt.width + pad * 2;
     });
-    const total = ws.reduce((a, w) => a + w, 0) + gap * (ws.length - 1);
+    const natural = ws.reduce((a, w) => a + w, 0) + gap * (ws.length - 1);
+    const k = Math.min(1, usable / natural);
+    const total = natural * k;
     let x = this.scale.width / 2 - total / 2;
     this.pauseBtns.forEach((b, i) => {
-      const w = ws[i];
-      b.box.setSize(w, 26).setPosition(x + w / 2, b.box.y);
+      const w = ws[i] * k, h = 26 * k;
+      b.txt.setScale(k);
+      b.box.setSize(w, h).setPosition(x + w / 2, b.box.y);
       // setSize does not move the hit area Phaser built from the ORIGINAL size,
       // so rebuild it — otherwise the clickable region keeps the 10px placeholder
       // width these were created with and only a sliver of the button responds.
       b.box.setInteractive(
-        new Phaser.Geom.Rectangle(0, 0, w, 26), Phaser.Geom.Rectangle.Contains);
+        new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
       b.txt.setPosition(x + w / 2, b.txt.y);
-      x += w + gap;
+      x += w + gap * k;
     });
   }
 

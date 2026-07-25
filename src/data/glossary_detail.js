@@ -3264,6 +3264,145 @@ const D_LANG = {
     }
   },
 
+  BASH: {
+    "echo": {
+      long: "Writes its arguments to standard output. It is the shell's print statement, and because everything in a pipeline is text, it is also how you feed a value into the next command. The usual surprise is quoting: unquoted, the shell splits on spaces and expands * against your filenames first, so echo $msg and echo \"$msg\" can print different things.",
+      examples: ["echo \"building...\"", "echo \"$PATH\"", "echo \"port=$PORT\" >> .env"]
+    },
+    "read": {
+      long: "Reads one line of input into a variable. It is how a script asks a question. Use -r so backslashes are not treated as escapes, which is what you almost always want; pairing it with a while loop is the standard way to walk a file line by line.",
+      examples: ["read -r -p \"name: \" name", "while read -r line; do echo \"$line\"; done < list.txt"]
+    },
+    "fi": {
+      long: "Closes an if block. Bash ends its blocks with the opening word spelled backwards, so if...fi and case...esac. There is no brace and no indentation rule: leave the fi out and the shell just keeps waiting for the rest of the statement.",
+      examples: ["if [ -f build.sh ]; then\n  bash build.sh\nfi", "if grep -q TODO src/*.js; then echo \"unfinished\"; fi"]
+    },
+    "done": {
+      long: "Closes a loop body opened with do. Every Bash loop is written for/while/until ... do ... done, so done is the counterpart of do rather than of the loop keyword itself.",
+      examples: ["for f in *.png; do echo \"$f\"; done", "while read -r l; do echo \"$l\"; done < in.txt"]
+    },
+    "esac": {
+      long: "Closes a case block - \"case\" spelled backwards. Each branch inside ends with a double semicolon, which is the part people forget: without it the shell reads the next pattern as more of the current branch.",
+      examples: ["case \"$1\" in\n  build) make ;;\n  test)  make check ;;\n  *)     echo \"usage: $0 build|test\" ;;\nesac"]
+    },
+    "local": {
+      long: "Declares a variable that exists only inside the current function. Bash variables are GLOBAL by default, so a helper that assigns i or tmp silently overwrites the caller's - local is what stops that. It only works inside a function.",
+      examples: ["count() {\n  local n=0\n  for f in \"$@\"; do n=$((n+1)); done\n  echo \"$n\"\n}"]
+    },
+    "source": {
+      long: "Runs another script IN THE CURRENT SHELL rather than in a child process, so the variables and functions it defines survive afterwards. That is the whole difference from executing the file: a normal run gets its own environment and throws it away on exit, which is why setting PATH inside a script never seems to work.",
+      examples: ["source ./env.sh", ". ./env.sh   # the dot is the same command"]
+    },
+    "alias": {
+      long: "Gives a short name to a longer command. It is a plain text substitution at the start of a line, which is why an alias cannot take arguments in the middle of itself - for that you want a function. Aliases are not inherited by scripts, so they belong in your shell profile, not in a program.",
+      examples: ["alias gs='git status'", "alias ll='ls -lah'", "unalias gs"]
+    },
+    "cd": {
+      long: "Changes the working directory. It has to be a shell builtin rather than a program, because a child process could only change its OWN directory and then exit - which is also why a script that cds does not move the shell that ran it. cd - jumps back to where you were.",
+      examples: ["cd ~/Documents/project", "cd ..", "cd -    # back to the previous directory"]
+    },
+    "ls": {
+      long: "Lists directory contents. Three flags carry most of the weight: -l for the long form with permissions and sizes, -a to include dotfiles, -h for human-readable sizes. Parsing its output in a script is a classic mistake - filenames can contain spaces and newlines, so loop over a glob instead.",
+      examples: ["ls -lah", "ls src/*.js", "for f in src/*.js; do echo \"$f\"; done   # not: for f in $(ls)"]
+    },
+    "pwd": {
+      long: "Prints the working directory - the absolute path you are currently in. Useful at the top of a script to turn a relative path into an unambiguous one, and in a prompt when you have lost track after a few cds.",
+      examples: ["pwd", "root=\"$(pwd)\""]
+    },
+    "grep": {
+      long: "Prints the lines of its input that match a pattern. It is the search half of nearly every shell one-liner. -n adds line numbers, -i ignores case, -r walks directories, and -q prints nothing and answers only through its exit status, which is the form you want inside an if.",
+      examples: ["grep -n 'TODO' src/*.js", "grep -ri \"api_key\" .", "if grep -q \"^PORT=\" .env; then echo \"set\"; fi"]
+    },
+    "sed": {
+      long: "A stream editor: it applies an edit to every line flowing through it. In practice almost all of its use is one command, s/old/new/, with a trailing g to replace every occurrence on a line rather than just the first. -i edits the file in place, and that is the flag to be careful with.",
+      examples: ["sed 's/localhost/127.0.0.1/g' config.txt", "sed -i 's/DEBUG=true/DEBUG=false/' .env", "sed -n '10,20p' log.txt   # print a line range"]
+    },
+    "awk": {
+      long: "A whole small language for text laid out in columns. It splits each line into fields ($1, $2, ... with $0 as the whole line) and runs your program on the ones that match. Reach for it the moment a pipeline needs a specific column or a running total - that is where grep and cut run out.",
+      examples: ["awk '{print $2}' access.log", "awk -F: '{print $1}' /etc/passwd", "awk '$3 > 100 {n++} END {print n}' data.txt"]
+    },
+    "cat": {
+      long: "Concatenates files to standard output. With a single file it simply prints it, which is what it is mostly used for. Piping cat into grep is the famous redundancy - grep opens files perfectly well itself - but cat is genuinely right when you are joining several files together.",
+      examples: ["cat README.md", "cat part1.txt part2.txt > whole.txt", "grep TODO file.js   # not: cat file.js | grep TODO"]
+    },
+    "chmod": {
+      long: "Changes a file's permission bits. Two notations: symbolic (+x adds execute, -w removes write) and octal, where each digit covers read/write/execute for owner, group and others - 755 is usual for a program, 644 for a plain file. Making a script executable is what lets you run it as ./script.sh instead of bash script.sh.",
+      examples: ["chmod +x build.sh", "chmod 644 notes.txt", "chmod -R 755 public/"]
+    },
+    "chown": {
+      long: "Changes which user, and optionally which group, owns a file. You need it when files end up owned by root - typically after something was run with sudo, or copied out of a container - and your normal user can no longer write them. It almost always requires root itself.",
+      examples: ["sudo chown $USER file.txt", "sudo chown -R $USER:$USER ./project"]
+    },
+    "sudo": {
+      long: "Runs a single command as another user, by default root. The point is that it is per-command and logged, rather than you sitting in a root shell where every typo is dangerous. Think before each use, especially with rm, chmod -R, or anything piped straight from the internet.",
+      examples: ["sudo apt install git", "sudo systemctl restart nginx"]
+    },
+    "exit": {
+      long: "Ends the script with a status code. 0 means success and anything else means failure - that convention is what if, && and || all read, so returning the right number is how your script cooperates with everything around it.",
+      examples: ["exit 0", "if [ ! -f config ]; then echo \"no config\" >&2; exit 1; fi"]
+    },
+    "shift": {
+      long: "Drops the first positional argument, so $2 becomes $1 and so on. It is how an argument-parsing loop advances: look at $1, consume it, shift, and repeat until nothing is left.",
+      examples: ["while [ $# -gt 0 ]; do\n  case \"$1\" in\n    -v) verbose=1 ;;\n    *)  file=\"$1\" ;;\n  esac\n  shift\ndone"]
+    },
+    "eval": {
+      long: "Builds a string and then runs it as a shell command. It is occasionally the only way to do something genuinely dynamic - and it is also the classic shell injection hole, because anything in that string which came from outside is now code. If the data is not yours, do not eval it.",
+      examples: ["eval \"$(ssh-agent -s)\"", "cmd=\"ls -la\"; eval \"$cmd\""]
+    },
+    "exec": {
+      long: "REPLACES the current shell with the command instead of starting a child - same process, so nothing comes back afterwards. Used at the end of wrapper scripts (set some variables, then hand the process over) and, in its other form, to redirect a whole script's output at once.",
+      examples: ["exec node server.js", "exec > build.log 2>&1   # everything after this goes to the log"]
+    },
+    "trap": {
+      long: "Runs a command when the shell receives a signal or exits. It is the shell's cleanup mechanism: trap on EXIT and your temp directory is removed whether the script finished, failed, or was interrupted with Ctrl-C.",
+      examples: ["tmp=$(mktemp -d)\ntrap 'rm -rf \"$tmp\"' EXIT", "trap \"echo interrupted; exit 130\" INT"]
+    },
+    "unset": {
+      long: "Removes a variable or function entirely, which is different from setting it to an empty string: after unset the name does not exist at all, so a test asking whether it is defined now answers no.",
+      examples: ["unset API_KEY", "unset -f mylog"]
+    },
+    "test": {
+      long: "Evaluates a condition and answers through its exit status. [ is the same command under another name, which is why [ needs spaces around it and a closing ] - those are arguments, not syntax. -f asks whether a file exists, -d a directory, -z whether a string is empty.",
+      examples: ["test -f build.sh && bash build.sh", "if [ -d node_modules ]; then echo \"installed\"; fi", "if [ -z \"$NAME\" ]; then NAME=world; fi"]
+    },
+    "sleep": {
+      long: "Pauses for a number of seconds. Used to space out a retry loop or to give a service a moment to come up - though waiting on an actual condition is nearly always better than guessing at a duration.",
+      examples: ["sleep 2", "until curl -sf localhost:8766 >/dev/null; do sleep 1; done"]
+    },
+    "kill": {
+      long: "Sends a signal to a process - by default TERM, which politely asks it to shut down. -9 sends KILL, which cannot be caught or cleaned up after, so it is the last resort rather than the first: a process killed with -9 never runs its trap handlers.",
+      examples: ["kill 12345", "kill -9 12345   # only when TERM was ignored", "pkill -f \"node server.js\""]
+    },
+    "touch": {
+      long: "Updates a file's timestamp, creating it empty if it does not exist. The creation side is what it is mostly used for. Note that it does NOT empty an existing file - people reach for touch expecting that and get a file with its old contents and a new date.",
+      examples: ["touch .env", "touch src/new-file.js", ": > file.txt   # this is how you empty one"]
+    },
+    "mkdir": {
+      long: "Creates a directory. -p is the flag that matters: it creates every missing parent along the path and stays quiet if the directory already exists, which is what makes it safe to run twice in a script.",
+      examples: ["mkdir dist", "mkdir -p src/data/generated"]
+    },
+    "curl": {
+      long: "Makes a network request from the command line. -s silences the progress meter, -f fails on an HTTP error instead of printing the error page, -o writes to a file, -L follows redirects. Piping a downloaded script straight into a shell is convenient and is also how machines get compromised - read it first.",
+      examples: ["curl -s https://api.example.com/status", "curl -fsSL -o app.tar.gz https://example.com/app.tar.gz"]
+    },
+    "tar": {
+      long: "Packs many files into one archive, or unpacks one. The flags read as a sentence: c create, x extract, t list, f the archive filename, z gzip, v verbose. -f has to come last, because the filename follows it.",
+      examples: ["tar -czf dist.tar.gz dist/", "tar -xzf dist.tar.gz", "tar -tzf dist.tar.gz   # look inside without unpacking"]
+    },
+    ">>": {
+      long: "Appends a command's output to the end of a file, creating it if needed. Its single-arrow sibling > TRUNCATES the file first - that one character is the difference between adding a line to a log and destroying it.",
+      examples: ["echo \"PORT=8766\" >> .env", "date >> build.log", "echo \"fresh\" > out.txt   # this one wipes out.txt"]
+    },
+    "|": {
+      long: "The pipe: sends the output of the command on its left into the input of the one on its right. It is the whole idea of the shell - small programs that each do one thing, chained into something none of them could do alone. The stages run at the same time, not one after the other.",
+      examples: ["cat log.txt | grep error | wc -l", "ps aux | awk '{print $11}' | sort | uniq -c"]
+    },
+    "$?": {
+      long: "The exit status of the command that just finished: 0 for success, anything else for failure. Read it immediately - the very next command overwrites it, which is the mistake everyone makes at least once. Often you do not need it at all, since if, && and || already test it for you.",
+      examples: ["make; echo \"exit: $?\"", "if ! make; then echo \"build failed\" >&2; exit 1; fi"]
+    }
+  },
+
   ASSEMBLY: {
     'mov': {
       long: "Copies a value from one place to another: register to register, memory to register, or an immediate constant into either. It does not move anything — the source is unchanged, so the name is a historical lie. On x86 you cannot mov straight from one memory location to another; one end must be a register, which is why so much assembly is shuffling values through them.",

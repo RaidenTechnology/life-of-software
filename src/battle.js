@@ -412,11 +412,26 @@ class Battle {
 
   kill(e, delay = 0) {
     this.scene.tweens.killTweensOf(e);
+    // A death has to READ, not merely happen. It used to be a quiet topple plus
+    // eight pixels, which on a ranged stage was invisible: the monsters are
+    // identical, and reflow() slid the next one into the corpse's slot while it
+    // was still fading, so a killed skeleton looked like a skeleton that had
+    // simply stayed there. ("son vuruş atınca ölme efekti gelmedi.") Now the
+    // corpse whitens and pops on the frame it dies, then topples — the flash is
+    // what separates "this one died" from "one of them moved".
+    this.scene.time.delayedCall(delay, () => {
+      if (!e.active) return;
+      e.setTintFill(0xffffff);
+      this.deathFx.explode(18, e.x, e.y);
+      this.scene.tweens.add({
+        targets: e, scale: this.charScale * 1.25, duration: 90, yoyo: true
+      });
+      this.scene.time.delayedCall(90, () => { if (e.active) e.clearTint(); });
+    });
     this.scene.tweens.add({
-      targets: e, y: '+=16', angle: 100, alpha: 0, duration: 300, delay,
+      targets: e, y: '+=16', angle: 100, alpha: 0, duration: 300, delay: delay + 90,
       onComplete: () => e.destroy()
     });
-    this.scene.time.delayedCall(delay, () => this.deathFx.explode(8, e.x, e.y));
   }
 
   slashAt(x, y, delay = 0, big = false) {
@@ -454,7 +469,12 @@ class Battle {
   // floor, so a monster that has lunged into the hero's face still shows a beat
   // of flight rather than a zero-length teleport).
   shoot(tx, ty, onHit) {
-    const x0 = this.heroX + 40, y0 = this.restY + 2;
+    return this.shootFrom(this.heroX + 40, this.restY + 2, tx, ty, onHit);
+  }
+
+  // The shared flight. shoot() is the hero's half; enemyStrikeRanged() is the
+  // monsters', firing the other way down the same line.
+  shootFrom(x0, y0, tx, ty, onHit) {
     const a = this.arrows.find(o => !o.active) || this.newArrow();
     a.setActive(true).setVisible(this.bg.visible).setPosition(x0, y0)
       .setRotation(Phaser.Math.Angle.Between(x0, y0, tx, ty));
@@ -507,8 +527,11 @@ class Battle {
       this.shoot(pos.x - 14, pos.y - 2, () => {
         this.hitSpark(pos.x - 12, pos.y - 2, false);
         this.kill(target);
-        this.reflow();
-        this.fill(false);
+        // Hold the queue back until the death has been seen. Reflowing on impact
+        // slid an identical monster into the dying one's slot over 250ms while
+        // the corpse faded over 300 — two overlapping skeletons exactly where the
+        // player was looking, which is why the kill did not register at all.
+        this.scene.time.delayedCall(200, () => { this.reflow(); this.fill(false); });
       });
     } else {
       this.dashHero({
@@ -597,6 +620,50 @@ class Battle {
   // the front monster steps up and strikes the hero once.
   // lethal=false: a warning hit (red flash + knockback), then it walks back.
   // lethal=true: the killing blow — the hero falls.
+  // A monster's shot: the mirror of the hero's. It reuses the same arrow pool
+  // and the same landing machinery, flipped 180 degrees, so there is exactly one
+  // projectile implementation in this file and a fix to one is a fix to both.
+  // Non-lethal only (see enemyStrike): the killing blow keeps its charge.
+  enemyStrikeRanged(e, back, done) {
+    const s = this.scene;
+    // Claim the strike BEFORE the draw-back plays. enemyStrike() sets these two
+    // just after the point it hands over to us, so without this the shot's own
+    // "did my target die mid-draw?" guard compared against a stale strikeTarget,
+    // decided the monster was gone, and quietly finished without ever loosing
+    // the arrow — a ranged enemy that neither closed nor shot.
+    this.striking = true;
+    this.strikeTarget = e;
+    const finish = () => {
+      this.striking = false;
+      this.strikeTarget = null;
+      if (done) done();
+    };
+    // draw back, loose, settle — the whole tell is in the recoil, since the
+    // monster never leaves its slot.
+    s.tweens.killTweensOf(e);
+    s.tweens.add({
+      targets: e, x: back + 18, duration: 130, yoyo: true, ease: 'Quad.easeOut',
+      onComplete: () => {
+        // it can die to a hero arrow while its own draw is playing
+        if (e !== this.strikeTarget || !e.active) { finish(); return; }
+        this.shootFrom(e.x - 16, e.y, this.heroX + 16, this.restY, () => {
+          if (!this.hero.active) return;
+          this.hitSpark(this.heroX + 16, this.restY, false);
+          this.hero.setTint(0xff8888);
+          s.tweens.add({ targets: this.hero, x: this.heroX - 14, duration: 90, yoyo: true });
+          s.time.delayedCall(260, () => { if (this.hero.active) this.hero.clearTint(); });
+          Sfx.hit();
+        });
+        // the strike is over once the shaft is away — the queue must not wait on
+        // a projectile, or a slow arrow would stall the next periodic strike.
+        s.tweens.add({
+          targets: e, y: this.bobY, duration: 650, yoyo: true, repeat: -1
+        });
+        finish();
+      }
+    });
+  }
+
   enemyStrike(lethal, done) {
     const s = this.scene;
     // Self-heal a stale strike flag. A strike only clears `striking` in its own
@@ -619,6 +686,16 @@ class Battle {
     // slash at its reach instead. Grunts — and any lethal blow, including the
     // boss's own killing charge — still close the full distance to the hero.
     const bossJab = this.bossActive && !lethal;
+    // A skeleton archer and an elf archer that sprint across the field to punch
+    // you are not archers. The stage already decides the hero shoots on these
+    // two ("uzak menzilli olması gereken karakterler yakına gelip vuruş atıyor")
+    // — the monsters on the same stage are the same kind of fighter, so they get
+    // the same treatment: brace, loose a shaft, stay on their line. Bosses keep
+    // the jab (a boss halting mid-field is its own telegraph) and every LETHAL
+    // blow still closes the whole distance, because the killing charge is the
+    // drama of dying and shrinking it would cost more than it fixes.
+    const enemyShoots = this.ranged && !lethal && !this.bossActive;
+    if (enemyShoots) { this.enemyStrikeRanged(e, back, done); return; }
     const lungeX = bossJab ? back - 110 : this.heroX + 44;
     this.striking = true;
     this.strikeTarget = e;

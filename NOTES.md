@@ -2662,3 +2662,61 @@ with the y-bob alive; the review card's five DETAILED buttons, the deep panel
 ENTER then closing the card back into play.
 
 `index.html` at `?v=23`.
+
+## Player-report pass - 20260725 late (six reports + one bug found while fixing them)
+
+**Skeleton kills didn't register.** Mechanically they died — measured: target
+destroyed, queue refilled. The problem was purely that it did not READ. The
+monsters on a stage are identical, `reflow()` slid the next one into the corpse's
+slot over 250ms while the corpse faded over 300, and the whole death was a quiet
+topple plus eight pixels. So a killed skeleton looked like a skeleton that had
+stayed put. Now the corpse flashes white and pops (scale 1.45→1.81) on the frame
+it dies, the burst is 18 particles, and the queue is held back 200ms so the death
+has the slot to itself. Verified: tint flash seen, pop measured, corpse destroyed,
+queue refilled.
+
+**Ranged ENEMIES still charged.** The earlier ranged pass fixed the hero and left
+the monsters alone — so on the two archer stages the skeletons and elves sprinted
+the full field to punch you. `enemyStrike` now hands non-lethal strikes on ranged
+stages to a new `enemyStrikeRanged`: draw back, loose, stay on the line. It reuses
+the same arrow pool through a shared `shootFrom()`, so there is one projectile
+implementation and a fix to one is a fix to both. Bosses keep the jab, and every
+LETHAL blow still closes — the killing charge is the drama of dying.
+
+⚠ **Bug found in that fix, caught only because it was tested:** the early return
+to the ranged path was placed ABOVE `striking`/`strikeTarget` being set, so the
+shot's own "did my target die mid-draw?" guard compared against a stale target,
+decided the monster was gone, and finished without ever firing. The enemy neither
+closed nor shot. First browser run showed `sawArrow: false` — a static reading of
+the diff would have passed it.
+
+**Pause buttons overflowed.** They fit the SCREEN fine (662px of 960), which is
+why it looked correct here — but they hang off the Blender pause window, which is
+only 560 wide. That is what "the keys overflow" meant. The row is now measured
+against the panel art and scaled uniformly to fit (0.789 at the widest labels),
+hit areas scaling with it. Verified with SOUND: OFF / ASSIST: OFF / NOTES: OFF,
+the widest state the row can reach.
+
+**Festivals are their own section now.** They used to fire AFTER the road, the
+boons and the review — an ambush in the middle of a language you had already been
+dropped into, ending with you just standing there. Now the festival runs FIRST and
+clearing it is what triggers the road animation into the next language. Verified
+order: level cleared → FESTIVAL → road → BOON → playing CSS. The transition is
+stood down for the festival's duration (update() early-returns while transitioning,
+and the festival needs its timer and the main clock both running) and re-armed with
+its guard when the road goes up. The death teardown passes `silent`, which skips
+the continuation, so dying in a festival still ends the run instead of walking into
+a road overlay.
+
+**Boss eased** after "hard even on MEDIUM". Three things stack there that no
+ordinary level has: the pool is all 25 languages at once, the clock is whatever the
+last level left, and a broken chain HEALS it. HP 30+6/stage → 24+4/stage (MEDIUM:
+36 → 28) and the entry cushion 10s → 18s, which is the half that actually decides
+the fight. Shape unchanged, just less of it.
+
+**BASH detail layer written** (the one language the detail agent said it ran out of
+pass for): 34 entries, BASH now 50/50 = 100%. 937 reachable detail entries total,
+0 malformed. Verified in game: the BASH card shows five DETAILED buttons and the
+panel opens on `echo` with a 345-character explanation and no undefined.
+
+`index.html` at `?v=27`. Console clean across the whole sweep.
