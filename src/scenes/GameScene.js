@@ -389,8 +389,19 @@ class GameScene extends Phaser.Scene {
 
     // deprecation notices — directly above the input panel, the one place the
     // player is already looking, and clear of the hint/feedback lines below it.
-    this.eolText = this.add.text(cx, panelY - panelH / 2 - 26, '', {
+    this.eolText = this.add.text(cx, panelY - panelH / 2 - 34, '', {
       fontFamily: 'monospace', fontSize: '16px', color: '#dcdcaa', fontStyle: 'bold'
+    }).setOrigin(0.5).setVisible(false);
+    // The changelog detail, on its own quieter line under the alarm.
+    //
+    // It started life inside the alarm sentence, which pushed that line from
+    // 410px to 674px — and the credits/hint readout is RIGHT-aligned at ~780,
+    // so it occupies 690..780 and the notice ran straight underneath it. The
+    // alarm keeps the width it always had (it was already at the limit), and
+    // the versions drop to 12px below it, where 264px of text cannot reach
+    // anything. Two registers, too: the shout, then the changelog.
+    this.eolVer = this.add.text(cx, panelY - panelH / 2 - 16, '', {
+      fontFamily: 'monospace', fontSize: '12px', color: IDE.comment
     }).setOrigin(0.5).setVisible(false);
     this.hintText = this.add.text(cx, panelY + 62, '', {
       fontFamily: 'monospace', fontSize: '20px', color: IDE.stringy
@@ -713,20 +724,50 @@ class GameScene extends Phaser.Scene {
     // from the language's own scheme (`depVer` in languages.js); a language
     // without one keeps the plain wording rather than inventing a version.
     const v = this.lang.depVer;
-    this.eolText.setText(v && v.since && v.removed
-      ? '⚠ "' + word + '" — deprecated since ' + v.since + ', removed in ' + v.removed +
-        ' — write it now!'
-      : '⚠ "' + word + '" is being deprecated — write it now!')
+    this.eolText.setText('⚠ "' + word + '" is being deprecated — write it now!')
       .setColor('#dcdcaa').setVisible(true);
+    this.fitEol();
+    this.eolVer.setText(v && v.since && v.removed
+      ? 'deprecated since ' + v.since + ' · removed in ' + v.removed : '')
+      .setVisible(!!(v && v.since && v.removed));
     this.tweens.killTweensOf(this.eolText);
+    this.tweens.killTweensOf(this.eolVer);
     this.eolText.setAlpha(1);
-    this.tweens.add({ targets: this.eolText, alpha: 0.45, duration: 400, yoyo: true, repeat: -1 });
+    this.eolVer.setAlpha(1);
+    this.tweens.add({ targets: [this.eolText, this.eolVer], alpha: 0.45, duration: 400, yoyo: true, repeat: -1 });
     this.teachDeprecation();
     // was Sfx.hint() — the rising chirp the HINT button uses, which read as a
     // reward for the one event in the game that is a threat. The notice now has
     // its own falling figure, and it is the only sound in the game that falls.
     if (typeof Sfx.deprecationNotice === 'function') Sfx.deprecationNotice();
     else Sfx.hint();
+  }
+
+  // Both notice lines go down together — a stale version line under a cleared
+  // alarm would be the one artefact this split can leave behind.
+  hideEol() {
+    this.tweens.killTweensOf(this.eolText);
+    this.eolText.setVisible(false);
+    if (this.eolVer) {
+      this.tweens.killTweensOf(this.eolVer);
+      this.eolVer.setVisible(false);
+    }
+  }
+
+  // Keep the notice line clear of the credits/hint block on its right.
+  //
+  // eolText is centred on the panel at x=480 and the [ HINT -20 ] / CREDITS
+  // readout starts at x=790, so anything wider than ~596px runs underneath it.
+  // The plain wording never got close; dressing the notice with real version
+  // numbers ("deprecated since GHC 9.2, removed in GHC 9.8") pushed the widest
+  // case to 674px, and it read as a collision in the corner of the screen.
+  // Measured and scaled uniformly to fit, the same fix the pause key row uses
+  // against the panel art — a slightly smaller sentence beats a clipped one.
+  fitEol() {
+    const t = this.eolText;
+    t.setScale(1);
+    const max = 596;
+    if (t.width > max) t.setScale(max / t.width);
   }
 
   // A VAULT bought while a notice is already ticking should not have to wait for
@@ -736,8 +777,7 @@ class GameScene extends Phaser.Scene {
     const word = this.eol.word;
     this.eolWards--;
     this.eol = null;
-    this.tweens.killTweensOf(this.eolText);
-    this.eolText.setVisible(false);
+    this.hideEol();
     this.eolTimer = 0;
     this.floatText('VAULT SAVED "' + word + '"');
   }
@@ -779,9 +819,11 @@ class GameScene extends Phaser.Scene {
     this.eol = null;
     this.dead.add(word);
     this.deprecatedCount++;
-    this.tweens.killTweensOf(this.eolText);
+    this.hideEol();
+    this.eolText.setVisible(true);
     this.eolText.setText('✖ "' + word + '" DEPRECATED — no longer accepted')
       .setColor(IDE.error).setAlpha(1).setVisible(true);
+    this.fitEol();
     this.tweens.add({ targets: this.eolText, alpha: 0, duration: 2200, delay: 1200,
       onComplete: () => this.eolText.setVisible(false) });
     this.flashPanel(0xf44747);
@@ -803,10 +845,7 @@ class GameScene extends Phaser.Scene {
     this.dead.clear();
     this.eol = null;
     this.eolTimer = 0;
-    if (this.eolText) {
-      this.tweens.killTweensOf(this.eolText);
-      this.eolText.setVisible(false);
-    }
+    if (this.eolText) this.hideEol();
   }
 
   // Deprecation runs during ordinary level play only: a boss or festival is an
@@ -1154,8 +1193,7 @@ class GameScene extends Phaser.Scene {
     const rescued = !!(this.eol && this.eol.word === w);
     if (rescued) {
       this.eol = null;
-      this.tweens.killTweensOf(this.eolText);
-      this.eolText.setVisible(false);
+      this.hideEol();
       this.eolTimer = 0;
       this.rescuedCount++;
       this.floatText('SAVED FROM DEPRECATION!  ×2');
@@ -2285,8 +2323,9 @@ class GameScene extends Phaser.Scene {
 
   refreshBossSeq() {
     const b = this.bossMode;
-    if (!b || !b.seq) { this.eolText.setVisible(false); return; }
-    this.tweens.killTweensOf(this.eolText);
+    if (!b || !b.seq) { this.hideEol(); return; }
+    this.hideEol();
+    this.eolText.setVisible(true);
     // Bracket the links that aren't live yet. One Text object can't colour words
     // individually, but brackets say "later" plainly enough — and the whole
     // out-of-order problem starts with three words that look equally typeable.
@@ -2299,12 +2338,12 @@ class GameScene extends Phaser.Scene {
     // and the easiest thing to lose track of.
     this.eolText.setText(b.chainLang.name + ' EXPLOIT CHAIN:  ' + line)
       .setColor(b.seqAt > 0 ? '#dcdcaa' : IDE.error).setAlpha(1).setVisible(true);
+    this.fitEol();
   }
 
   beatBoss() {
     this.transitioning = true;
-    this.tweens.killTweensOf(this.eolText);
-    this.eolText.setVisible(false);
+    this.hideEol();
     this.armTransitionGuard(12, 'beatBoss');   // death anim + stage card ≈ 5s
     this.bossMode = null;
     // hand the bed back to the ladder. setBossMode(false) restores whatever
@@ -3189,7 +3228,17 @@ class GameScene extends Phaser.Scene {
     const t = this._floatPool[this._floatIdx];
     this._floatIdx = (this._floatIdx + 1) % this._floatPool.length;
     this.tweens.killTweensOf(t);
-    t.setText(msg).setPosition(this.panel.x, this.panel.y - 50).setAlpha(1);
+    // Two pops fired in the same beat used to land on the same pixel and read as
+    // one garbled line — and the pair that collides is the game's own best
+    // moment: "SAVED FROM DEPRECATION! ×2" spawns in the same frame as the score
+    // pop that rescue just paid, so the one message the whole game is built
+    // around arrived unreadable. A pop that lands while another is still fresh
+    // stacks above it instead. Capped at two rows: higher than that and it would
+    // climb into the battle strip.
+    const fresh = this.time.now - (this._floatAt || -99999) < 260;
+    this._floatStack = fresh ? Math.min(2, (this._floatStack || 0) + 1) : 0;
+    this._floatAt = this.time.now;
+    t.setText(msg).setPosition(this.panel.x, this.panel.y - 50 - this._floatStack * 26).setAlpha(1);
     this.tweens.add({ targets: t, y: t.y - 40, alpha: 0, duration: 900 });
   }
 

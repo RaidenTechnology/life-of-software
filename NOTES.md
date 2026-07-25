@@ -2843,3 +2843,44 @@ both: `scene_*.png?v=5` fetched at 177-204KB, textures 960x540, backdrop visible
 and sampling opaque colour in play, console clean.
 
 `index.html` at `?v=30`, `ASSET_V` at 5.
+
+## The GIF, and the two bugs it exposed - 20260726
+
+Recorded in-engine rather than with a screen recorder: the Browser pane was not
+compositing (no RAF), so MediaRecorder had nothing to capture. Instead each frame
+is `game.renderer.snapshot()` queued BEFORE a manual `game.loop.step()` — queue,
+render, await, POST to a local sink. Ordering matters: awaiting the snapshot
+before stepping deadlocks, because the queued grab only runs at the end of the
+next render pass. ~69ms per frame, so capture and game time run 1:1 and a 15fps
+playback is real time. 351 frames, zero failures.
+
+Two takes were thrown away first, both for the same reason: the run kept doing
+what it is supposed to do. The third pattern typed CLEARED the level, so
+`transitioning` went true and every later keystroke and deprecation tick was
+correctly ignored — the footage was of the road, not the notice. And the window
+blur handler paused the game between tool calls, which froze the scene clock, so
+the boon draft's delayedCall never fired. The shoot now zeroes the score before
+the notice beat and detaches the blur listener for the duration.
+
+**Bug 1 — every float pop landed on the same pixel.** `floatText` always spawned
+at `panel.y - 50`, so the score pop and "SAVED FROM DEPRECATION! ×2" — which by
+definition fire in the same frame — printed on top of each other. The game's best
+moment was arriving as one garbled line. Pops that land while another is still
+fresh (<260ms) now stack, capped at two rows.
+
+**Bug 2 — the versioned notice ran under the HUD.** Dressing the notice as a real
+changelog line pushed it from 410px to 674px, and the credits/hint readout is
+RIGHT-aligned at ~780, so it occupies 690..780: the notice ran straight
+underneath it. First fix was a uniform scale-to-fit, which was wrong — measured
+against the true 690 boundary the text would have had to shrink to 0.59. So the
+line is split instead: the alarm keeps its original width (it was already at the
+limit) and the versions drop to a 12px line under it. Measured after: alarm right
+edge 685, version 599, both clear of 690; and the version line is torn down with
+the alarm everywhere (rescue, expiry, ward, level change, boss chain, beatBoss)
+through one `hideEol()`.
+
+Deliverables in `media/`: `life-of-software.gif` (720x405, 1.78MB, 13.8s),
+`-small.gif` (480px, 0.81MB), `.mp4` (960x540), and five stills cut from the same
+take, so the page and the GIF tell one story.
+
+`index.html` at `?v=33`.
