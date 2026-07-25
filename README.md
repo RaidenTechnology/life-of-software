@@ -18,6 +18,20 @@ MOVES FAST / LEGACY SYSTEM), boss'larda **exploit chain** (sırayla üç kalıp 
 3 kat hasar), her seviye sonunda **3 kart arasından kalıcı bir boon**, ganimet +
 çanta + günlük dükkân, festivaller ve günlük mücadele.
 
+**Öğreten kısım (v2):** oyun başlamadan önce iki şey soruyor — ne kadar yazılım
+bildiğin (az / orta / bu benim işim; cevap sadece *ipleri* değiştirir: açılış
+saati, ASSIST varsayılanı, ipucu fiyatı — puanı asla) ve kalıpların ne anlama
+geldiğinin anlatılmasını isteyip istemediğin. Evet dersen her dil bölümünü
+geçtiğinde bir **CODE REVIEW** kartı geliyor: *senin yazdığın* kalıplar, yazdığın
+sırayla, her birinin bir cümlelik anlamı ve gerçek bir örneğiyle. Böylece HASKELL'i
+`>>=`'in ne olduğunu hiç öğrenmeden geçmiyorsun. Sözlük 1276 kalıbın 913'ünü
+açıklıyor; merdivenin başı (HTML, CSS, PYTHON) %100.
+
+**Kalıcı kayıt:** 25 dilden hangilerini *hayatın boyunca* geçtiğin, toplam kaç
+kalıp yazdığın ve saati ne kadar oyaladığın tarayıcıda saklanıyor. Menüdeki dil
+yolu bunu gösteriyor — geçtiğin diller tam renkli, geçmediklerin sönük. Kredilerin
+ve çantan da koşular arasında duruyor.
+
 **Dili bilmiyorsan:** ASSIST açık gelir — gerçekten sıkıştığında (saat bitmek
 üzere ya da bir süredir hiçbir kalıp tutmadıysa) **40 saniyede en fazla bir kez**
 kısa bir kalıp önerir. Hayatta kalmaya yeter, puana yetmez.
@@ -43,7 +57,8 @@ lib/phaser.min.js     Phaser 3 (local copy — works offline / on itch.io)
 src/main.js           game config (960x540, FIT scale, arcade physics)
 src/sfx.js            WebAudio synth — zero asset files, zero AI
 src/data/languages.js dil merdiveni: kelime listeleri, hedef puanlar, süre çarpanları
-src/scenes/           Boot → Menu → Game → End
+src/data/glossary.js  kalıp sözlüğü: anlam + örnek (paylaşılan katman + dile özel)
+src/scenes/           Boot → Menu → Prologue → Game → End
 assets/               jam art goes here (hand-made only — AI art = disqualification)
 ```
 

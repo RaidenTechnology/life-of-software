@@ -2462,3 +2462,76 @@ deliberate press never feels blocked. Verified: five ENTERs fired on frame 1 lea
 the scene on `End`; one fired after the lock recompiles into `Game`.
 
 `index.html` bumped to `?v=13` (assets unchanged, so `ASSET_V` stays 4).
+
+## Learn/Career pass - 20260725 (deadline -30h)
+
+Scored the entry honestly against the jam's REAL criteria first, and two findings
+reframed the work. Straight from itch.io/jam/gmtk-jam-2026 on 25 Jul:
+
+1. **The deadline is 26 Jul 17:00 BST = 19:00 Istanbul, not 20:00.** Every note in
+   this repo assumed 20:00. That hour is the difference between submitting and not.
+2. **There is no "Theme" voting category.** The five are Creativity, Enjoyment,
+   **Narrative**, Artwork, Audio. A dozen earlier passes justified work with
+   "Theme is a distinct GMTK scored axis" — it is not. Theme fit feeds Creativity
+   indirectly. Meanwhile **Narrative is a full fifth of the score and the game had
+   essentially none**, and every one of ~35 passes had gone into mechanics.
+
+So this pass went at the axes the game had never touched, plus the thing that makes
+it different from every other typing game in the jam.
+
+**CODE REVIEW — the game now teaches the languages it makes you type.** You could
+clear HASKELL at speed and walk away knowing nothing about Haskell; you typed `>>=`
+because it was on a list. New `src/data/glossary.js`: a shared cross-language layer
+plus per-language overrides, `[meaning, example]` per entry, lookup = language layer
+→ shared → nothing (unexplained words are left OUT, never padded with filler).
+**913 of 1276 patterns covered; HTML/CSS/PYTHON 100%, JAVASCRIPT 89%** — coverage
+deliberately front-loaded onto the early ladder, where nearly every run is spent.
+After a language falls, a card reviews up to 5 of the patterns *you* typed, in the
+order you typed them, with meaning + a real example. Its footer is honest about the
+gap: it separates "capped by the card" from "no note yet" rather than conflating
+them. Runs between the boon draft and the next level, N on the card turns it off
+for good, and the clock is stopped there on purpose (unlike the bag/festival, this
+is the game talking to the player, not a decision they make to gain something).
+
+**PROLOGUE — the two questions, and the frame.** `PrologueScene`: four lines that
+say why any of this is happening (Narrative), then *how much software do you know*
+(NOT MUCH / SOME CODE / I WRITE THIS) and *explain the patterns?* (Y/N). The skill
+answer moves only the ropes — opening clock ±20/−10s, ASSIST default, hint price ×½
+— and **never scoring**, so one PB stays one number; daily runs ignore it entirely
+because a shared seed has to be a shared start. Shown automatically only until it is
+answered once (`Profile.onboarded`), then it lives behind `[ SETUP ]` on the menu.
+
+**CAREER — a run ends, what you learned does not.** New `Career` in ui.js: which of
+the 25 languages you have EVER cleared, patterns typed for life, total time held off
+zero, run count. Banked the instant a level falls, so dying later cannot take it
+back. Drawn where it means something: the menu's language road burns full colour for
+cleared languages and sits dim for the rest (the strip stops being decoration), and
+the End screen mirrors the GRADE stamp with it — the grade judges one run, career
+judges all of them. Credits now resume with the checkpoint too (the bag already
+persisted; dropping the money that bought it was inconsistent). Score deliberately
+does NOT resume — it measures a run, and carrying it forward banks points twice.
+
+**Narrative coda.** The End screen closes the arc the prologue opens, with a line
+that changes by how far you got (six bands, from "the first language took you" to
+"you have done this ladder before and climbed it again anyway").
+
+**The premise, said out loud once.** The deprecation notice read as "hurry up": a
+first-timer had no way to know beating it pays DOUBLE or that missing it removes the
+pattern for the level — the game's entire premise, left to be inferred from a
+warning triangle. One line above the first notice ever seen (`los_seen_eol`), gone
+after 6s, never repeated.
+
+**CTRL+SPACE hint** (earlier today) is in the same family: the last unreachable
+action getting a route.
+
+All verified live in the browser, console clean: prologue defaults → pick → persist
+→ clock 75→94 and hint 20→10 for NOT MUCH; a real level clear driving road → boon →
+review card with the right five HTML patterns and an honest footer → dismiss →
+next language typing normally; career 1/25 with 24 dim badges on the road; the
+epitaph and share string (`… A-rank · LEARNING`) on the End screen; the deprecation
+teach firing once and not again on a fresh run.
+
+`index.html` at `?v=16`. Still the top non-code work, unchanged and now more
+valuable than any further feature: **cover, screenshots and the GIF** — and the GIF
+should include the code-review card, because it is the one thing in this entry that
+nothing else in the jam has.

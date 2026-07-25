@@ -610,7 +610,39 @@ class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.eolText);
     this.eolText.setAlpha(1);
     this.tweens.add({ targets: this.eolText, alpha: 0.45, duration: 400, yoyo: true, repeat: -1 });
+    this.teachDeprecation();
     Sfx.hint();
+  }
+
+  // The idea the whole game is built on, said out loud exactly once.
+  //
+  // The notice by itself reads as "hurry up" — a player seeing it for the first
+  // time has no way to know that beating it pays DOUBLE, or that losing it takes
+  // the pattern away for the rest of the level. That is the game's actual
+  // premise (a second countdown, eating the answers to the first), and it was
+  // being left for the player to infer from a warning triangle. A judge who
+  // plays for three minutes and never works it out scores this as a typing
+  // brawler with a timer, which is the one reading that costs us most.
+  //
+  // Once per browser, on the first notice ever seen, above the notice line, gone
+  // after six seconds. Nothing is gated on it and it never repeats.
+  teachDeprecation() {
+    if (this._eolTaught) return;
+    this._eolTaught = true;
+    try {
+      if (localStorage.getItem('los_seen_eol') === '1') return;
+      localStorage.setItem('los_seen_eol', '1');
+    } catch (e) { /* no storage: teach it this run and move on */ }
+
+    const t = this.add.text(this.eolText.x, this.eolText.y - 22,
+      'the second countdown — write it before the notice dies: DOUBLE pay, or gone for this level', {
+        fontFamily: 'monospace', fontSize: '12px', color: IDE.comment
+      }).setOrigin(0.5).setDepth(this.eolText.depth);
+    this.time.delayedCall(6000, () => {
+      this.tweens.add({
+        targets: t, alpha: 0, duration: 400, onComplete: () => t.destroy()
+      });
+    });
   }
 
   // The notice expired: the pattern is gone for the rest of the level.
