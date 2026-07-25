@@ -142,6 +142,31 @@ class MenuScene extends Phaser.Scene {
     daily.on('pointerover', () => daily.setColor(IDE.white));
     daily.on('pointerout', () => daily.setColor(IDE.stringy));
 
+    // Phones and tablets get told, once, before they waste a rating on it.
+    //
+    // The entire game is a text field with no text field: input is Phaser's
+    // keydown, and there is no DOM input to summon a touch keyboard with — and
+    // if there were, that keyboard would cover half of a 960x540 viewport. So
+    // this is not a port that is missing, it is a genre that does not fit the
+    // device, and the honest thing is to say so at the door rather than let
+    // someone tap [ NEW GAME ] and sit in a game they cannot play.
+    //
+    // Detection deliberately needs BOTH: a coarse primary pointer AND nothing
+    // in the system that can hover. A touchscreen laptop reports coarse for its
+    // finger but still has a trackpad that hovers — it must NOT get this line,
+    // because it has a keyboard and the game is fine there.
+    const mm = typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : null;
+    const touchOnly = !!mm && mm('(pointer: coarse)').matches && !mm('(any-hover: hover)').matches;
+    if (touchOnly) {
+      // Directly under the subtitle: measured, that band runs 174..220 and is
+      // the widest clear space on the menu, so the line lands with ~16px of air
+      // on both sides instead of being wedged between two buttons — and it is
+      // the first place someone looks after the title, which is the point.
+      this.add.text(cx, cy - 73, '⚠ this is a typing game — it needs a physical keyboard', {
+        fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa'
+      }).setOrigin(0.5);
+    }
+
     // the full language road, as badges
     this.add.text(cx, cy + 122, 'A ' + LANGUAGES.length + '-LANGUAGE ROAD', {
       fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
