@@ -2582,3 +2582,83 @@ festival instead of having it cut short for answering well, so a fast player ban
 more credits there than before. That is the same ceiling the sw festival already
 had, and the round is still bounded by its own timer while the main clock drains
 underneath it.
+
+## Eight-task batch - 20260725 (five parallel agents + this session)
+
+Split by FILE OWNERSHIP rather than by task, so no two workers could touch the
+same file: glossary.js, glossary_detail.js (new), battle.js, languages.js, and
+items.js+gen_items.py+BootScene.js went to one agent each; GameScene.js (four of
+the eight asks) stayed here. Agents were barred from git, index.html, build.ps1
+and the browser — all verification and every commit ran from one place.
+
+**Credits no longer cap.** `CREDIT_MAX = 100` clamped all five earn paths. A hint
+is 20, so a good run spent most of its typing earning money deleted on arrival —
+and the shop's UNIQUE tier at 120 was literally unbuyable.
+
+**Level pacing (reported: "some levels clear in 3 words, some in 6").** Measured,
+not guessed: every language asked a flat 500 while a pattern pays
+`length × 10 × combo × rulePay`, so long-word lists (JAVA, TYPESCRIPT — both
+`verbose`, another ×1.5 on 6+ chars) cleared in **4** patterns and ASSEMBLY took
+**7**; ladder position contributed nothing. Targets now derive from each list's
+own mean payout plus a deliberate 6→8 ramp; the 1.6× arbitrary spread became a
+smooth trend. The agent also flagged a real fault in GameScene it was not allowed
+to touch: `livePool()` ignored `rulePay`, so the fairness ceiling undervalued a
+TERSE pool and was clamping ASSEMBLY for a shortfall that did not exist. Fixed
+here with `wordPay()` as the single source of truth for a pattern's base value —
+`submit()` and both reachability checks now share it and cannot drift.
+
+**Ranged is ranged now.** The concept already existed and is STAGE-driven
+(`Battle.RANGED = ['skeleton','elf']`), not item-driven; the hero already held a
+crossbow. The bug was that the ranged branch drew melee anyway: it fired the same
+white sword-crescent on impact, the bolt was an unscaled outline-less smudge
+crossing ~300px in a flat 140ms, and the level-up lunge still charged forward.
+Now: pooled arrows, distance-scaled flight, impact particles on ARRIVAL, hero
+braces backward. Verified — 3.8px of recoil (not a dash), pool settles at 1, the
+y-bob tween survives, melee stages unchanged.
+
+**Five new items, five verbs nothing else had.** PRISM shields the combo, SIGIL
+restores deprecated patterns, CORE halves the drain RATE, SHARD cuts the level's
+target, VAULT wards the deprecation notice outright. Gem textures genuinely
+rendered in Blender 5.2 through the existing pixel-art pass (no AI art). Drop
+rolls are weighted so doubling the type count didn't halve potion/armor.
+
+⚠ **A cross-task collision worth remembering:** VAULT was designed as "+N credit
+ceiling" by the item agent while the credit ceiling was being deleted by this
+session — the item would have shipped doing nothing. Its texture and drop slot
+were real, so it kept both and took the verb that was actually missing (SIGIL
+undoes deprecation; VAULT prevents it). Parallel agents cannot see each other's
+work: check every new feature against the same batch's other changes.
+
+**The bag is bought, not given.** Locked slots are drawn with the next one priced
+(25→85, base 12, cap 18 = the three rows the panel fits). Credits are deducted
+only after the write succeeds, so a storage failure can't take money and give
+nothing. `INV_MAX` deleted; all six sites read the live `Items.slots`.
+
+**Pause board is buttons.** RESUME · SOUND · ASSIST · NOTES · QUIT, each carrying
+live state, re-measured and re-centred per press (labels change width). Keys all
+still work. NOTES is new — it could be switched off from the review card with no
+way back on.
+
+**Glossary 1276/1276** (was 913), plus a 415-entry deep layer behind the new
+DETAILED button — 903 of the 1276 cards can open one.
+
+⚠ **The same latent bug found twice, in code this session wrote.** `G_SHARED[word]`
+was plain indexing on a plain object, so `constructor` — a real word in KOTLIN's
+list — resolved to `Object.prototype.constructor`: truthy, so it counted as
+covered and rendered blank text from a lookup reporting success. The detail agent
+copied the flawed pattern into `GlossaryDetail.get`, where it was worse: the
+DETAILED button appeared and the panel rendered `undefined`. Both now use
+`hasOwnProperty`. `toString`/`valueOf`/`__proto__` are the same trap waiting on a
+future word list — never index a lookup table with player-supplied strings.
+
+All verified live in the browser, console clean: credits past 200; pause buttons
+deaf while hidden, live when open, hit areas matching their widths, all three
+toggles persisting; PRISM holding a combo across two misses and decrementing;
+SHARD 320→210; CORE draining at half; VAULT blocking a notice and consuming a
+ward; SIGIL restoring 2 of 3 dead patterns; bag 12→13 with the price rising
+25→37 and a broke purchase refused without taking credits; ranged arrows pooled
+with the y-bob alive; the review card's five DETAILED buttons, the deep panel
+(316-char explanation, 4 examples, no undefined), ESC closing only the panel, and
+ENTER then closing the card back into play.
+
+`index.html` at `?v=23`.
