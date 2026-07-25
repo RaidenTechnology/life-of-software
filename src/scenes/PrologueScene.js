@@ -41,7 +41,9 @@ class PrologueScene extends Phaser.Scene {
     // --- the frame ---------------------------------------------------------
     // Deliberately short: four lines a judge reads in eight seconds, that give
     // the countdown a reason to exist beyond "there is a timer".
-    this.add.text(cx, 62, '// prologue', {
+    // y=44: the title bar owns 0..30, and the six-line frame below is centred on
+    // 118 so it spans ~55..181 — anything lower than this collides with it.
+    this.add.text(cx, 44, '// prologue', {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
     }).setOrigin(0.5);
 

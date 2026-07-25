@@ -151,8 +151,22 @@ class MenuScene extends Phaser.Scene {
       const row = Math.floor(i / perRow), col = i % perRow;
       const rowLen = row === 0 ? perRow : LANGUAGES.length - perRow;
       const x0 = cx - (rowLen - 1) * spacing / 2;
-      UI.badge(this, x0 + col * spacing, cy + 156 + row * 38, lang, 13);
+      const b = UI.badge(this, x0 + col * spacing, cy + 156 + row * 38, lang, 13);
+      // The road doubles as your record: languages you have ever cleared burn
+      // full colour, the rest sit dim. It turns a decorative strip into the one
+      // progression the game actually keeps — and makes the 25 read as a ladder
+      // you are climbing across sessions, not a wall of logos.
+      if (!Career.has(lang.name)) b.setAlpha(0.34);
     });
+
+    if (Career.data.runs > 0) {
+      this.add.text(cx, cy + 226,
+        'CAREER: ' + Career.clearedCount + '/' + LANGUAGES.length +
+        ' languages cleared · ' + Career.data.words + ' patterns typed · ' +
+        Career.data.runs + ' run' + (Career.data.runs === 1 ? '' : 's'), {
+          fontFamily: 'monospace', fontSize: '12px', color: IDE.stringy
+        }).setOrigin(0.5);
+    }
 
     start.on('pointerdown', startNew);
     daily.on('pointerdown', startDaily);

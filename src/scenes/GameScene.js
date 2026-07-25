@@ -146,6 +146,12 @@ class GameScene extends Phaser.Scene {
         this.stageIndex = Math.min(ck.stageIndex || 0, STAGES.length - 1);
         this.survivalLap = Math.max(0, ck.lap || 0);
         this.langIndex = Math.min(ck.langIndex || 0, LANGUAGES.length - 1);
+        // The wallet comes back too. Credits are the one earned thing that is
+        // pure inventory — you already keep the bag across runs (los_inv), so
+        // dropping the money that bought its contents was just inconsistent.
+        // Score deliberately does NOT resume: it is the measure OF a run, and
+        // carrying it forward would let the same points be banked twice.
+        this.credits = Math.max(0, ck.credits || 0);
       }
     }
     // The opening clock answers the prologue: +20s for someone still learning the
@@ -1547,7 +1553,8 @@ class GameScene extends Phaser.Scene {
     if (prev && (prev.p || 0) >= p) return;
     try {
       localStorage.setItem('los_ckpt', JSON.stringify({
-        p, stageIndex: this.stageIndex, lap: this.survivalLap, langIndex: this.langIndex
+        p, stageIndex: this.stageIndex, lap: this.survivalLap, langIndex: this.langIndex,
+        credits: this.credits
       }));
     } catch (e) {}
   }
@@ -1563,6 +1570,9 @@ class GameScene extends Phaser.Scene {
     // snapshot what was typed BEFORE found is cleared below — the code-review
     // card is built from the player's own words, in the order they wrote them.
     const learned = Profile.learn ? Array.from(this.found) : null;
+    // banked the moment the level falls, not at the end of the run — dying two
+    // languages later must not take back a language you actually cleared.
+    Career.clearLang(LANGUAGES[fromIdx].name);
     this.levelMistakes = 0;
     // Re-arm the live PERFECT tag for the fresh level. A level that broke pace
     // leaves _perfectState terminally 'off' (see refreshPerfect); reset it here —

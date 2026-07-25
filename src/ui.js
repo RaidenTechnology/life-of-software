@@ -101,6 +101,53 @@ const Profile = {
   }
 };
 
+// Everything you have ever done here, kept across every run and every session.
+//
+// A run is over in a few minutes and takes its score with it; the personal best
+// remembers one number about one run. Neither of those is a record of what you
+// have actually learned, which — once the game started explaining the patterns
+// — is the thing worth keeping. Career is that record: which of the 25 languages
+// you have ever cleared, how many patterns you have typed in your life, how long
+// you have held the clock off zero, across every run you have played.
+//
+// Monotonic on purpose: it only ever grows, so nothing you did can be undone by
+// a bad run afterwards. One guarded read at load, one guarded write per change —
+// same idiom as Assist/Profile, and a throwing localStorage just means the
+// record doesn't persist, never that the game breaks.
+const Career = {
+  data: (() => {
+    const blank = { runs: 0, words: 0, time: 0, cleared: {} };
+    try {
+      const raw = JSON.parse(localStorage.getItem('los_career') || 'null');
+      if (!raw || typeof raw !== 'object') return blank;
+      return {
+        runs: raw.runs || 0,
+        words: raw.words || 0,
+        time: raw.time || 0,
+        cleared: (raw.cleared && typeof raw.cleared === 'object') ? raw.cleared : {}
+      };
+    } catch (e) { return blank; }
+  })(),
+  save() {
+    try { localStorage.setItem('los_career', JSON.stringify(this.data)); } catch (e) {}
+  },
+  // a language counts as cleared the moment you finish its level, not when the
+  // run ends — dying afterwards must not take it back.
+  clearLang(name) {
+    if (this.data.cleared[name]) return;
+    this.data.cleared[name] = 1;
+    this.save();
+  },
+  endRun(words, seconds) {
+    this.data.runs++;
+    this.data.words += words || 0;
+    this.data.time += Math.max(0, Math.round(seconds || 0));
+    this.save();
+  },
+  get clearedCount() { return Object.keys(this.data.cleared).length; },
+  has(name) { return !!this.data.cleared[name]; }
+};
+
 const UI = {
   // window title bar + blue status bar, like an editor. Also mounts the
   // settings gear (top-right) with the sound toggle panel.

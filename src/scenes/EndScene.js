@@ -46,6 +46,32 @@ class EndScene extends Phaser.Scene {
     return 'D';
   }
 
+  // The run's closing line, in the prologue's voice. The prologue frames the
+  // game (everything you know is going obsolete underneath you) and until now
+  // nothing closed that arc — the End screen was a stat sheet. This gives the
+  // finish a sentence, and it changes with how far you actually got, so it reads
+  // as a verdict on THIS run rather than the same card every time.
+  epitaph() {
+    const n = this.langIndex, all = LANGUAGES.length;
+    if (this.stageIndex > 0 || this.lap > 0)
+      return 'You have done this ladder before, and climbed it again anyway.\n' +
+             'That is the whole job: the languages change, you do not stop.';
+    if (n >= all - 1)
+      return 'You reached the end of the road with the clock still against you.\n' +
+             'Everything you learned is still here. Only the time ran out.';
+    if (n >= all * 0.6)
+      return 'Deep into the ladder — the languages you were fluent in are two\n' +
+             'stages behind you now, and nobody is maintaining them either.';
+    if (n >= all * 0.28)
+      return 'Far enough in that the easy syntax stopped helping.\n' +
+             'This is where most careers quietly stall.';
+    if (n >= 2)
+      return 'You got past the markup and into real code before it caught you.\n' +
+             'Everyone starts here. Almost nobody starts twice.';
+    return 'The first language took you. It takes most people —\n' +
+           'and it is the only one you can still be sure of.';
+  }
+
   create() {
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
     const lang = LANGUAGES[this.langIndex];
@@ -63,11 +89,43 @@ class EndScene extends Phaser.Scene {
     // below and the share card string.
     const toBoss = LANGUAGES.length - 1 - this.langIndex;
 
+    // the run is over: fold it into the permanent record before anything is
+    // drawn, so the career line this screen shows already includes it.
+    Career.endRun(this.words, this.survived);
+
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     status.left.setText(this.win ? 'exit code 0' : 'exit code 1 — time is up');
     status.right.setText(this.daily
       ? 'DAILY — ' + new Date().toISOString().slice(0, 10)
       : 'GMTK 2026 — Count Down');
+
+    // The closing line sits in the empty band above the title (y≈30..115 is free:
+    // the status bar ends at 30, the 46px title starts around cy-151), so the
+    // arc closes without crowding the stat block below.
+    this.add.text(cx, 76, this.epitaph(), {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.comment,
+      align: 'center', lineSpacing: 5
+    }).setOrigin(0.5);
+
+    // The permanent record, mirroring the GRADE stamp across the screen: the
+    // grade judges this run, this judges everything you have ever done here.
+    // Languages-ever-cleared is the number that actually tracks learning, which
+    // is what the review cards made the game about.
+    const cw = Career.data;
+    this.add.text(cx + 250, cy - 116, 'CAREER', {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
+    }).setOrigin(0.5);
+    this.add.text(cx + 250, cy - 92,
+      Career.clearedCount + '/' + LANGUAGES.length, {
+        fontFamily: 'monospace', fontSize: '30px', color: IDE.stringy, fontStyle: 'bold'
+      }).setOrigin(0.5);
+    this.add.text(cx + 250, cy - 68, 'languages ever cleared', {
+      fontFamily: 'monospace', fontSize: '10px', color: IDE.dim
+    }).setOrigin(0.5);
+    this.add.text(cx + 250, cy - 50,
+      cw.words + ' patterns · ' + this.fmtDuration(cw.time) + ' typed', {
+        fontFamily: 'monospace', fontSize: '10px', color: IDE.dim
+      }).setOrigin(0.5);
 
     // everything centered on the screen axis
     this.add.text(cx, cy - 128, this.win ? 'BUILD SUCCESSFUL ✓' : 'TIME IS UP ✗', {
@@ -270,7 +328,7 @@ class EndScene extends Phaser.Scene {
       ' (L' + (this.langIndex + 1) + '/' + LANGUAGES.length + ') · ' + this.finalScore +
       ' pts · ' + this.wpm + ' wpm · ' + this.acc + '% acc · x' + this.maxCombo + ' combo · ' +
       this.fmtDuration(this.survived) + ' survived · ' +
-      this.grade + '-rank' +
+      this.grade + '-rank · ' + Profile.label +
       // a run that beat the stored best reads as an improvement when pasted into
       // the itch comments, not just a raw stat line (mirrors the on-screen banner).
       (sharePB ? ' · ▲ ' + (this.daily ? 'NEW DAILY BEST' : 'NEW PB') : '');
