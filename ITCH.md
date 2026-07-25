@@ -17,11 +17,25 @@ the itch page and the build upload are yours to do.
 
 ## Cover image
 
-`assets/menu_splash.png` upscaled to 630×500 with **nearest-neighbour** (never
-bilinear — it's pixel art, a smooth upscale is the one thing that makes it look
-cheap). The `cover.py` in the `gmtk2026` repo already does this.
+**Done — `media/cover-630x500.png`.** Built by `tools-cover.py` out of the game's
+own pixels rather than drawn: the title is lifted from the menu the game renders
+(so the cover's type IS the game's type), the cast is `assets/menu_splash.png`
+nearest-upscaled ×4 (never bilinear — it's pixel art, a smooth upscale is the one
+thing that makes it look cheap), and the hook row is the real deprecation notice
+off a real frame, cropped clear of the HUD readout at x=687. Re-run the script if
+the menu or the notice ever changes.
 
-## GIF (record this — it does more for votes than anything else on the page)
+## GIF — DONE
+
+`media/life-of-software.gif` (720×405, 13.8s, 1.78MB) and `-small.gif` (480px,
+0.81MB) for anywhere with a tighter limit, plus `media/life-of-software.mp4` for
+a devlog or a post. Five stills cut from the same take ship beside them
+(`ss1-deprecation` … `ss5-code-review`), so the page and the GIF tell one story.
+The cut, in order: patterns landing and the combo climbing, the notice up, the
+rescue (×2), the boss exploit chain, the level clear, the language road with the
+epitaph, the boon draft, the CODE REVIEW card.
+
+The original brief this was shot against:
 
 15–20 seconds, in this order, because it shows all three hooks before anyone
 scrolls away:
@@ -132,7 +146,10 @@ or audio.**
       same URL, so a returning browser will otherwise run cached JS
 - [ ] Kind of project: **HTML** · "This file will be played in the browser"
 - [ ] Viewport **960×540**, fullscreen button **on**, mobile friendly **off**
-- [ ] Cover 630×500, at least 3 screenshots, the GIF first
+- [ ] Cover `media/cover-630x500.png`; screenshots `media/ss1..ss5`, the GIF first
+- [ ] Mobile: leave **mobile friendly OFF** — the game is keyboard-only, and the
+      menu now says so out loud to any touch-only device (coarse pointer AND no
+      hover, so a touchscreen laptop never sees it)
 - [ ] Genre: Action · Tags: `typing`, `roguelite`, `pixel-art`, `programming`,
       `countdown`, `phaser`
 - [ ] Submit to the **GMTK Game Jam 2026** page before the deadline — the
