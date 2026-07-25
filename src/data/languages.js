@@ -1,7 +1,8 @@
 // Language ladder — 25 languages ordered by learning difficulty, easiest first.
 // All entries lowercase; input is lowercased before comparison.
 // Operators/punctuation ("==", "=>", "::", "%>%") count as patterns too.
-// target/timeMult are computed from ladder position at the bottom of this file.
+// target/timeMult are computed at the bottom of this file — timeMult from ladder
+// position, target from ladder position AND what the list's own patterns pay.
 // dark: true → badge abbreviation is drawn dark (for light badge colors).
 
 const LANGUAGES = [
@@ -304,10 +305,11 @@ const LANGUAGES = [
   }
 ];
 
-// Difficulty curve, one place to tune: every level needs 500 points; the
-// per-word time bonus shrinks as you climb the ladder.
+// The per-word time bonus shrinks as you climb the ladder. Level targets are
+// computed further down, after the rules below are attached — a rule changes
+// what a pattern PAYS, so it has to be known before a target can be derived
+// from it. (See "difficulty curve: level targets".)
 LANGUAGES.forEach((lang, i) => {
-  lang.target = 500;
   lang.timeMult = Math.max(0.5, +(1 - i * 0.02).toFixed(2));
 });
 
@@ -345,6 +347,100 @@ Object.entries({
   const lang = LANGUAGES.find(l => l.name === name);
   if (lang) lang.rule = rule;
 });
+
+// --- difficulty curve: level targets ---
+//
+// Every language used to ask for a flat 500 points, and that is a fairness bug,
+// because points scale with PATTERN LENGTH: GameScene pays w.length * 10 * combo
+// * the rule's payout. A flat target therefore asks a language of long patterns
+// for far fewer patterns than a language of short ones. Measured against the
+// real scoring path (random typing order, 400 shuffles per language, stage 0):
+//
+//   JAVA / TYPESCRIPT cleared in 5.9 patterns   (mean length 5.7, and `verbose`
+//                                                pays them another 1.5x on top)
+//   HTML / PYTHON     cleared in 8.7 patterns   (mean length 4.1)
+//
+// — a 1.48x spread with nothing behind it but word-list vocabulary, which is
+// exactly the "some levels go in 3 patterns, some take 6" a player reported.
+// Best case it was worse: 4 patterns for JAVA against 7 for ASSEMBLY. Worse
+// still, ladder position contributed NOTHING to the target, so within a stage
+// the ramp was pure noise — HTML (position 0) was the joint-hardest level and
+// JAVA (position 10) the easiest.
+//
+// So a target is now derived from what the language's own patterns are worth:
+//
+//   target = meanPay * COMBO_UNITS(patternsWanted(ladderPosition))
+//
+// meanPay is the average payout of one pattern from THIS list (length x 10,
+// times the rule multiplier the level will actually apply). COMBO_UNITS turns a
+// pattern COUNT into the point total those patterns bank, honouring GameScene's
+// combo ladder. Invert it and every language costs the same number of patterns
+// at the same ladder position — the vocabulary stops deciding the difficulty
+// and the ladder position starts.
+//
+// The stage multiplier in targetScore() (1.0 -> 3.5, plus 0.5 a survival lap)
+// still scales all of this, so the run-long ramp is untouched; this only fixes
+// the accidental noise underneath it.
+const RULE_PAY = (rule, len) =>
+  (rule === 'verbose' && len >= 6) ? 1.5 :
+  (rule === 'terse' && len < 4) ? 2 : 1;
+
+// Points banked after n patterns, in units of one average pattern's payout.
+// Mirrors GameScene.comboMult() exactly, including that combo++ happens BEFORE
+// the pattern is scored: patterns 1-4 pay x1, 5-14 pay x2, 15+ pay x3. Written
+// for fractional n so the ladder ramp below doesn't have to be whole patterns.
+const COMBO_UNITS = n =>
+  Math.min(n, 4) + 2 * Math.max(0, Math.min(n, 14) - 4) + 3 * Math.max(0, n - 14);
+
+// The ladder ramp, in patterns, at stage VERY EASY: 6 at HTML, 8 at ASSEMBLY,
+// a straight line between. Kept deliberately gentle — the run's real difficulty
+// ramp is the stage multiplier and the shrinking timeMult above, and a level is
+// a 6-to-8-pattern beat by design. The old flat target averaged 7.4 patterns, so
+// the ladder as a whole is paced the same; it's simply no longer random which
+// language is the quick one.
+const PATTERNS_FIRST = 6, PATTERNS_LAST = 8;
+
+LANGUAGES.forEach((lang, i) => {
+  const meanPay = lang.words.reduce(
+    (sum, w) => sum + w.length * 10 * RULE_PAY(lang.rule, w.length), 0) / lang.words.length;
+  const wanted = PATTERNS_FIRST +
+    (PATTERNS_LAST - PATTERNS_FIRST) * (i / (LANGUAGES.length - 1));
+  // Round to 10 so the HUD's "target N" reads like a score, not a measurement,
+  // and so it survives targetScore()'s own /10 rounding unchanged.
+  lang.target = Math.round(meanPay * COMBO_UNITS(wanted) / 10) * 10;
+});
+
+// Targets now span 320 (HTML) to 730 (TYPESCRIPT/JAVA) instead of a flat 500,
+// and that spread is the point: TYPESCRIPT's patterns are worth ~1.9x HTML's, so
+// it must ask for ~1.9x the points to cost the same number of patterns.
+//
+// Re-measured the same way (400 random typing orders per language per stage),
+// patterns-to-clear now tracks the ladder instead of the vocabulary:
+//
+//                       before (flat 500)        after
+//   VERY EASY   7.6 -> 7.4, noise +-1.66     6.5 -> 8.5, noise +-0.15
+//   MEDIUM     11.6 ->11.4, noise +-3.22     9.7 ->13.3, noise +-0.14
+//   HARD       13.9 ->13.7, noise +-3.70    11.9 ->15.6, noise +-1.85
+//
+// ("noise" = worst deviation from the ladder's own trend line. Before, the trend
+// was FLAT — it even sagged slightly — so every one of those patterns of
+// deviation was somebody's level being randomly short or long.)
+//
+// Headroom against targetScore()'s ceiling (a target is capped at 70% of the
+// list's un-multiplied point pool so it can never outrun the word list): every
+// target here clears the ceiling through MEDIUM, most at half of it or less. LUA
+// — the smallest pool at 38 patterns, and the list that used to dead-end — sits
+// at 58% of its ceiling at MEDIUM and 91% at VERY HARD.
+//
+// One residual, and it is not this file's to fix: the ceiling is computed from
+// raw pattern length and ignores the rule payout, so a `terse` list whose short
+// patterns all pay 2x can earn far more than the ceiling believes exists.
+// ASSEMBLY (smallest pool of the three terse lists) is therefore the one target
+// that runs tight — 96% of its ceiling at MEDIUM, capped from HARD upward, where
+// it clears in 13.7 patterns against the 15.6 its ladder position asks for.
+// Fixing it properly means teaching livePool()/targetScore() in GameScene.js
+// about RULE_PAY; clamping harder here would only trade a fault at HARD+ for a
+// worse one at VERY EASY, where the levels are actually played.
 
 // --- growth-festival signatures ---
 //

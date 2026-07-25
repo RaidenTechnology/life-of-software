@@ -48,8 +48,19 @@ class BootScene extends Phaser.Scene {
     });
 
     // loot icons — same keys Items.makeTextures() checks, so it skips its own
-    // placeholder once these are loaded.
-    ['sword', 'armor', 'potion', 'scroll', 'treasure'].forEach(t => {
+    // placeholder once these are loaded. The five gems (prism/sigil/core/shard/
+    // vault) come from the same blender/gen_items.py pass as the originals.
+    //
+    // No ASSET_V bump for the gems: these filenames have never been served, so
+    // no browser can be holding a stale copy of them, and bumping would throw
+    // away every cached backdrop and character sheet for nothing. Bump it only
+    // when an EXISTING asset is re-rendered.
+    //
+    // If a gem PNG is absent (not rendered yet) the load simply fails, the key
+    // never registers, and Items.makeTextures() draws its code placeholder —
+    // that is the intended degradation, not a missing-texture bug.
+    ['sword', 'armor', 'potion', 'scroll', 'treasure',
+     'prism', 'sigil', 'core', 'shard', 'vault'].forEach(t => {
       img('it_' + t, 'it_' + t);
     });
   }

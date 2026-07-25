@@ -14,7 +14,12 @@ const HINT_COST = 20;
 const HINT_COOLDOWN = 8;
 const FESTIVAL_HINT_COST = 10;
 const CREDIT_PER_WORD = 5;
-const CREDIT_MAX = 100;
+// There is no credit ceiling any more. The old CREDIT_MAX = 100 quietly threw
+// away everything you earned past it -- and since a single hint costs 20, the
+// cap meant a good run spent most of its typing earning money that was deleted
+// on arrival. It also made the new expandable bag slots unbuyable at the top
+// end. Credits are now a real currency: they accumulate, and the things worth
+// saving for decide the ceiling.
 const START_TIME = 75;
 // how many patterns the post-level code-review card explains. Five is what fits
 // the panel at a readable size, and roughly what anyone absorbs in the few
@@ -161,7 +166,13 @@ class GameScene extends Phaser.Scene {
     this.timeLeft = START_TIME + (this.daily ? 0 : Profile.startBonus);
     this.typed = '';
     this.learnKey = null;   // no stale code-review handler across a restart
+    this.detailKey = null;  // ...nor a stale deep-panel handler
     this.found = new Set();
+    this.comboShield = 0;       // PRISM: wrong patterns the combo survives
+    this.slowUntil = 0;         // CORE: elapsed-time stamp the slow drain ends at
+    this.slowFactor = 1;        // CORE: drain multiplier while slowed
+    this.targetCut = 0;         // SHARD: fraction off THIS level's target (0..1)
+    this.eolWards = 0;          // VAULT: deprecation notices to auto-save
     this.dead = new Set();      // patterns deprecated this level — unwritable
     this.eol = null;            // the one currently on notice, if any
     this.eolTimer = 0;
@@ -411,14 +422,52 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '14px', color: '#dcdcaa',
       align: 'center', lineSpacing: 4
     }).setOrigin(0.5);
-    // shows the sound state live: this is a keyboard game, so M toggles mute right
-    // here (see onKey's paused branch) instead of forcing a mouse trip to the gear.
-    this.pauseHint = this.add.text(cx, pcy + 50, '', {
-      fontFamily: 'monospace', fontSize: '14px', color: IDE.comment
+    // The pause board's controls are BUTTONS, not a legend.
+    //
+    // It used to be one line of text — "ESC resume · M sound: ON · A assist: ON ·
+    // Q quit" — which is fine for a player who reads it and remembers four
+    // letters, and useless for everyone else. Someone who paused specifically to
+    // turn the sound off had to read a sentence to find out that a key they
+    // cannot see does it. The keys all still work (this is a keyboard game and
+    // they are faster), but every one of them is now a thing you can click, with
+    // its current state written on it.
+    this.pauseBtnDefs = [
+      { label: () => 'RESUME  (ESC)', act: () => this.togglePause() },
+      { label: () => 'SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + '  (M)',
+        act: () => { Sfx.setMuted(!Sfx.muted); Sfx.blip(); } },
+      { label: () => 'ASSIST: ' + (Assist.on ? 'ON' : 'OFF') + '  (A)',
+        act: () => { Assist.setOn(!Assist.on); this.refreshAssist(); Sfx.blip(); } },
+      { label: () => 'NOTES: ' + (Profile.learn ? 'ON' : 'OFF') + '  (L)',
+        act: () => { Profile.setLearn(!Profile.learn); Sfx.blip(); } },
+      { label: () => 'QUIT  (Q)', act: () => this.quitToMenu() }
+    ];
+    this.pauseBtns = this.pauseBtnDefs.map(() => {
+      const box = this.add.rectangle(0, pcy + 54, 10, 26, 0x1c1c1d)
+        .setStrokeStyle(1, IDE.border).setInteractive({ useHandCursor: true });
+      const txt = this.add.text(0, pcy + 54, '', {
+        fontFamily: 'monospace', fontSize: '13px', color: IDE.white
+      }).setOrigin(0.5);
+      return { box, txt };
+    });
+    this.pauseBtns.forEach((b, i) => {
+      const def = this.pauseBtnDefs[i];
+      b.box.on('pointerover', () => b.txt.setColor('#dcdcaa'));
+      b.box.on('pointerout', () => b.txt.setColor(IDE.white));
+      // act() then refresh: three of the five change the very label they sit on.
+      b.box.on('pointerdown', () => { def.act(); this.refreshPauseHint(); });
+    });
+    this.pauseHint = this.add.text(cx, pcy + 82, 'the keys work too — this is a keyboard game', {
+      fontFamily: 'monospace', fontSize: '11px', color: IDE.dim
     }).setOrigin(0.5);
     this.refreshPauseHint();
-    this.pauseUI = this.add.container(0, 0, [pDim, pPanel, pTitle, this.pauseStats, this.pauseHint].filter(Boolean))
+    this.pauseUI = this.add.container(0, 0,
+      [pDim, pPanel, pTitle, this.pauseStats, this.pauseHint,
+        ...this.pauseBtns.map(b => b.box), ...this.pauseBtns.map(b => b.txt)].filter(Boolean))
       .setDepth(50).setVisible(false);
+    // The overlay starts hidden, so its buttons must start deaf — refreshPauseHint
+    // above armed them while building the row, and an invisible container does not
+    // stop Phaser hit-testing its children (see togglePause).
+    this.pauseBtns.forEach(b => b.box.disableInteractive());
 
     // silent low-time warning: a red edge frame that intensifies as the clock
     // runs out, so the countdown tension reads even with sound muted. A full-
@@ -529,7 +578,11 @@ class GameScene extends Phaser.Scene {
 
   targetScore() {
     const mult = STAGES[this.stageIndex].mult + this.survivalLap * 0.5;
-    const raw = Math.round(this.lang.target * mult * this.boonTarget / 10) * 10;
+    // SHARD moves the goalpost. Applied to the RAW target only: the pool ceiling
+    // below is a fairness floor, and cutting the target must never be able to
+    // push it above what the words can actually pay.
+    const raw = Math.round(
+      this.lang.target * mult * this.boonTarget * (1 - this.targetCut) / 10) * 10;
     // A target is only fair if the language's word list can actually reach it.
     // The stage/lap multiplier had no such check, so late laps pushed targets
     // past the pool's ceiling — LUA at SURVIVAL lap 3 asked for 2500 when typing
@@ -571,13 +624,33 @@ class GameScene extends Phaser.Scene {
     return this.lang.rule || null;
   }
 
+  // What ONE pattern is worth, before the combo multiplier and before a
+  // deprecation rescue doubles it. The single source of truth for a pattern's
+  // base value: submit() scores with it, and the two reachability checks below
+  // measure the pool with it, so a level's target and its scoring can no longer
+  // disagree about what a word is worth.
+  //
+  // The rule multiplier belongs in here. It used to live only in submit(), so
+  // livePool() valued a TERSE language's short patterns at face value while the
+  // player was actually banking double for them — the ceiling believed less was
+  // reachable than really was, and clamped targets that did not need clamping.
+  // ASSEMBLY (the smallest terse pool) was running at 96% of that phantom
+  // ceiling and capped from HARD upward, clearing ~2 patterns early against what
+  // its ladder position asks for.
+  wordPay(w) {
+    const r = this.rule();
+    const rulePay = (r === 'verbose' && w.length >= 6) ? 1.5
+      : (r === 'terse' && w.length < 4) ? 2 : 1;
+    return w.length * 10 * rulePay;
+  }
+
   // Base points left on the table this level: every pattern not yet written and
   // not deprecated. Feeds both the target ceiling above and deprecation's
   // fairness check, so the two can never disagree about what's still reachable.
   livePool() {
     let total = 0;
     for (const w of this.lang.words) {
-      if (!this.dead.has(w)) total += w.length * 10;
+      if (!this.dead.has(w)) total += this.wordPay(w);
     }
     return total;
   }
@@ -590,7 +663,7 @@ class GameScene extends Phaser.Scene {
     if (owed <= 0) return false;
     let left = 0;
     for (const w of this.lang.words) {
-      if (!this.dead.has(w) && !this.found.has(w) && w !== word) left += w.length * 10;
+      if (!this.dead.has(w) && !this.found.has(w) && w !== word) left += this.wordPay(w);
     }
     return left >= owed * DEPRECATE_MARGIN;
   }
@@ -604,6 +677,14 @@ class GameScene extends Phaser.Scene {
     if (!pool.length) return;
     pool.sort((a, b) => b.length - a.length);
     const word = this.pickFrom(pool.slice(0, Math.max(3, Math.ceil(pool.length / 3))));
+    // VAULT wards the notice before it can ever be on screen: the pattern is
+    // simply never put at risk, and one ward is spent.
+    if (this.eolWards > 0) {
+      this.eolWards--;
+      this.floatText('VAULT SAVED "' + word + '"');
+      this.refreshLangHud();
+      return;
+    }
     this.eol = { word, left: DEPRECATE_WARN + this.boonEol };
     this.eolText.setText('⚠ "' + word + '" is being deprecated — write it now!')
       .setColor('#dcdcaa').setVisible(true);
@@ -612,6 +693,19 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.eolText, alpha: 0.45, duration: 400, yoyo: true, repeat: -1 });
     this.teachDeprecation();
     Sfx.hint();
+  }
+
+  // A VAULT bought while a notice is already ticking should not have to wait for
+  // the NEXT one — spend a ward on the pattern currently at risk and clear it.
+  consumeEolWard() {
+    if (!this.eol || this.eolWards <= 0) return;
+    const word = this.eol.word;
+    this.eolWards--;
+    this.eol = null;
+    this.tweens.killTweensOf(this.eolText);
+    this.eolText.setVisible(false);
+    this.eolTimer = 0;
+    this.floatText('VAULT SAVED "' + word + '"');
   }
 
   // The idea the whole game is built on, said out loud exactly once.
@@ -702,8 +796,7 @@ class GameScene extends Phaser.Scene {
   }
 
   gainCredits(base) {
-    this.credits = Math.min(CREDIT_MAX,
-      this.credits + (base + this.boonCredit) * this.creditMult);
+    this.credits += (base + this.boonCredit) * this.creditMult;
   }
 
   // Every EARNED clock increment routes through here so the run can tally how many
@@ -805,6 +898,15 @@ class GameScene extends Phaser.Scene {
         this.refreshPauseHint();
         Sfx.blip();
       }
+      // L toggles the post-level pattern notes. It became a real game system, so
+      // it belongs on the pause board next to the other two switches rather than
+      // only on the review card itself (where you can turn it off but never back
+      // on) and the menu's SETUP entry (which costs you the run to reach).
+      else if (e.key === 'l' || e.key === 'L') {
+        Profile.setLearn(!Profile.learn);
+        this.refreshPauseHint();
+        Sfx.blip();
+      }
       return;
     }
     // CTRL+SPACE = HINT. The hint was the one during-play action with no keyboard
@@ -891,7 +993,17 @@ class GameScene extends Phaser.Scene {
         this.levelMistakes++;
         if (this._perfectState === 'on') this.refreshPerfect(true);  // one-shot break flash
       }
-      this.combo = 0;
+      // PRISM absorbs the reset. Spent per wrong word, and only on the combo —
+      // the mistake still costs the perfect-clear bonus, the accuracy stat and
+      // (under STRICT) the seconds, because forgiving all of that would make the
+      // item a licence to type badly rather than insurance against one slip.
+      if (this.comboShield > 0) {
+        this.comboShield--;
+        this.floatText('PRISM HELD THE COMBO  ×' + this.combo +
+          (this.comboShield > 0 ? '  (' + this.comboShield + ' left)' : '  (last one)'));
+      } else {
+        this.combo = 0;
+      }
       this.refreshCombo();
       if (this.rule() === 'strict') {
         // the level's own rule, announced at its start: this compiler charges
@@ -989,10 +1101,7 @@ class GameScene extends Phaser.Scene {
       this.rescuedCount++;
       this.floatText('SAVED FROM DEPRECATION!  ×2');
     }
-    const r = this.rule();
-    const rulePay = (r === 'verbose' && w.length >= 6) ? 1.5
-      : (r === 'terse' && w.length < 4) ? 2 : 1;
-    const points = w.length * 10 * m * (rescued ? 2 : 1) * rulePay;
+    const points = this.wordPay(w) * m * (rescued ? 2 : 1);
     const bonus = ((1.5 + 0.25 * w.length) * this.lang.timeMult + this.boonTime) *
       (rescued ? 2 : 1);
     this.score += points;
@@ -1028,7 +1137,14 @@ class GameScene extends Phaser.Scene {
       // only runs on a hit), so revealing it would hand over free points.
       const tail = this.combo >= 5 ? ' — combo ×' + this.combo + ' lost!' : '';
       this.feedback('"' + w + '" is not the language of "' + f.word + '"' + tail, IDE.error);
-      this.combo = 0;
+      // the shield covers festival misses too — it guards the combo, and the
+      // combo is one number that runs across levels, bosses and festivals alike.
+      if (this.comboShield > 0) {
+        this.comboShield--;
+        this.floatText('PRISM HELD THE COMBO  ×' + this.combo);
+      } else {
+        this.combo = 0;
+      }
       this.refreshCombo();
       Sfx.wrong();
       this.shakePanel();
@@ -1215,9 +1331,9 @@ class GameScene extends Phaser.Scene {
   }
 
   addItem(item, announce) {
-    if (this.inventory.length >= INV_MAX) {
+    if (this.inventory.length >= Items.slots) {
       const v = RARITIES[item.r].salvage;
-      this.credits = Math.min(CREDIT_MAX, this.credits + v);
+      this.credits += v;
       this.refreshCredits();
       this.feedback('bag full — ' + Items.name(item) + ' salvaged +' + this.fmtC(v), RARITIES[item.r].color);
       return;
@@ -1233,37 +1349,78 @@ class GameScene extends Phaser.Scene {
     const item = this.inventory[i];
     if (!item) return;
     const T = ITEM_TYPES[item.t], r = item.r;
+    const eff = Items.effect(item);
     // Refuse a use that would throw the item away. A word's time bonus being
     // clipped by TIME_CAP is incidental; a consumable you deliberately spent
     // being destroyed is not — measured: a LEGENDARY potion (+60s) drunk at 90s
-    // on the clock delivered 9 and burned 51. Same for an armour whose save is
-    // no better than the one already armed. The item stays in the bag and the
-    // message says why, so the answer is "spend some clock first", not "oh".
-    if (T.key === 'potion' && TIME_CAP - this.timeLeft < T.time[r] * 0.66) {
-      this.feedback('clock too full for ' + Items.name(item) +
-        ' — it would waste ' + Math.round(T.time[r] - (TIME_CAP - this.timeLeft)) + 's',
-        IDE.error);
-      Sfx.wrong();
-      return;
-    }
-    if (T.key === 'armor' && this.deathSave >= T.save[r]) {
-      this.feedback('your armour already saves ' + this.deathSave + 's — keep this one',
-        IDE.error);
+    // on the clock delivered 9 and burned 51. The rule now lives in items.js
+    // (Items.refuseReason) with the whole context handed to it, because every
+    // new gem needs its own version and five more inline `if`s here is exactly
+    // how a rule like this quietly stops being applied to half the items.
+    const refuse = Items.refuseReason(item, {
+      timeLeft: this.timeLeft, timeCap: TIME_CAP, deathSave: this.deathSave,
+      comboShield: this.comboShield, deadCount: this.dead.size,
+      targetCut: this.targetCut, slowActive: this.elapsed < this.slowUntil
+    });
+    if (refuse) {
+      this.feedback(Items.name(item) + ' — ' + refuse, IDE.error);
       Sfx.wrong();
       return;
     }
     if (T.key === 'sword') {
-      this.creditMult = T.mult(r);
-      this.multWords = T.multWords[r];
+      this.creditMult = eff.creditMult;
+      this.multWords = eff.multWords;
     } else if (T.key === 'armor') {
-      this.deathSave = Math.max(this.deathSave, T.save[r]);
+      this.deathSave = Math.max(this.deathSave, eff.deathSave);
     } else if (T.key === 'potion') {
-      this.addTime(T.time[r]);
+      this.addTime(eff.time);
       this.flashGain();   // a potion is the biggest single refill (+10..60s)
     } else if (T.key === 'scroll') {
-      this.hintTokens += T.hints[r];
+      this.hintTokens += eff.hints;
     } else if (T.key === 'treasure') {
-      this.credits = Math.min(CREDIT_MAX, this.credits + T.credits[r]);
+      this.credits += eff.credits;
+    } else if (T.key === 'prism') {
+      // PRISM — the combo survives your next N wrong patterns. The combo
+      // multiplier is the largest swing in the scoring, and one mistyped word
+      // razes it; this is the only thing in the game that forgives a typo.
+      this.comboShield = Math.max(this.comboShield, eff.comboShield);
+      this.refreshCombo();
+    } else if (T.key === 'sigil') {
+      // SIGIL — put deprecated patterns back in the pool. The one answer to the
+      // game's second countdown: everything else races it, this reverses it.
+      const back = Array.from(this.dead).slice(0, eff.revive);
+      back.forEach(w => this.dead.delete(w));
+      this.deprecatedCount = Math.max(0, this.deprecatedCount - back.length);
+      this.refreshAssist();      // the shelf can offer them again
+      this.refreshLangHud();     // the target ceiling is derived from the pool
+      this.floatText('RESTORED ' + back.length + ' PATTERN' + (back.length === 1 ? '' : 'S'));
+    } else if (T.key === 'core') {
+      // CORE — halve the drain for a while. Not more seconds (that is a potion),
+      // but slower seconds: it buys the same time and makes a hard level readable
+      // instead of just longer.
+      this.slowUntil = this.elapsed + eff.slowSeconds;
+      this.slowFactor = eff.slowFactor;
+      this.flashGain();
+    } else if (T.key === 'shard') {
+      // SHARD — move the goalpost instead of the clock. One cut per level
+      // (refuseReason blocks a second), cleared on every level change.
+      this.targetCut = eff.targetCut;
+      this.refreshLangHud();
+      this.floatText('TARGET CUT ' + Math.round(eff.targetCut * 100) + '%');
+    } else if (T.key === 'vault') {
+      // VAULT — the notice never lands: the next N patterns put on deprecation
+      // notice are saved automatically.
+      //
+      // It shipped from the item pass as "+N credit ceiling", which was correct
+      // when it was written and dead on arrival by the time it landed: the credit
+      // cap was removed in the same batch of work, so raising it bought nothing.
+      // Rather than drop the item (its topaz texture is rendered and its slot in
+      // the drop table is real), it was given the verb that was actually missing.
+      // SIGIL undoes a deprecation after the fact; this one stops it happening,
+      // which is the more valuable half and reads clearly next to it.
+      this.eolWards += eff.eolWards;
+      if (this.eol) this.consumeEolWard();   // spend one on the notice already up
+      this.refreshLangHud();
     }
     this.inventory.splice(i, 1);
     Items.save(this.inventory);
@@ -1277,7 +1434,7 @@ class GameScene extends Phaser.Scene {
     const item = this.inventory[i];
     if (!item) return;
     const v = RARITIES[item.r].salvage;
-    this.credits = Math.min(CREDIT_MAX, this.credits + v);
+    this.credits += v;
     this.inventory.splice(i, 1);
     Items.save(this.inventory);
     this.refreshBag();
@@ -1372,13 +1529,43 @@ class GameScene extends Phaser.Scene {
     this.menuOpen = 'bag';
     this.bagSel = selected;   // remember the highlighted slot for keyboard nav (bagKey)
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
-    const c = this.menuShell('INVENTORY  (' + this.inventory.length + '/' + INV_MAX + ')',
-      'click or ↑↓←→ / 1-9 to pick · U use · S salvage · ESC closes');
+    const cap = Items.slots, maxCap = Items.slotsMax, price = Items.slotPrice();
+    const c = this.menuShell('INVENTORY  (' + this.inventory.length + '/' + cap + ')',
+      'click or ↑↓←→ / 1-9 to pick · U use · S salvage' +
+      (price != null ? ' · B buy slot' : '') + ' · ESC closes');
 
+    // The bag is bought, not given. Every slot up to the hard cap is drawn: the
+    // ones you own as normal slots, the rest as locked outlines with the NEXT
+    // one priced and clickable. Showing the locked slots at all is the point —
+    // a bag that silently stops at 12 reads as a limit, a bag with four dim
+    // slots and a price on the first one reads as something to save for, and it
+    // gives credits a second thing to be for now that they no longer cap out.
     const cols = 6, size = 78;
     const x0 = cx - (cols - 1) * size / 2;
-    for (let i = 0; i < INV_MAX; i++) {
+    for (let i = 0; i < maxCap; i++) {
       const x = x0 + (i % cols) * size, y = cy - 108 + Math.floor(i / cols) * size;
+      if (i >= cap) {
+        // locked. Only the very next one is buyable — otherwise a rich player
+        // could skip rungs and the rising price would mean nothing.
+        const next = i === cap;
+        const afford = next && price != null && this.credits >= price;
+        const lock = this.add.rectangle(x, y, 64, 64, 0x141416)
+          .setStrokeStyle(2, afford ? 0xdcdcaa : IDE.border, next ? 0.9 : 0.35);
+        c.add(lock);
+        c.add(this.add.text(x, y - 6, next ? '+' : '·', {
+          fontFamily: 'monospace', fontSize: next ? '26px' : '18px',
+          color: afford ? '#dcdcaa' : IDE.dim
+        }).setOrigin(0.5));
+        if (next && price != null) {
+          c.add(this.add.text(x, y + 20, price + ' cr', {
+            fontFamily: 'monospace', fontSize: '11px',
+            color: afford ? '#dcdcaa' : IDE.error
+          }).setOrigin(0.5));
+          lock.setInteractive({ useHandCursor: true });
+          lock.on('pointerdown', () => this.buyBagSlot());
+        }
+        continue;
+      }
       const item = this.inventory[i];
       const slot = this.add.rectangle(x, y, 64, 64, 0x1c1c1d)
         .setStrokeStyle(2, item ? RARITIES[item.r].tint : IDE.border);
@@ -1417,7 +1604,7 @@ class GameScene extends Phaser.Scene {
         fontFamily: 'monospace', fontSize: '14px', color: IDE.dim
       }).setOrigin(0.5));
     }
-    c.add(this.add.text(cx - 330, cy + 160, 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX, {
+    c.add(this.add.text(cx - 330, cy + 160, 'CREDITS ' + this.fmtC(this.credits), {
       fontFamily: 'monospace', fontSize: '15px', color: IDE.text
     }).setOrigin(0, 0.5));
   }
@@ -1432,7 +1619,7 @@ class GameScene extends Phaser.Scene {
     // A full bag auto-salvages incoming loot for a fraction of its value — fine
     // for a random drop, but a paid purchase would then charge full price and
     // hand back only the salvage crumbs. Block BUY when the bag is full instead.
-    const full = this.inventory.length >= INV_MAX;
+    const full = this.inventory.length >= Items.slots;
 
     stock.items.forEach((item, i) => {
       const x = cx - 255 + i * 170, y = cy - 40;
@@ -1469,7 +1656,7 @@ class GameScene extends Phaser.Scene {
       }
       c.add(btn);
     });
-    c.add(this.add.text(cx, cy + 160, 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX, {
+    c.add(this.add.text(cx, cy + 160, 'CREDITS ' + this.fmtC(this.credits), {
       fontFamily: 'monospace', fontSize: '15px', color: IDE.text
     }).setOrigin(0.5));
   }
@@ -1483,7 +1670,7 @@ class GameScene extends Phaser.Scene {
     if (!stock) return;
     const item = stock.items[i];
     if (!item || stock.sold.includes(i) ||
-        this.inventory.length >= INV_MAX ||
+        this.inventory.length >= Items.slots ||
         this.credits < RARITIES[item.r].price) {
       Sfx.wrong();
       return;
@@ -1512,7 +1699,37 @@ class GameScene extends Phaser.Scene {
   // a slot, U/ENTER use the selected item, S salvages it. Re-opens the panel to
   // repaint the selection highlight — the same closeMenu→openBag idiom the mouse
   // click path uses, so no new render path.
+  // Buy one bag slot. Credits are deducted ONLY after the write succeeded —
+  // Items.buySlot() deliberately doesn't touch money, so a storage failure can
+  // never take someone's credits and give nothing back.
+  buyBagSlot() {
+    const price = Items.slotPrice();
+    if (price == null) {
+      this.feedback('the bag is as big as it gets (' + Items.slotsMax + ' slots)', IDE.dim);
+      Sfx.wrong();
+      return;
+    }
+    if (this.credits < price) {
+      this.feedback('need ' + price + ' credits for the next slot — you have ' +
+        this.fmtC(this.credits), IDE.error);
+      Sfx.wrong();
+      return;
+    }
+    if (!Items.buySlot()) { Sfx.wrong(); return; }
+    this.credits -= price;
+    this.refreshCredits();
+    Sfx.win();
+    this.feedback('bag slot unlocked — ' + Items.slots + ' slots', '#dcdcaa');
+    // redraw the panel so the new slot appears and the next price is restated
+    this.closeMenu();
+    this.openBag(this.bagSel);
+  }
+
   bagKey(e) {
+    // B buys the next slot. Above the empty-bag early return on purpose: a new
+    // player with nothing in the bag is exactly who might want a bigger one, and
+    // the old guard would have swallowed the key.
+    if (e.key === 'b' || e.key === 'B') { this.buyBagSlot(); return; }
     const n = this.inventory.length;
     if (n === 0) return;
     const key = e.key, cols = 6, sel = this.bagSel, has = sel >= 0 && sel < n;
@@ -1618,6 +1835,7 @@ class GameScene extends Phaser.Scene {
     this.score = 0;   // per-level progress resets; the HUD keeps showing runScore
     this.found.clear();
     this.clearDeprecation();   // the new language starts with its full pool
+    this.targetCut = 0;        // SHARD cuts ONE level's target, not the run's
     this.recent = [];
     this.recentText.setText('');
     this.hintText.setText('');
@@ -1714,6 +1932,20 @@ class GameScene extends Phaser.Scene {
       card.add(this.add.text(left, y, e.word, {
         fontFamily: 'monospace', fontSize: '17px', color: IDE.keyword, fontStyle: 'bold'
       }).setOrigin(0, 0.5));
+      // DETAILED opens the deep panel for this pattern. Only offered when there
+      // IS one — a button that opens an empty page is worse than no button — and
+      // numbered, because this is a keyboard game and reaching for the mouse
+      // mid-run is the thing every other screen here avoids.
+      if (this.deepEntry(lang.name, e.word)) {
+        const bx = cx + 396;
+        const btn = this.add.text(bx, y, '[ ' + (i + 1) + ' · DETAILED ]', {
+          fontFamily: 'monospace', fontSize: '12px', color: IDE.stringy
+        }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+        btn.on('pointerover', () => btn.setColor(IDE.white));
+        btn.on('pointerout', () => btn.setColor(IDE.stringy));
+        btn.on('pointerdown', () => this.showDetailPanel(lang.name, e));
+        card.add(btn);
+      }
       card.add(this.add.text(left, y + 19, e.what, {
         fontFamily: 'monospace', fontSize: '12.5px', color: IDE.text,
         wordWrap: { width: 780 }
@@ -1746,7 +1978,9 @@ class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '17px', color: IDE.white, fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     card.add(btn);
-    card.add(this.add.text(cx + 250, cy + 196, 'N — stop showing these', {
+    // kept short on purpose: centred at cx+250 it has ~480px of room before the
+    // screen edge, and the longer wording ran straight off it.
+    card.add(this.add.text(cx + 250, cy + 196, '1-5 detail  ·  N stop these', {
       fontFamily: 'monospace', fontSize: '11px', color: IDE.dim
     }).setOrigin(0.5));
 
@@ -1757,6 +1991,7 @@ class GameScene extends Phaser.Scene {
     // seconds for reading would just teach them to skip it.
     const close = (turnOff) => {
       if (this.learnKey === handler) this.learnKey = null;
+      this.detailKey = null;   // a deep panel open over the card dies with it
       if (turnOff) Profile.setLearn(false);
       Sfx.blip();
       this.tweens.add({
@@ -1765,6 +2000,14 @@ class GameScene extends Phaser.Scene {
       });
     };
     const handler = (e) => {
+      // the deep panel, while open, owns the keyboard — otherwise ENTER would
+      // dismiss the card underneath it and drop the player back into the run.
+      if (this.detailKey) { this.detailKey(e); return; }
+      const n = parseInt(e.key, 10);
+      if (n >= 1 && n <= entries.length && this.deepEntry(lang.name, entries[n - 1].word)) {
+        this.showDetailPanel(lang.name, entries[n - 1]);
+        return;
+      }
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') close(false);
       else if (e.key === 'n' || e.key === 'N') close(true);
     };
@@ -1774,6 +2017,92 @@ class GameScene extends Phaser.Scene {
     card.setAlpha(0);
     this.tweens.add({ targets: card, alpha: 1, duration: 180 });
     Sfx.win();
+  }
+
+  // The deep layer lives in its own file (data/glossary_detail.js) so the review
+  // card's data and the panel's data could be written independently. Guarded on
+  // purpose: if that file is missing or failed to load, every DETAILED button
+  // simply never appears and the review card behaves exactly as it did before —
+  // a data file must never be able to black-screen the game.
+  deepEntry(langName, word) {
+    if (typeof GlossaryDetail === 'undefined' || !GlossaryDetail.get) return null;
+    try { return GlossaryDetail.get(langName, word); } catch (e) { return null; }
+  }
+
+  // The second panel: one pattern, explained properly, with more code.
+  //
+  // The review card has room for one line per pattern, which is the right size
+  // for "keep typing" but too small for anything you actually want to learn. So
+  // the line is a door: press its number (or click DETAILED) and the pattern gets
+  // the whole screen — a few sentences on what it is FOR and what people get
+  // wrong about it, then several examples ordered simplest to most revealing.
+  showDetailPanel(langName, entry) {
+    const deep = this.deepEntry(langName, entry.word);
+    if (!deep || this.detailKey) return;   // no data, or one is already open
+
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    const panel = this.add.container(0, 0).setDepth(80);
+    panel.add(this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x06050b, 0.95)
+      .setInteractive());
+    panel.add(this.add.rectangle(cx, cy, 880, 460, IDE.panel).setStrokeStyle(2, IDE.border));
+
+    panel.add(this.add.text(cx - 410, cy - 202, entry.word, {
+      fontFamily: 'monospace', fontSize: '26px', color: IDE.keyword, fontStyle: 'bold'
+    }).setOrigin(0, 0.5));
+    panel.add(this.add.text(cx + 410, cy - 202, langName, {
+      fontFamily: 'monospace', fontSize: '14px', color: IDE.dim
+    }).setOrigin(1, 0.5));
+    panel.add(this.add.text(cx - 410, cy - 176, entry.what, {
+      fontFamily: 'monospace', fontSize: '13px', color: '#dcdcaa', wordWrap: { width: 820 }
+    }).setOrigin(0, 0.5));
+
+    // The long text is variable-height, so lay the rest out from where it
+    // actually ends rather than from a guessed constant — a four-sentence
+    // explanation otherwise runs straight through the first example.
+    const long = this.add.text(cx - 410, cy - 150, deep.long, {
+      fontFamily: 'monospace', fontSize: '13.5px', color: IDE.text,
+      wordWrap: { width: 820 }, lineSpacing: 5
+    }).setOrigin(0, 0);
+    panel.add(long);
+
+    let y = cy - 150 + long.height + 18;
+    panel.add(this.add.text(cx - 410, y, '// examples', {
+      fontFamily: 'monospace', fontSize: '12px', color: IDE.comment
+    }).setOrigin(0, 0));
+    y += 20;
+
+    // Stop before the footer rather than overflowing the panel: a pattern with
+    // four long snippets would otherwise spill past the frame and off-screen.
+    const limitY = cy + 176;
+    (deep.examples || []).forEach(ex => {
+      if (y > limitY) return;
+      const t = this.add.text(cx - 396, y, ex, {
+        fontFamily: 'monospace', fontSize: '12.5px', color: IDE.stringy,
+        wordWrap: { width: 800 }, lineSpacing: 3
+      }).setOrigin(0, 0);
+      if (y + t.height > limitY) { t.destroy(); y = limitY + 1; return; }
+      panel.add(t);
+      y += t.height + 12;
+    });
+
+    const back = this.add.text(cx, cy + 202, '[ BACK — ESC ]', {
+      fontFamily: 'monospace', fontSize: '16px', color: IDE.white, fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    panel.add(back);
+
+    const close = () => {
+      this.detailKey = null;
+      Sfx.blip();
+      panel.destroy();
+    };
+    // Any dismiss key closes only THIS panel — showLearnCard's handler defers to
+    // detailKey while it is set, so the card underneath survives.
+    this.detailKey = (e) => {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ' ||
+          e.key === 'b' || e.key === 'B') close();
+    };
+    back.on('pointerdown', close);
+    Sfx.blip();
   }
 
   // --- boss fight at the end of every stage ---
@@ -2608,10 +2937,10 @@ class GameScene extends Phaser.Scene {
     // and the effect line ('' with no buff up) are constant across most words. Gate
     // each setText on its computed string so only genuine changes re-raster, the
     // same per-word gate the timer/HUD-label/best-combo readouts already use. The
-    // credit number really does change most words, but caps at CREDIT_MAX, so gate
+    // credit number really does change most words, so gate
     // it too and the capped-100/100 tail stops re-rastering. setAlpha only tints —
     // it doesn't re-raster — so it stays ungated.
-    const creditStr = 'CREDITS ' + this.fmtC(this.credits) + '/' + CREDIT_MAX;
+    const creditStr = 'CREDITS ' + this.fmtC(this.credits);
     if (creditStr !== this._creditStr) { this._creditStr = creditStr; this.creditText.setText(creditStr); }
     // the cooldown has to be on the button, not just in the rejection message —
     // a button that answers a click with "no" and looks unchanged reads as broken
@@ -2636,10 +2965,10 @@ class GameScene extends Phaser.Scene {
   }
 
   refreshBag() {
-    this.bagBtn.setText('[ BAG ' + this.inventory.length + '/' + INV_MAX + ' ]');
+    this.bagBtn.setText('[ BAG ' + this.inventory.length + '/' + Items.slots + ' ]');
     // Keep SHOP just past BAG's real rendered width. The fixed x=130 collides
     // with a two-digit bag count ('[ BAG 12/12 ]' reaches ~x=133), so anchor it
-    // to bagBtn.width instead — robust to the count and to INV_MAX changes.
+    // to bagBtn.width instead — robust to the count and to Items.slots changes.
     if (this.shopBtn) this.shopBtn.x = this.bagBtn.x + this.bagBtn.width + 14;
   }
 
@@ -2697,10 +3026,31 @@ class GameScene extends Phaser.Scene {
   // the pause overlay's key legend, including the live SOUND state so the M-mute
   // toggle reads. Rebuilt on pause-open (the gear could have changed it mid-run)
   // and on each M press.
+  // Relabel the pause buttons and lay the row out. Labels carry live state
+  // (SOUND: OFF, ASSIST: ON…), so their widths change as they are pressed —
+  // which means the row has to be measured and re-centred every refresh rather
+  // than positioned once. Cheap: five short texts, only on pause-open and on a
+  // press, never per frame.
   refreshPauseHint() {
-    if (!this.pauseHint) return;
-    this.pauseHint.setText('ESC resume  ·  M sound: ' + (Sfx.muted ? 'OFF' : 'ON') +
-      '  ·  A assist: ' + (Assist.on ? 'ON' : 'OFF') + '  ·  Q quit to menu');
+    if (!this.pauseBtns) return;
+    const pad = 14, gap = 10;
+    const ws = this.pauseBtns.map((b, i) => {
+      b.txt.setText(this.pauseBtnDefs[i].label());
+      return b.txt.width + pad * 2;
+    });
+    const total = ws.reduce((a, w) => a + w, 0) + gap * (ws.length - 1);
+    let x = this.scale.width / 2 - total / 2;
+    this.pauseBtns.forEach((b, i) => {
+      const w = ws[i];
+      b.box.setSize(w, 26).setPosition(x + w / 2, b.box.y);
+      // setSize does not move the hit area Phaser built from the ORIGINAL size,
+      // so rebuild it — otherwise the clickable region keeps the 10px placeholder
+      // width these were created with and only a sliver of the button responds.
+      b.box.setInteractive(
+        new Phaser.Geom.Rectangle(0, 0, w, 26), Phaser.Geom.Rectangle.Contains);
+      b.txt.setPosition(x + w / 2, b.txt.y);
+      x += w + gap;
+    });
   }
 
   togglePause() {
@@ -2726,6 +3076,15 @@ class GameScene extends Phaser.Scene {
       this.refreshPauseHint();   // the gear may have flipped mute since we built it
     }
     this.pauseUI.setVisible(this.paused);
+    // Phaser hit-tests by display list, not by visibility of an ancestor
+    // container — so without this the hidden pause buttons keep swallowing
+    // clicks aimed at the field underneath them. Toggle their input with the
+    // overlay.
+    this.pauseBtns.forEach(b => {
+      if (this.paused) b.box.setInteractive({ useHandCursor: true });
+      else b.box.disableInteractive();
+    });
+    if (this.paused) this.refreshPauseHint();   // re-measure: labels may have changed
     this.time.paused = this.paused;
     this.tweens.timeScale = this.paused ? 0 : 1;
     // the demon fire-fountain emitters aren't scene tweens/timers, so the two
@@ -2798,7 +3157,11 @@ class GameScene extends Phaser.Scene {
 
     this.tickDeprecation(delta / 1000);
 
-    this.timeLeft -= (delta / 1000) * (this.rule() === 'legacy' ? 1.25 : 1);
+    // CORE slows the drain rather than refilling it — the same seconds bought,
+    // but spread wide enough to actually read the screen. Expires on elapsed
+    // (the run's own clock), so a pause cannot stretch it.
+    const slowed = this.elapsed < this.slowUntil ? this.slowFactor : 1;
+    this.timeLeft -= (delta / 1000) * (this.rule() === 'legacy' ? 1.25 : 1) * slowed;
     if (this.timeLeft <= 0) {
       // armor's death save gets one chance before the monsters do
       if (this.deathSave > 0) {

@@ -83,12 +83,24 @@ class Battle {
       }
     });
 
-    // crossbow bolt projectile
+    // Crossbow bolt projectile. The old one was 18x6 with no outline, which at a
+    // 140ms flight across the strip was a grey smudge nobody registered — the
+    // single biggest reason ranged stages still read as melee. This one is drawn
+    // at the same pixel weight as the characters (dark OUT keyline, lit top edge)
+    // so it survives both the pale graveyard and the dark glade behind it, and it
+    // is long enough to show which way it is pointing while it moves. Drawn
+    // nose-right; shoot() rotates it along its flight line.
     if (!scene.textures.exists('bolt')) {
       g.clear();
-      g.fillStyle(0xa1887f).fillRect(0, 2, 12, 2);
-      g.fillStyle(0xdfe7ec).fillTriangle(12, 0, 12, 6, 17, 3);
-      g.generateTexture('bolt', 18, 6);
+      g.fillStyle(OUT).fillRect(2, 3, 23, 4);                   // shaft keyline
+      g.fillStyle(OUT).fillTriangle(0, 0, 0, 10, 10, 5);        // fletching keyline
+      g.fillStyle(OUT).fillTriangle(21, 0, 21, 10, 30, 5);      // head keyline
+      g.fillStyle(0xd32f2f).fillTriangle(1, 1, 1, 9, 8, 5);     // feathers
+      g.fillStyle(0x8d6e63).fillRect(3, 4, 21, 2);              // shaft
+      g.fillStyle(0xbcaaa4).fillRect(3, 4, 21, 1);              // shaft top light
+      g.fillStyle(0xdfe7ec).fillTriangle(22, 1, 22, 9, 29, 5);  // steel head
+      g.fillStyle(0xffffff).fillTriangle(22, 2, 22, 4, 28, 5);  // head shine
+      g.generateTexture('bolt', 30, 10);
     }
 
     // --- monsters (facing left, 40x52)
@@ -351,6 +363,11 @@ class Battle {
     this.deathFx = scene.add.particles(0, 0, 'pixel', {
       speed: { min: 60, max: 150 }, lifespan: 350, emitting: false
     });
+    // Same discipline for arrows: one Image per shot that is airborne AT THE SAME
+    // TIME, parked and reused after it lands (see shoot/land). Ranged stages fire
+    // one per correct word, so allocating and destroying a GameObject per shot —
+    // what the old bolt did — was per-keystroke garbage on the hottest path.
+    this.arrows = [];
     this.hero = scene.add.image(this.heroX, this.restY, 'hero0').setScale(this.charScale);
     // idle bob runs forever on y; dashes animate x only, so they don't conflict
     scene.tweens.add({ targets: this.hero, y: this.bobY, duration: 700, yoyo: true, repeat: -1 });
@@ -416,6 +433,62 @@ class Battle {
     });
   }
 
+  // --- ranged: the hero holds the line and shoots -----------------------------
+
+  // Grow the arrow pool by one. Only called when every existing arrow is still in
+  // the air, so the pool settles at one on the normal path (a shot lands long
+  // before the next word is typed) and only the level-up volley pushes it higher.
+  newArrow() {
+    const a = this.scene.add.image(0, 0, 'bolt')
+      .setScale(this.charScale).setDepth(6).setVisible(false).setActive(false);
+    a.onHit = null;
+    this.arrows.push(a);
+    return a;
+  }
+
+  // Loose one arrow from the hero's crossbow toward (tx,ty). onHit fires when the
+  // arrow ARRIVES — never on release. That ordering is the whole point of the
+  // fix: killing the monster the instant you type meant the death, the debris and
+  // the flash all happened next to a hero who had not visibly done anything from
+  // range, which reads as a melee hit. Travel time scales with distance (with a
+  // floor, so a monster that has lunged into the hero's face still shows a beat
+  // of flight rather than a zero-length teleport).
+  shoot(tx, ty, onHit) {
+    const x0 = this.heroX + 40, y0 = this.restY + 2;
+    const a = this.arrows.find(o => !o.active) || this.newArrow();
+    a.setActive(true).setVisible(this.bg.visible).setPosition(x0, y0)
+      .setRotation(Phaser.Math.Angle.Between(x0, y0, tx, ty));
+    a.onHit = onHit;
+    this.scene.tweens.add({
+      targets: a, x: tx, y: ty, ease: 'Linear',
+      duration: Phaser.Math.Clamp(
+        Phaser.Math.Distance.Between(x0, y0, tx, ty) / 2.2, 120, 260),
+      onComplete: () => this.land(a)
+    });
+    return a;
+  }
+
+  // Park a landed arrow back in the pool and run its arrival callback exactly
+  // once. Every ranged hit routes its consequences through here, so the callback
+  // must not be skippable: attack() has already shifted that monster out of the
+  // queue, and a dropped callback would strand its sprite on the field forever.
+  land(a) {
+    if (!a.active) return;
+    a.setActive(false).setVisible(false);
+    const hit = a.onHit;
+    a.onHit = null;
+    if (hit) hit();
+  }
+
+  // Arrow impact. Deliberately NOT slashAt(): that crescent is a sword swing, and
+  // bursting one on a bolt hit is most of what made ranged stages look like melee
+  // even while the bolt was technically flying. A shower off the shared death
+  // emitter says "something struck here" without claiming a blade did it — and
+  // costs no new objects, same as every other burst in this file.
+  hitSpark(x, y, big) {
+    this.deathFx.explode(big ? 12 : 6, x, y);
+  }
+
   // one correct pattern = one hit. Melee: dash INTO the monster and slash.
   // Ranged stages: stand ground, loose a crossbow bolt. Returns the hit spot.
   attack() {
@@ -423,18 +496,19 @@ class Battle {
     const target = this.enemies.shift();
     if (target === this.strikeTarget) { this.striking = false; this.strikeTarget = null; }
     const pos = { x: target.x, y: target.y };
-    const s = this.scene;
 
     if (this.ranged) {
-      this.dashHero({ x: this.heroX - 6, duration: 60, yoyo: true }); // recoil
-      const bolt = s.add.image(this.heroX + 34, this.restY + 3, 'bolt').setDepth(6);
-      s.tweens.add({
-        targets: bolt, x: pos.x - 12, duration: 140, ease: 'Linear',
-        onComplete: () => {
-          bolt.destroy();
-          this.slashAt(pos.x - 8, pos.y - 4);
-          this.kill(target);
-        }
+      // The ONLY hero movement on a ranged stage: a shove backwards from the
+      // crossbow, never a step toward the target.
+      this.dashHero({ x: this.heroX - 10, duration: 70, yoyo: true, ease: 'Quad.easeOut' });
+      // The queue also waits for the arrow. Reflowing on release slid the next
+      // monster into the slot of a corpse that was still standing mid-flight, so
+      // two sprites overlapped exactly where the player was looking.
+      this.shoot(pos.x - 14, pos.y - 2, () => {
+        this.hitSpark(pos.x - 12, pos.y - 2, false);
+        this.kill(target);
+        this.reflow();
+        this.fill(false);
       });
     } else {
       this.dashHero({
@@ -443,9 +517,9 @@ class Battle {
       });
       this.slashAt(pos.x - 10, pos.y - 4, 140);
       this.kill(target, 150);
+      this.reflow();
+      this.fill(false);
     }
-    this.reflow();
-    this.fill(false);
     return pos;
   }
 
@@ -493,14 +567,31 @@ class Battle {
       targets: flash, fillAlpha: 0.45, duration: 130, yoyo: true,
       onComplete: () => flash.destroy()
     });
-    this.dashHero({ x: this.heroX + 70, duration: 160, yoyo: true });
+    // A forward lunge is the wrong verb for a crossbow — it is the one moment on a
+    // ranged stage where the hero used to charge the line. Brace and empty the
+    // magazine instead: one arrow per monster, on the same 80ms beat the slashes
+    // used, so the level-up still lands as a single sweeping payoff.
+    this.dashHero(this.ranged
+      ? { x: this.heroX - 16, duration: 120, yoyo: true, ease: 'Quad.easeOut' }
+      : { x: this.heroX + 70, duration: 160, yoyo: true });
     const n = this.enemies.length;
     this.enemies.forEach((e, i) => {
-      this.slashAt(e.x - 6, e.y - 4, i * 80, true);
-      this.kill(e, i * 80);
+      if (this.ranged) {
+        // the arrow spends up to 260ms in the air after its beat, so the tail
+        // below gets that back — otherwise the last monster of the volley is
+        // still falling when the strip refills under it.
+        s.time.delayedCall(i * 80, () => this.shoot(e.x - 14, e.y - 2, () => {
+          this.hitSpark(e.x - 12, e.y - 2, true);
+          this.kill(e);
+        }));
+      } else {
+        this.slashAt(e.x - 6, e.y - 4, i * 80, true);
+        this.kill(e, i * 80);
+      }
     });
     this.enemies = [];
-    s.time.delayedCall(n * 80 + 500, () => { this.fill(false); done(); });
+    s.time.delayedCall(n * 80 + 500 + (this.ranged ? 260 : 0),
+      () => { this.fill(false); done(); });
   }
 
   // the front monster steps up and strikes the hero once.
@@ -612,17 +703,17 @@ class Battle {
     const b = this.enemies[0];
     if (!b) return null;
     const pos = { x: b.x, y: b.y };
-    const s = this.scene;
     if (this.ranged) {
-      this.dashHero({ x: this.heroX - 6, duration: 60, yoyo: true });
-      const bolt = s.add.image(this.heroX + 34, this.restY + 3, 'bolt').setDepth(6);
-      s.tweens.add({
-        targets: bolt, x: pos.x - 40, duration: 140,
-        onComplete: () => {
-          bolt.destroy();
-          this.slashAt(pos.x - 30, pos.y, 0, true);
-          this.bossFlinch(b);
-        }
+      this.dashHero({ x: this.heroX - 10, duration: 70, yoyo: true, ease: 'Quad.easeOut' });
+      // aim short of the boss's centre: it is a 2.6x sprite, so its near edge is
+      // ~40px in front of the anchor the rest of the code tracks.
+      this.shoot(pos.x - 44, pos.y, () => {
+        // the killing word can land while this arrow is still in the air, and
+        // bossDie() then owns the sprite — flinching it there would fight the
+        // death tween. If it is no longer the front enemy, it is already dying.
+        if (this.enemies[0] !== b) return;
+        this.hitSpark(pos.x - 34, pos.y, true);
+        this.bossFlinch(b);
       });
     } else {
       this.dashHero({
@@ -726,6 +817,12 @@ class Battle {
 
   setVisible(v) {
     [this.bg, this.hero, ...this.enemies].forEach(o => o.setVisible(v));
+    // An arrow can be mid-flight when a festival takes the strip away, and it
+    // would otherwise keep sailing across the festival UI. Only ever hide them
+    // here — showing on v=true would pop every parked arrow back onto the field.
+    // Their flight tweens run to completion regardless, so the monster each one
+    // owns still dies; land() puts them away.
+    if (!v) this.arrows.forEach(a => a.setVisible(false));
     // decor = the demon stage's continuous fire-fountain emitters. They're raw
     // particle emitters advanced by the scene's core update loop — NOT scene
     // tweens/timers — so setVisible(false) alone only hides their rendering while
