@@ -2417,3 +2417,48 @@ festival credit popup still prints the flat `+15 credits` under a live sword mul
 (a design call — the effect readout shows the ×N). With the descending count now on
 both the HUD and the road overlay, a further theme touch could carry it onto the End /
 share card ("stopped N from the <STAGE> boss") so the run's finish reads on-theme too.
+
+## Pre-build pass - 20260725 (deadline -31h)
+
+Full pre-submission sweep before the first real build. `node --check` clean on all
+10 files; booted the game in a browser and ran a live tour (Menu → Game → 8 correct
+patterns → level-up → End) with **zero console errors**, and confirmed all 56 asset
+PNGs resolve (no code-drawn fallback is being hit). Three ships, one of them a
+deadline-grade packaging bug.
+
+**Packaging — `build.ps1` was still on `Compress-Archive` (would have shipped a
+dead build).** The jam repo's build script had never been given the fix the
+`gmtk2026` repo got on 17 Jul: Windows PowerShell's `Compress-Archive` writes entry
+names with **backslashes** (`src\main.js`), which itch.io's unpacker treats as a
+literal filename — every script 404s and the page is a black screen. That exact
+failure shipped once already (STAR BREAKER, 17 Jul). Rewritten on .NET
+`ZipArchive` so entry names are written by us with forward slashes, `index.html`
+forced to the zip root, `$ErrorActionPreference = 'Stop'`, and a file/size line on
+success. Verified the produced zip: **68 entries, 0 backslash entries**, index at
+root, `src/scenes/…` paths intact, 56 assets + phaser present.
+
+**Feature — HINT finally has a keyboard route: CTRL+SPACE.** This was the standing
+"parked, not forgotten" leftover across a dozen passes: the hint was the only
+during-play action reachable by mouse alone, because every printable key collides
+with word input. A *modifier chord* is the way out that no pass had tried — and
+Ctrl+Space is the autocomplete chord in every IDE the game is dressed as, so it
+needs no teaching. Placed immediately above the blanket `ctrlKey||metaKey||altKey`
+early-return in `onKey`, so it steals nothing (space was already excluded from word
+input, and modifier combos were already discarded); `preventDefault` keeps the
+browser/IME off it, and `buyHint`'s own guards (paused/over/dying/transitioning/
+menuOpen + credits + cooldown) make the key and the `[ HINT ]` button exactly
+equivalent. Surfaced in both status bars and the menu help panel. Verified live:
+chord fires the hint (credits 60→40, cooldown armed), leaves the typed word
+untouched, and a plain space still does nothing.
+
+**Bug — an in-flight ENTER could skip the whole End screen.** `EndScene.create()`
+bound its keyboard handler immediately, and ENTER is the *submit* key of a fast
+typing game — a player is very often mid-burst at the moment the clock hits zero.
+One already-in-flight press then landed on the End screen the frame it appeared and
+RECOMPILEd instantly, so the run's score, grade, PB delta, countdown coda and share
+card flashed by unread; it reads as the game eating your results. Added a 500ms
+input lock (`keysLive`) before the End screen answers keys — short enough that a
+deliberate press never feels blocked. Verified: five ENTERs fired on frame 1 leave
+the scene on `End`; one fired after the lock recompiles into `Game`.
+
+`index.html` bumped to `?v=13` (assets unchanged, so `ASSET_V` stays 4).

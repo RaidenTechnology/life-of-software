@@ -229,8 +229,8 @@ class GameScene extends Phaser.Scene {
     this.applySceneBg(Battle.TYPES[0]);
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
-    status.left.setText('type + ENTER · TAB bag/shop · ESC pause · HINT = ' + HINT_COST +
-      ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
+    status.left.setText('type + ENTER · TAB bag/shop · ESC pause · CTRL+SPACE hint (' +
+      HINT_COST + ' credits, ' + FESTIVAL_HINT_COST + ' at festivals)');
     // keep the right status handle + its base label: update() appends a live
     // WPM readout to it once per second (a typing game should show your speed).
     this.statusRight = status.right;
@@ -753,6 +753,21 @@ class GameScene extends Phaser.Scene {
         this.refreshPauseHint();
         Sfx.blip();
       }
+      return;
+    }
+    // CTRL+SPACE = HINT. The hint was the one during-play action with no keyboard
+    // route (the standing "parked, not forgotten" leftover): every printable key
+    // collides with word input, so no letter could ever hold it. A modifier combo
+    // is the way out — and Ctrl+Space is *the* autocomplete chord in every IDE the
+    // game is dressed as, so it needs no teaching. Space is already excluded from
+    // word input (the \s test below) and modifier combos are dropped wholesale by
+    // the guard that follows, so this steals nothing. preventDefault stops the
+    // browser/IME claiming the chord. buyHint carries its own paused/over/dying/
+    // transitioning/menuOpen guards plus the credit + cooldown checks, so the key
+    // and the [ HINT ] button stay exactly equivalent.
+    if ((e.ctrlKey || e.metaKey) && (e.key === ' ' || e.code === 'Space')) {
+      e.preventDefault();
+      this.buyHint();
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;

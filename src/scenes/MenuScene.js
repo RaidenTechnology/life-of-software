@@ -7,7 +7,7 @@ class MenuScene extends Phaser.Scene {
     const cx = this.scale.width / 2, cy = this.scale.height / 2;
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
-    status.left.setText('type + ENTER · ESC pause · HINT = ' + HINT_COST +
+    status.left.setText('type + ENTER · ESC pause · CTRL+SPACE hint = ' + HINT_COST +
       ' credits (' + FESTIVAL_HINT_COST + ' at festivals)');
     status.right.setText('GMTK 2026 — Count Down');
 
@@ -192,7 +192,7 @@ class MenuScene extends Phaser.Scene {
       'BOSS       A boss guards the end of every stage. Beat it to raise the difficulty.\n' +
       'STAGES     Clear all ' + LANGUAGES.length + ' languages to advance: VERY EASY -> SURVIVAL.\n' +
       '\n' +
-      'Keys:  type + ENTER    TAB bag/shop    HINT costs credits    ESC pause';
+      'Keys:  type + ENTER   TAB bag/shop   CTRL+SPACE hint (costs credits)   ESC pause';
     helpUI.add(this.add.text(cx, cy + 8, body, {
       fontFamily: 'monospace', fontSize: '14px', color: IDE.text, align: 'left', lineSpacing: 5
     }).setOrigin(0.5));

@@ -317,7 +317,18 @@ class EndScene extends Phaser.Scene {
     // Keyboard is the whole game — let it drive the End screen too, so a player
     // whose hands never left the keys can restart (ENTER/SPACE), bail to the
     // menu (M/ESC) or copy the result (C) without reaching for the mouse.
+    // Brief input lock before the End screen answers keys. ENTER is the SUBMIT key
+    // of a fast typing game, so a player is very often mid-burst — sometimes
+    // literally mashing it — at the exact moment the clock runs out. Without a lock,
+    // one already-in-flight ENTER lands on this scene the frame it appears and
+    // RECOMPILEs instantly: the run's score, grade, PB delta, countdown coda and
+    // share card flash by unread, and it reads as the game skipping the results.
+    // 500ms is under the recompile animation's own beat, so a deliberate press
+    // never feels blocked; only the momentum press is swallowed.
+    let keysLive = false;
+    this.time.delayedCall(500, () => { keysLive = true; });
     this.input.keyboard.on('keydown', (e) => {
+      if (!keysLive) return;
       if (e.key === 'Enter' || e.key === ' ') recompile();
       else if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') backToMenu();
       else if (e.key === 'c' || e.key === 'C') copyResult();
