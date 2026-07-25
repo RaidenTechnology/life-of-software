@@ -4,7 +4,7 @@
 // Bump on any asset re-render so returning browsers fetch the new file instead
 // of a stale cached copy at the same URL (bit us during dev: the server was
 // serving the updated PNG but the browser's image cache kept the old one).
-const ASSET_V = 4;
+const ASSET_V = 5;
 
 class BootScene extends Phaser.Scene {
   constructor() {

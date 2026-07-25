@@ -2815,3 +2815,31 @@ paused, zero after death, End screen opening on
 `2 deprecation notices. You outran 1 of them.`, console clean.
 
 `index.html` at `?v=29`.
+
+## Weight pass - 20260726 (measured before touching anything)
+
+**Runtime performance is a non-issue and was left alone.** Measured in a live
+run: frame cost median 0.60ms, p95 1.2ms, worst 10.9ms against a 16.7ms budget
+at 60fps; 13MB heap, 130 textures, 56 display objects. Optimising code paths here
+would have bought nothing a player could feel.
+
+**The download was the real weight, and 1.6MB of it was a file-format mistake.**
+The six full-screen `scene_*.png` backdrops were 445-478KB each — 2.77MB of a
+5.2MB build — and every one of them is 960x540 with **112 to 174 unique colours
+and no alpha at all**. They were being stored as 32-bit truecolour RGBA. Palette
+conversion is therefore not lossy compression, it is the correct format: 256
+palette entries hold every colour these images contain. Converted with PIL
+(ADAPTIVE, optimize) and each file re-opened FROM DISK and compared pixel by
+pixel against the original — all six identical, 2772KB -> 1162KB.
+
+Build: 4190KB -> **2579KB**. Live page weight 5228KB -> **3880KB**.
+
+**Cache trap, hit and documented:** bumping `ASSET_V` alone did nothing — the
+first reload still pulled the old 474KB images, because `ASSET_V` lives inside
+`BootScene.js`, whose own URL had not changed, so the browser served the cached
+BootScene that still asked for `?v=4`. Any asset change needs BOTH bumps:
+`ASSET_V` for the images and `?v=` for the scripts that carry it. Verified after
+both: `scene_*.png?v=5` fetched at 177-204KB, textures 960x540, backdrop visible
+and sampling opaque colour in play, console clean.
+
+`index.html` at `?v=30`, `ASSET_V` at 5.
