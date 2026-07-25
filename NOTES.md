@@ -2535,3 +2535,50 @@ teach firing once and not again on a fresh run.
 valuable than any further feature: **cover, screenshots and the GIF** — and the GIF
 should include the code-review card, because it is the one thing in this entry that
 nothing else in the jam has.
+
+## Festival bug - 20260725 (player report, reproduced)
+
+**Report:** "the festival moves on to the next level before it ends — it passes
+with about 10 seconds left. A festival should only end on a correct answer or on
+its timer running out."
+
+**Reproduced, not guessed.** Drove a growth festival with correct answers and
+logged the exit: it ended after **22 answers with 19.2s still on its own clock** —
+neither expired nor failed. The player's ~10s is the same fault seen at human
+speed.
+
+**Cause:** `pickGrowthRound` could end the round itself. The growth festival pools
+six languages and may only ask about their SIGNATURE patterns (the fairness rule
+from the earlier pass: a question is only fair for a pattern that genuinely belongs
+to one language). Six languages own ~22 signatures between them — and the answers
+are language NAMES (`c`, `java`, `rust`, two to six characters), so anyone who
+knows them answers faster than one per second. The board ran dry around the halfway
+mark and `if (!word) { this.endFestival(); return; }` fired. Being good at the
+round was what cut it short.
+
+A second, rarer version of the same bug sat next to it: the pick was up to 25 blind
+random draws over the whole pool with a guard counter, so even with live languages
+left it could miss them by luck and end the round for no reason at all.
+
+**Fix — a festival now ends on its timer, and at no other time (death aside).**
+The board RECYCLES instead of ending: wipe `used` and go again, which is exactly
+what the sw festival has always done (it repeats freely by design). The seam
+carries the just-asked word forward so the same question can never appear twice in
+a row across a recycle — that reads as a bug even though it isn't — and a
+`board cleared — going again` line says what happened. The pick is now
+deterministic: build the set of pooled languages that still have an unasked
+signature and draw from that, so a live question can never be missed. The
+`endFestival` fallback is kept but is now unreachable (the growth pool is built
+only from languages that have signatures, so a recycled board always has one).
+
+**Verified:** growth festival ran **45 answers and was still going** with 17.8s
+left, 24 unique words (board recycled), **0 duplicates across the seam**; forcing
+its timer to zero ends it with the normal summary and normal play resumes and
+scores; the sw festival is untouched (40 answers, still running, ends on its
+timer). Console clean.
+
+**Balance note, deliberate:** an expert now gets the full 20 seconds of a growth
+festival instead of having it cut short for answering well, so a fast player banks
+more credits there than before. That is the same ceiling the sw festival already
+had, and the round is still bounded by its own timer while the main clock drains
+underneath it.

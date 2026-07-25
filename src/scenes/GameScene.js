@@ -2213,19 +2213,44 @@ class GameScene extends Phaser.Scene {
 
   pickGrowthRound() {
     const f = this.festival;
-    let lang = null, word = null, guard = 0;
     // Signatures only (LANG_SIGNATURES in data/languages.js). The old filter
     // asked for a word no OTHER POOLED language listed — which let through
     // "tuple" (only PYTHON's array has it) and then told a player who answered
     // C++ they were wrong, with std::tuple sitting in the standard library. The
     // question is only fair for patterns that genuinely belong to one language,
     // so those are the only ones it may ask.
-    while (!word && ++guard < 25) {
-      lang = this.pickFrom(f.pool);
-      const unused = (lang.signatures || []).filter(w => !f.used.has(w));
-      if (unused.length) word = this.pickFrom(unused);
+    //
+    // A festival ends when its own timer runs out, and at no other time. It used
+    // to be able to end itself here, and did so routinely: the six pooled
+    // languages own only ~22 signatures between them, the answers are language
+    // NAMES (`c`, `java`, `rust` — two to six characters), and anyone who knows
+    // them answers faster than one a second. So the board ran dry around the
+    // halfway mark and the round just stopped, with ten seconds still on its
+    // clock, having neither expired nor been failed. Measured: 22 answers, ended
+    // at t=19.2s. It looked exactly like the game skipping ahead.
+    //
+    // Two changes. The board now RECYCLES instead of ending — you have already
+    // answered those, and asking again in a speed round is no worse than the sw
+    // festival, which repeats freely by design. And the pick is now deterministic
+    // (build the set of languages that still have an unasked signature, then draw
+    // from it) rather than up to 25 blind random draws that could also miss a
+    // live language by luck alone and end the round for no reason at all.
+    let live = f.pool.filter(l => (l.signatures || []).some(w => !f.used.has(w)));
+    if (!live.length) {
+      // wipe the board, but never ask the same word twice in a row across the
+      // seam — that reads as a bug even though it isn't.
+      const justAsked = f.word;
+      f.used.clear();
+      if (justAsked) f.used.add(justAsked);
+      live = f.pool.filter(l => (l.signatures || []).some(w => !f.used.has(w)));
+      this.feedback('board cleared — going again', '#dcdcaa');
     }
-    if (!word) { this.endFestival(); return; }
+    // Unreachable: the growth pool is built only from languages that HAVE
+    // signatures, so a recycled board always has at least one live language.
+    // Kept as a last resort so a future pool change can't strand the round.
+    if (!live.length) { this.endFestival(); return; }
+    const lang = this.pickFrom(live);
+    const word = this.pickFrom(lang.signatures.filter(w => !f.used.has(w)));
     f.lang = lang;
     f.word = word;
     f.used.add(word);
