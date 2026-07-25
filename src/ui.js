@@ -59,6 +59,48 @@ const Assist = {
   }
 };
 
+// The player's answers to the two questions the prologue asks, remembered across
+// sessions (same guarded localStorage idiom as Assist/Motion). The game asks how
+// much software you know because it cannot tell: a Haskell programmer and someone
+// who has never opened an editor are handed the exact same 25-language ladder,
+// and only one of them is playing a game. `skill` tunes the ropes (starting
+// clock, assist default, hint price); it deliberately does NOT touch scoring, so
+// one personal best stays one number.
+//
+// `learn` is the other question: after clearing a language, do you want to be
+// told what the patterns you just typed actually meant? Off, the game is a typing
+// brawler. On, you leave knowing what `impl` and `>>=` are.
+const Profile = {
+  skill: (() => {
+    try { return localStorage.getItem('los_skill') || ''; } catch (e) { return ''; }
+  })(),
+  learn: (() => {
+    try { return localStorage.getItem('los_learn') !== '0'; } catch (e) { return true; }
+  })(),
+  // has the prologue ever been answered? Empty skill = never asked.
+  get onboarded() { return !!this.skill; },
+  setSkill(v) {
+    this.skill = v;
+    try { localStorage.setItem('los_skill', v); } catch (e) {}
+  },
+  setLearn(v) {
+    this.learn = !!v;
+    try { localStorage.setItem('los_learn', v ? '1' : '0'); } catch (e) {}
+  },
+  // extra (or missing) seconds on the run's opening clock
+  get startBonus() {
+    return this.skill === 'low' ? 20 : this.skill === 'high' ? -10 : 0;
+  },
+  // hints are half price for someone still learning the vocabulary
+  get hintScale() { return this.skill === 'low' ? 0.5 : 1; },
+  // shown on the menu, the pause board and the shareable result, so a score
+  // always carries the setting it was earned under.
+  get label() {
+    return this.skill === 'low' ? 'LEARNING'
+      : this.skill === 'high' ? 'FLUENT' : 'SOME CODE';
+  }
+};
+
 const UI = {
   // window title bar + blue status bar, like an editor. Also mounts the
   // settings gear (top-right) with the sound toggle panel.

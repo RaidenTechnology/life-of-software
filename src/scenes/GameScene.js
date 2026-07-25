@@ -16,6 +16,10 @@ const FESTIVAL_HINT_COST = 10;
 const CREDIT_PER_WORD = 5;
 const CREDIT_MAX = 100;
 const START_TIME = 75;
+// how many patterns the post-level code-review card explains. Five is what fits
+// the panel at a readable size, and roughly what anyone absorbs in the few
+// seconds this sits between two levels of a timed run.
+const LEARN_CARD_MAX = 5;
 // Hard ceiling on the countdown. Every landed word buys time and the gains beat
 // the drain, so a competent run used to snowball past an hour on the clock
 // (measured: 3600s+ after ~1600 words) — at which point the countdown, the whole
@@ -144,8 +148,13 @@ class GameScene extends Phaser.Scene {
         this.langIndex = Math.min(ck.langIndex || 0, LANGUAGES.length - 1);
       }
     }
-    this.timeLeft = START_TIME;
+    // The opening clock answers the prologue: +20s for someone still learning the
+    // vocabulary, -10s for someone who says they write this for a living. Only
+    // the ropes move — scoring is identical either way, so one PB stays one
+    // number. Daily runs are excluded: a shared seed has to be a shared start.
+    this.timeLeft = START_TIME + (this.daily ? 0 : Profile.startBonus);
     this.typed = '';
+    this.learnKey = null;   // no stale code-review handler across a restart
     this.found = new Set();
     this.dead = new Set();      // patterns deprecated this level — unwritable
     this.eol = null;            // the one currently on notice, if any
@@ -507,7 +516,9 @@ class GameScene extends Phaser.Scene {
 
   get hintCost() {
     const base = this.festival ? FESTIVAL_HINT_COST : HINT_COST;
-    return Math.max(5, base - this.boonHint);
+    // Someone who told the prologue they don't write code pays half — the hint
+    // is their vocabulary lesson, not a shortcut past a fight they could win.
+    return Math.max(5, Math.round((base - this.boonHint) * Profile.hintScale));
   }
 
   targetScore() {
@@ -718,6 +729,9 @@ class GameScene extends Phaser.Scene {
       if (n >= 1 && n <= 3) this.boonKey(n - 1);
       return;
     }
+    // the code-review card owns the keyboard while it's up (same idiom as the
+    // boon draft above): ENTER/SPACE dismisses, N turns the notes off for good.
+    if (this.learnKey) { this.learnKey(e); return; }
     if (e.key === 'Tab') { this.cycleMenu(); return; }
     if (this.menuOpen) {
       // The bag/shop are now fully keyboard-operable (this is a keyboard-first
@@ -1546,6 +1560,9 @@ class GameScene extends Phaser.Scene {
     // meaningful as targets grow. Reset the counter for the next level.
     const perfect = this.levelMistakes === 0;
     const perfectScore = perfect ? 50 + (this.stageIndex + this.survivalLap) * 25 : 0;
+    // snapshot what was typed BEFORE found is cleared below — the code-review
+    // card is built from the player's own words, in the order they wrote them.
+    const learned = Profile.learn ? Array.from(this.found) : null;
     this.levelMistakes = 0;
     // Re-arm the live PERFECT tag for the fresh level. A level that broke pace
     // leaves _perfectState terminally 'off' (see refreshPerfect); reset it here —
@@ -1577,10 +1594,10 @@ class GameScene extends Phaser.Scene {
     Sfx.win();
     this.transitioning = true;
     this.armTransitionGuard(12, 'levelUp');   // ulti + road overlay ≈ 6s
-    this.battle.ulti(() => this.afterUlti(fromIdx, perfect, perfectScore));
+    this.battle.ulti(() => this.afterUlti(fromIdx, perfect, perfectScore, learned));
   }
 
-  afterUlti(fromIdx, perfect, perfectScore) {
+  afterUlti(fromIdx, perfect, perfectScore, learned) {
     if (this.langIndex >= LANGUAGES.length) {
       // the level that fills the road (bonus already banked in levelUp) goes
       // straight to the boss — flash the perfect callout over the live field.
@@ -1588,14 +1605,133 @@ class GameScene extends Phaser.Scene {
       this.startBoss();
       return;
     }
-    this.showPath(fromIdx, () => {
+    // road overlay → boon draft → (code review) → back to play. The review is
+    // last so the level-clear beat keeps its rhythm and the card is the thing
+    // you read on the way in to the next language, not an interruption of the
+    // reward. Profile.learn is re-read here (not captured) so turning the notes
+    // off ON the card takes effect from the very next level.
+    const resume = () => {
       this.clearTransitionGuard();
       this.transitioning = false;
       this.refreshLangHud();
       if (this.rand() < FESTIVAL_CHANCE) {
         this.startFestival(this.rand() < 0.5 ? 'sw' : 'growth');
       }
+    };
+    this.showPath(fromIdx, () => {
+      if (Profile.learn && learned && learned.length) {
+        this.showLearnCard(fromIdx, learned, resume);
+      } else {
+        resume();
+      }
     }, perfect, perfectScore);
+  }
+
+  // --- code review: what the patterns you just typed actually meant ---
+  //
+  // The game's honest problem, until now: you could clear HASKELL at speed and
+  // walk away knowing nothing about Haskell. You typed `>>=` because it was on a
+  // list, not because it meant anything. This card is the fix — after a language
+  // falls, it reviews the patterns YOU typed (not a generic lesson: your own
+  // words, in the order you wrote them) with a one-line meaning and a real
+  // example. Opt-in via the prologue and switchable off from the card itself,
+  // because a fluent player wants none of this in the middle of a timed run.
+  //
+  // Deliberately capped at LEARN_CARD_MAX: this sits between two levels of a
+  // countdown game, so it has to be readable in a breath, not studied. Anything
+  // the glossary can't explain is left out rather than padded with filler.
+  showLearnCard(langIdx, words, done) {
+    const lang = LANGUAGES[Math.min(langIdx, LANGUAGES.length - 1)];
+    const entries = Glossary.review(lang.name, words, LEARN_CARD_MAX);
+    // nothing to teach (an all-operator level, or a language the glossary
+    // doesn't cover deeply) → don't stop the run to say nothing.
+    if (!entries.length) { done(); return; }
+
+    // the card waits on the player, so the level-clear guard (armed for ~12s)
+    // would otherwise fire underneath it and "resume" the run behind the panel.
+    this.clearTransitionGuard();
+    this.armTransitionGuard(180, 'learnCard');
+
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+    const card = this.add.container(0, 0).setDepth(70);
+    card.add(this.add.rectangle(cx, cy, this.scale.width, this.scale.height, 0x08060e, 0.9)
+      .setInteractive());
+    card.add(this.add.rectangle(cx, cy, 856, 428, IDE.panel).setStrokeStyle(2, IDE.border));
+
+    card.add(this.add.text(cx, cy - 196, '// code review — ' + lang.name, {
+      fontFamily: 'monospace', fontSize: '20px', color: IDE.comment, fontStyle: 'bold'
+    }).setOrigin(0.5));
+    card.add(this.add.text(cx, cy - 172,
+      'you cleared it. here is what you were actually typing.', {
+        fontFamily: 'monospace', fontSize: '12px', color: IDE.dim
+      }).setOrigin(0.5));
+
+    const left = cx - 396;
+    entries.forEach((e, i) => {
+      const y = cy - 142 + i * 62;
+      card.add(this.add.text(left, y, e.word, {
+        fontFamily: 'monospace', fontSize: '17px', color: IDE.keyword, fontStyle: 'bold'
+      }).setOrigin(0, 0.5));
+      card.add(this.add.text(left, y + 19, e.what, {
+        fontFamily: 'monospace', fontSize: '12.5px', color: IDE.text,
+        wordWrap: { width: 780 }
+      }).setOrigin(0, 0.5));
+      // examples are written multi-line in the glossary where the language needs
+      // it (Python's indentation, Haskell's where-clause); the card is one row
+      // per line, so flatten rather than let a stray newline shove the layout.
+      card.add(this.add.text(left + 8, y + 38, e.ex.replace(/\s*\n\s*/g, ' ⏎ '), {
+        fontFamily: 'monospace', fontSize: '12px', color: IDE.stringy,
+        wordWrap: { width: 772 }
+      }).setOrigin(0, 0.5));
+    });
+
+    // Say honestly why a pattern isn't here, and don't conflate the two reasons:
+    // some were pushed out by the card's cap, some the glossary genuinely can't
+    // explain. Claiming "no note" for a word that has one would be a lie the
+    // player can catch by clearing the same level twice.
+    const explained = Glossary.review(lang.name, words, 0).length;
+    const unnoted = words.length - explained;
+    const parts = [];
+    parts.push(explained > entries.length
+      ? 'showing ' + entries.length + ' of the ' + words.length + ' patterns you typed'
+      : 'all ' + entries.length + ' patterns you typed this level');
+    if (unnoted > 0) parts.push(unnoted + ' had no note yet');
+    card.add(this.add.text(cx, cy + 172, parts.join('  ·  '), {
+      fontFamily: 'monospace', fontSize: '11px', color: IDE.dim
+    }).setOrigin(0.5));
+
+    const btn = this.add.text(cx, cy + 196, '[ KEEP TYPING — ENTER ]', {
+      fontFamily: 'monospace', fontSize: '17px', color: IDE.white, fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    card.add(btn);
+    card.add(this.add.text(cx + 250, cy + 196, 'N — stop showing these', {
+      fontFamily: 'monospace', fontSize: '11px', color: IDE.dim
+    }).setOrigin(0.5));
+
+    // the clock is stopped here on purpose. Everywhere else in this game a panel
+    // keeps the countdown running (the bag, the shop, festivals) because pausing
+    // was a free exploit — but this one is not a decision the player makes to
+    // gain something, it's the game talking to them between levels, and charging
+    // seconds for reading would just teach them to skip it.
+    const close = (turnOff) => {
+      if (this.learnKey === handler) this.learnKey = null;
+      if (turnOff) Profile.setLearn(false);
+      Sfx.blip();
+      this.tweens.add({
+        targets: card, alpha: 0, duration: 160,
+        onComplete: () => { card.destroy(); done(); }
+      });
+    };
+    const handler = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') close(false);
+      else if (e.key === 'n' || e.key === 'N') close(true);
+    };
+    this.learnKey = handler;
+    btn.on('pointerdown', () => close(false));
+
+    card.setAlpha(0);
+    this.tweens.add({ targets: card, alpha: 1, duration: 180 });
+    Sfx.win();
   }
 
   // --- boss fight at the end of every stage ---

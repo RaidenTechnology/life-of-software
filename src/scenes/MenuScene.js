@@ -81,11 +81,20 @@ class MenuScene extends Phaser.Scene {
 
     // shared actions — bound to both pointer clicks and keys (this is a typing
     // game; the menu should answer the keyboard too, not just the mouse).
+    // A first-ever player goes through the prologue: it frames the run and asks
+    // the two things the game cannot work out on its own (what they know, and
+    // whether they want the patterns explained). Once answered it never appears
+    // uninvited again — the [ SETUP ] entry below reopens it on demand — so a
+    // returning player is never taxed for it.
     const startNew = () => {
       Sfx.unlock();          // first user gesture → audio allowed from here on
       Sfx.blip();
       // pass resume:false explicitly — Phaser keeps the previous scene data when
       // start() is called with none, which would silently resume a NEW GAME.
+      if (!Profile.onboarded) {
+        this.scene.start('Prologue', { next: 'Game', payload: { resume: false } });
+        return;
+      }
       this.scene.start('Game', { resume: false });
     };
     const startDaily = () => {
@@ -147,6 +156,28 @@ class MenuScene extends Phaser.Scene {
 
     start.on('pointerdown', startNew);
     daily.on('pointerdown', startDaily);
+
+    // SETUP reopens the prologue's two questions on demand. Once answered, the
+    // prologue never shows itself again, so without this entry the answers would
+    // be a one-time, unchangeable decision made before you'd played a second of
+    // the game — exactly the wrong moment to be sure about either of them. Also
+    // shows what they're currently set to, so the menu states the run's terms.
+    const setupLabel = () => '[ SETUP: ' + Profile.label +
+      ' · notes ' + (Profile.learn ? 'ON' : 'OFF') + ' · S ]';
+    // Left margin under [ HOW TO PLAY ], the same idiom — the centre column is
+    // full (title → blurb → continue → new → daily → the 25-badge road) and the
+    // road label sits at cy+122 with no room above it.
+    const setup = this.add.text(12, 64, setupLabel(), {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.dim
+    }).setOrigin(0, 0.5).setDepth(32).setInteractive({ useHandCursor: true });
+    setup.on('pointerover', () => setup.setColor(IDE.white));
+    setup.on('pointerout', () => setup.setColor(IDE.dim));
+    const openSetup = () => {
+      Sfx.unlock(); Sfx.blip();
+      // come back HERE, not into a run — this is a settings visit, not a start.
+      this.scene.start('Prologue', { next: 'Menu', payload: {} });
+    };
+    setup.on('pointerdown', openSetup);
 
     // --- HOW TO PLAY panel -------------------------------------------------
     // The game has real depth a judge who plays two minutes never discovers —
@@ -222,6 +253,7 @@ class MenuScene extends Phaser.Scene {
       if (e.key === 'Enter' || e.key === ' ') { ckpt ? startContinue() : startNew(); }
       else if (e.key === 'n' || e.key === 'N') startNew();
       else if (e.key === 'd' || e.key === 'D') startDaily();
+      else if (e.key === 's' || e.key === 'S') openSetup();
     });
   }
 }
