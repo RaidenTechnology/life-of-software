@@ -350,6 +350,11 @@ class Battle {
     this.typeIndex = 0;
     this.tier = 0;
     this.ranged = false;
+    // True for the length of a level-up volley. The ranged attack() refills the
+    // strip 200ms after its arrow lands, and the word that clears a level calls
+    // attack() and then levelUp() -> ulti() in the SAME tick — so that refill was
+    // landing inside the volley. The volley owns the strip while it runs.
+    this.ultiActive = false;
     this.decor = [];
 
     this.striking = false;
@@ -531,7 +536,17 @@ class Battle {
         // slid an identical monster into the dying one's slot over 250ms while
         // the corpse faded over 300 — two overlapping skeletons exactly where the
         // player was looking, which is why the kill did not register at all.
-        this.scene.time.delayedCall(200, () => { this.reflow(); this.fill(false); });
+        this.scene.time.delayedCall(200, () => {
+          // Measured on a skeleton stage before this guard: 700ms after the
+          // clearing word, five fresh skeletons stood in the row while two of the
+          // originals were still falling. The row was never empty, so the level-up
+          // volley read as "nothing died — they are all still standing". Melee
+          // never had it: there the refill happens synchronously inside attack(),
+          // before ulti() ever reads the queue.
+          if (this.ultiActive) return;
+          this.reflow();
+          this.fill(false);
+        });
       });
     } else {
       this.dashHero({
@@ -584,6 +599,7 @@ class Battle {
 
   ulti(done) {
     const s = this.scene;
+    this.ultiActive = true;
     const flash = s.add.rectangle(s.scale.width / 2, this.groundY,
       s.scale.width, 130, 0xffffff, 0).setDepth(6);
     s.tweens.add({
@@ -614,7 +630,7 @@ class Battle {
     });
     this.enemies = [];
     s.time.delayedCall(n * 80 + 500 + (this.ranged ? 260 : 0),
-      () => { this.fill(false); done(); });
+      () => { this.ultiActive = false; this.fill(false); done(); });
   }
 
   // the front monster steps up and strikes the hero once.

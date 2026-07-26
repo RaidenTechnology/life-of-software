@@ -2969,3 +2969,31 @@ it (`RARITIES[r].color` / `.tint`); the other `#ff9800` uses in the repo are the
 flame triangles and the three unrelated readouts, all untouched.
 
 `index.html` at `?v=38`.
+
+## The ranged level-up killed nothing, visibly - 20260726
+
+Report: "okla karakter son vuruşu atınca hiçbiri ölmüyor aynı olduğu gibi kalıyor"
+— on the crossbow stages the level-clearing blow leaves the whole row standing.
+
+Not the kills. `ulti()` called on its own destroys all five sprites on a ranged
+stage (measured 5/5), and an ordinary ranged kill has been fine since the earlier
+pass. The bug was the REFILL racing the volley.
+
+The ranged `attack()` deliberately delays `reflow()`/`fill()` by 200ms so a death
+gets its slot to itself. But the word that clears a level runs `attack()` and then
+`levelUp()` -> `ulti()` in the SAME tick, so that refill landed 200ms INTO the
+volley. Measured before the fix, on a skeleton stage: at 700ms after the clearing
+word, TWO of the originals were still falling while FIVE fresh skeletons already
+stood in the row. The row was never empty, and since the monsters on a stage are
+identical, the only honest reading of the screen was "nothing died". Melee never
+had it — there the refill happens synchronously inside `attack()`, before `ulti()`
+ever reads the queue.
+
+`Battle.ultiActive` now marks the volley, the delayed refill returns early while
+it is up, and the volley refills at its own tail. Measured after: ranged matches
+melee — field empty at 1200ms with every original destroyed, fresh row fading in
+at 2000ms, zero frames where a dying original shares the strip with a fresh
+monster. An ordinary (non-clearing) ranged kill still drops its target and
+refills to five inside ~400ms, untouched.
+
+`index.html` at `?v=39`.
