@@ -170,3 +170,24 @@ or audio.**
 - [ ] Voting is on **Creativity · Enjoyment · Narrative · Artwork · Audio**.
       There is NO separate "Theme" category (several NOTES entries assumed one).
       Narrative and Audio are each a full fifth of the score.
+
+## Form fields — decided 26 Jul, with reasons
+
+| Field | Value | Why |
+|---|---|---|
+| Kind of project | HTML + "played in the browser" | — |
+| Genre | **Action** | Single-select. Real-time, timed, speed-based. "Educational" on itch skews to children's learning titles and reads as "not a game"; the teaching side is discoverable through TAGS, which is where itch traffic actually comes from. |
+| Tags | `typing` `roguelite` `pixel-art` `programming` `educational` `countdown` `singleplayer` `phaser` | — |
+| Viewport | **960 × 540** | the canvas is exactly this; anything else resamples it |
+| Fullscreen button | **ON** | there is no game-side fullscreen code in this project (unlike STAR BREAKER), and none is needed: Phaser FIT + CENTER_BOTH plus `image-rendering: pixelated` scale cleanly from the iframe's own fullscreen |
+| Enable scrollbars | **OFF** | `html,body{overflow:hidden}` — a scrollbar can only shift the canvas and break click alignment |
+| Mobile friendly | **OFF** | keyboard-only game; the menu says so to any touch-only device |
+| Made with | Phaser | — |
+| Average session | A few minutes | a typical run is 5-15 minutes; "about a half-hour" would oversell it |
+| Inputs | Keyboard (+ Mouse) | keyboard is required; the menus, bag and boon cards also answer the mouse |
+| Accessibility | **Configurable difficulty only** | the prologue's skill question and the ASSIST toggle are real; there are no subtitles and no colour-blind mode, so nothing else gets ticked |
+| Pricing | No payments | a donation target asks for payout details |
+| AI disclosure | Yes — **code only** | art is Blender-scripted and code-drawn, audio is runtime WebAudio |
+
+Note: the itch embed takes keyboard focus on the first click. Harmless here — the
+menu's [ NEW GAME ] is mouse-clickable and that click hands over focus.
