@@ -2,3 +2,4 @@ dist/
 *.zip
 review-*.log
 blender/__pycache__/
+devlog-*.txt
