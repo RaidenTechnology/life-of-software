@@ -2997,3 +2997,47 @@ monster. An ordinary (non-clearing) ranged kill still drops its target and
 refills to five inside ~400ms, untouched.
 
 `index.html` at `?v=39`.
+
+## Four reports from a HARD run - 20260726
+
+**1. The boon draft froze — and it was a stale timer, not the buttons.** The 20s
+auto-pick was never cancelled when the player picked, so it fired later while the
+NEXT level's draft was open, found `this.boonKey` truthy (the new draft's take),
+and ran the OLD draft's closure: it applied an old card, nulled boonKey and
+resumed the old transition. The new cards sat on screen answering neither the
+mouse nor 1-3. Any level cleared inside 20s of the previous draft could do it,
+which is why it only showed up "sometimes" and deeper in a run where levels fall
+fast. Fixed twice over: `finish()` now cancels the timer it owns, and `take()`
+tests IDENTITY (`this.boonKey !== take`) instead of truthiness, so a stale
+callback can never act. Verified: a stale take() call leaves the live draft's
+boonKey and boon count untouched, and the live draft still picks.
+
+**2. Hints scale with the stage.** A flat 20 credits was a rounding error by HARD
+(credits arrive at 5-8 a pattern; the report was 2500 banked). Now
+`20 * 1.7^(stage + lap)`: 20 / 34 / 58 / **98 at HARD** / 167 / 284, and STACK
+OVERFLOW's discount comes off the base before the multiplier so it stays ~25% all
+the way up instead of decaying into a rebate. The status bar says "from 20
+credits, dearer each stage"; the button already showed the live price.
+Also capped that boon's discount at half the base — the deck can offer the same
+card again, and three STACK OVERFLOWs used to pin the hint at its 5-credit floor
+for the rest of the run, undoing the pricing entirely.
+
+**3. The row lengthens with the stage.** It was five monsters everywhere, so a
+wipe cost five patterns on VERY EASY and five on HARD — the field never got
+heavier as the languages did. Now 4 / 5 / 5 / **6** / 7 / 7. baseX moves left with
+it (470 / 470 / 470 / 400 / 330 / 330) because the strip is right-bounded: at
+spacing 92 a row of five already ends at x 838. Measured across all six stages:
+gaps stay 92 against a 58px sprite, the longest row ends at 911 of 960, every row
+clears the hero at 150. `fill()` only tops up, so `setStage` now also TRIMS —
+without it the opening stage kept the fifth monster the constructor had made.
+
+**4. Festivals could hand back a 20-second clock.** The festival drains the main
+clock on purpose, but what waits on the other side is a fresh level with its
+target unmet, and arriving there at ~20s is the same unfairness BOSS_WIN_TIME
+exists to stop. `FESTIVAL_EXIT_TIME = 30` floors the normal exit (with the green
+gain flash); the death path passes `silent` and stays dead — verified, 2s stays 2s.
+
+Smoke: three levels played through with drafts and code-review cards, then a boss
+and a stage card, console clean; after the card the row settles at 5 for EASY.
+
+`index.html` at `?v=40`.

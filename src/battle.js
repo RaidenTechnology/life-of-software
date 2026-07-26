@@ -14,6 +14,10 @@ class Battle {
   // Medium → elf, Hard → goblin, Very Hard → vampire, Survival → demon
   static TYPES = ['ork', 'skeleton', 'elf', 'goblin', 'vampire', 'demon'];
   static RANGED = ['skeleton', 'elf'];   // stages where the hero uses the crossbow
+  // monsters standing in the row, per stage (VERY EASY .. SURVIVAL), and where the
+  // row starts so the longest one still fits inside 960 with the hero at 150
+  static ROW =   [4, 5, 5, 6, 7, 7];
+  static ROW_X = [470, 470, 470, 400, 330, 330];
 
   static makeTextures(scene) {
     const g = scene.add.graphics();
@@ -889,10 +893,33 @@ class Battle {
   setStage(i) {
     this.typeIndex = Phaser.Math.Clamp(i, 0, Battle.TYPES.length - 1);
     const type = Battle.TYPES[this.typeIndex];
+    // The row lengthens with the stage. It was five everywhere, so a wipe cost
+    // five patterns whether you were on VERY EASY or HARD — the field never got
+    // heavier as the languages did. baseX moves left with it because the strip is
+    // right-bounded: at spacing 92 the last monster of a row of five already sits
+    // at x 838 (edge ~863 of 960), so a longer row has to start further back
+    // rather than run off the screen. The hero stands at 150, so 330 is the
+    // furthest left the row can begin without crowding him.
+    this.max = Battle.ROW[this.typeIndex];
+    this.baseX = Battle.ROW_X[this.typeIndex];
     this.bg.setTexture('bg_' + type);
     this.ranged = Battle.RANGED.includes(type);
     this.applyHeroTexture();
     this.enemies.forEach(e => e.setTexture('en_' + type));
+    // A row that changed length or origin has to be re-laid out. fill() only ever
+    // tops UP, so a shorter row has to hand the extras back by hand — the strip is
+    // built five long in the constructor and VERY EASY wants four, so without this
+    // the opening stage keeps a monster the stage does not have.
+    if (!this.bossActive) {
+      while (this.enemies.length > this.max) {
+        const e = this.enemies.pop();
+        if (e === this.strikeTarget) { this.striking = false; this.strikeTarget = null; }
+        this.scene.tweens.killTweensOf(e);   // the idle bob repeats forever
+        e.destroy();
+      }
+      this.reflow();
+      this.fill(false);
+    }
 
     this.decor.forEach(d => d.destroy());
     this.decor = [];

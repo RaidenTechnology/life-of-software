@@ -43,6 +43,19 @@ const LEVELUP_TIME_BONUS = 10;
 const PERFECT_TIME_BONUS = 5;     // clearing a level with zero wrong patterns
 const PERFECT_CREDIT = 10;
 const BOSS_WIN_TIME = 25;        // clock floor after clearing a boss (fresh stage)
+// Clock floor when a festival hands you back to the road. The festival drains the
+// main clock on purpose (it is a race, not free upside), but the thing waiting on
+// the other side is a FRESH LEVEL with its target unmet — and arriving there at
+// ~20s, which is what happened in play, is the same "dropped into new work at
+// near-death" unfairness BOSS_WIN_TIME exists to stop. Only on the normal exit:
+// the death path passes `silent` and must stay dead.
+const FESTIVAL_EXIT_TIME = 30;
+// How much dearer a hint gets per stage (and per survival lap). A flat 20 credits
+// was a rounding error by HARD — credits arrive at ~5-8 a pattern and a deep run
+// was sitting on thousands, so the button stopped being a decision. 1.7^stage
+// keeps it at roughly two or three hints' worth of a level's income all the way
+// up: 20 at VERY EASY, 98 at HARD, 283 at SURVIVAL.
+const HINT_STAGE_STEP = 1.7;
 const MAX_TYPED = 24;
 const FESTIVAL_CHANCE = 0.35;
 const FESTIVAL_TIME = 20;
@@ -261,8 +274,10 @@ class GameScene extends Phaser.Scene {
     this.applySceneBg(Battle.TYPES[0]);
 
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
-    status.left.setText('type + ENTER · TAB bag/shop · ESC pause · CTRL+SPACE hint (' +
-      HINT_COST + ' credits, ' + FESTIVAL_HINT_COST + ' at festivals)');
+    // the price is no longer one number (it climbs per stage), so the bar states
+    // the floor and says which way it moves; the button itself shows the live cost
+    status.left.setText('type + ENTER · TAB bag/shop · ESC pause · CTRL+SPACE hint (from ' +
+      HINT_COST + ' credits, dearer each stage)');
     // keep the right status handle + its base label: update() appends a live
     // WPM readout to it once per second (a typing game should show your speed).
     this.statusRight = status.right;
@@ -603,7 +618,13 @@ class GameScene extends Phaser.Scene {
     const base = this.festival ? FESTIVAL_HINT_COST : HINT_COST;
     // Someone who told the prologue they don't write code pays half — the hint
     // is their vocabulary lesson, not a shortcut past a fight they could win.
-    return Math.max(5, Math.round((base - this.boonHint) * Profile.hintScale));
+    //
+    // The stage multiplies it (see HINT_STAGE_STEP). STACK OVERFLOW's discount is
+    // taken off the base BEFORE the scaling, so the boon stays worth something
+    // deep in a run (~25% off) instead of decaying into a 5-credit rebate on a
+    // 283-credit hint.
+    const stageMult = Math.pow(HINT_STAGE_STEP, this.stageIndex + this.survivalLap);
+    return Math.max(5, Math.round((base - this.boonHint) * stageMult * Profile.hintScale));
   }
 
   targetScore() {
@@ -2579,7 +2600,11 @@ class GameScene extends Phaser.Scene {
       { key: 'lts', name: 'LTS RELEASE', desc: 'deprecation notices\nlast 3s longer',
         apply: () => { this.boonEol += 3; } },
       { key: 'hints', name: 'STACK OVERFLOW', desc: '+3 free hints,\nand hints cost 5 less',
-        apply: () => { this.hintTokens += 3; this.boonHint += 5; } },
+        // The deck can offer the same boon again (7 cards, 25 levels), and three
+        // STACK OVERFLOWs used to drive the hint to its 5-credit floor for the
+        // rest of the run — undoing the stage pricing entirely. The tokens still
+        // stack; the discount caps at half the base price.
+        apply: () => { this.hintTokens += 3; this.boonHint = Math.min(10, this.boonHint + 5); } },
       { key: 'combo', name: 'HOT PATH', desc: 'combo x3 arrives at\n10 instead of 15',
         apply: () => { this.boonCombo = true; } },
       { key: 'refill', name: 'NIGHTLY BUILD', desc: '+8s at the start of\nevery level',
@@ -2591,7 +2616,11 @@ class GameScene extends Phaser.Scene {
     // the draft waits on a human, so the transition guard has to outlast the
     // auto-pick below rather than tearing the overlay down on top of them.
     this.armTransitionGuard(30, 'boon draft');
+    // The auto-pick timer below has to be cancellable, and every path out of the
+    // draft has to go through one place, or a dead draft keeps a live timer.
+    let auto = null;
     const finish = () => {
+      if (auto) { auto.remove(false); auto = null; }
       this.boonKey = null;
       this.tweens.add({
         targets: overlay, alpha: 0, duration: 400,
@@ -2606,8 +2635,16 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5));
 
     const take = (i) => {
-      if (!this.boonKey) return;       // one pick only, and not after the timeout
+      // Identity, not truthiness. `if (!this.boonKey)` let a STALE draft act: the
+      // 20s auto-pick below was never cancelled on a pick, so it fired while the
+      // NEXT level's draft was open, found boonKey truthy (the new draft's take),
+      // and ran the OLD one — applying an old card, nulling boonKey and resuming
+      // the old transition. The new cards stayed on screen answering neither the
+      // mouse nor 1-3. That is the "buttons freeze during the pick" report, and it
+      // needed nothing but a level cleared inside 20s of the previous draft.
+      if (this.boonKey !== take) return;
       const b = cards[i];
+      if (!b) return;                  // deck shorter than the slots: never act on undefined
       b.apply();
       this.boons.push(b.name);
       this.boonKey = null;
@@ -2641,7 +2678,7 @@ class GameScene extends Phaser.Scene {
     // …but never let the draft be the thing that stalls a run: if the player is
     // away from the keyboard, take the first card and carry on. The transition
     // guard would otherwise fire and leave the overlay up over live play.
-    this.time.delayedCall(20000, () => { if (this.boonKey) take(0); });
+    auto = this.time.delayedCall(20000, () => take(0));
   }
 
   showStage(done) {
@@ -2838,6 +2875,12 @@ class GameScene extends Phaser.Scene {
     this.refreshLangHud();
     this.refreshCredits();
     if (silent) return;   // torn down by the death path: no summary, no continuation
+    // The festival ate the clock and the next LEVEL is what comes next; floor it
+    // so the reward round cannot hand you a language you have no time to clear.
+    if (this.timeLeft < FESTIVAL_EXIT_TIME) {
+      this.timeLeft = FESTIVAL_EXIT_TIME;
+      this.flashGain();
+    }
     this.feedback('festival over — ' + f.count + ' answers, +' +
       (f.count * FESTIVAL_CREDIT) + ' credits', '#dcdcaa');
     Sfx.hint();
