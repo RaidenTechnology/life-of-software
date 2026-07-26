@@ -2914,3 +2914,38 @@ stop — the plain transition is byte-for-byte the old one. `media/ss6-festival-
 added for the page.
 
 `index.html` at `?v=36`.
+
+## PRISM was working and saying it wasn't - 20260726
+
+Asked whether the item actually does anything, because using it "on the last hit"
+felt like it had no effect. Two separate things, both measured in play.
+
+**It works.** With a shield up and a x8 streak, a wrong word left the combo at 8
+and spent one charge. So did ARMOR (rolled a UNIQUE through the real pipeline,
+used it out of the bag: deathSave 20 applied, item consumed) and SCROLL (3 free
+hints applied; the hint then charged 0 credits and decremented a token, while
+with no tokens it charged the full price). The death save was verified firing in
+five situations: plain clock-out, mid-boss, under a festival banner, with the bag
+open at 0.3s left, and — correctly — NOT a second time once spent.
+
+**But the screen said the opposite.** The red feedback line is written before the
+shield is consulted, so it printed `combo x8 lost!` while the pop directly above
+it printed `PRISM HELD THE COMBO x8`. The line sits at the input, which is where
+the player's eyes are, so the honest reading of the screen was "the item did
+nothing". PRISM is now settled BEFORE the line is written, and the line says
+`PRISM held your x8`.
+
+**And it burned charges for nothing.** At combo 0 or 1 the shield still spent a
+charge to "save" a x0 combo — measured: shield 2 -> 1, pop reading
+`PRISM HELD THE COMBO x0`. An item charge for no benefit, unavoidable by the
+player, which is the opposite of insurance. The shield now only spends at combo
+>= 2. Verified: combo 0 leaves the charge alone and pops nothing, combo 2 spends
+it and holds, combo 8 with no shield left still reports the loss plainly.
+
+Worth noting the other consumables were already guarded against pointless use
+(`Items.refuseReason`: a potion that would overflow the clock, an armour weaker
+than the one standing, a sigil with nothing deprecated, a second core/shard) —
+PRISM had a refusal for stacking a weaker shield, but nothing stopped it being
+eaten by a miss that cost nothing.
+
+`index.html` at `?v=37`.

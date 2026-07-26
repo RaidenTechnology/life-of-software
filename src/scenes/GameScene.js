@@ -1080,10 +1080,20 @@ class GameScene extends Phaser.Scene {
       return;
     }
     if (!this.activeLang.words.includes(w)) {
-      // a wrong word breaks the combo — if it was a real streak (>=5, the first
-      // score-multiplier tier), say so in the same red line so the cost of the
-      // miss reads. No balance change; combo already reset to 0 on any wrong word.
-      const tail = this.combo >= 5 ? ' — combo ×' + this.combo + ' lost!' : '';
+      // Settle PRISM BEFORE the red line is written, because the line has to be
+      // able to tell the truth. It used to claim "combo x8 lost!" while the pop
+      // directly above it said PRISM HELD THE COMBO — the shield had worked, but
+      // the contradiction landed at the input line, which is where the player is
+      // looking, so the honest reading was "the item did nothing".
+      //
+      // And the shield is only spent on a streak worth insuring. At combo 0 or 1
+      // it used to burn a charge to "save" a x0 combo — the player loses an item
+      // charge for no benefit and cannot avoid it, which is the opposite of what
+      // insurance is. Below 2 the miss simply costs nothing worth a charge.
+      const held = this.comboShield > 0 && this.combo >= 2;
+      const tail = this.combo >= 5
+        ? (held ? ' — PRISM held your ×' + this.combo : ' — combo ×' + this.combo + ' lost!')
+        : '';
       this.feedback('"' + w + '" is not a ' + this.activeLang.name + ' pattern' + tail, IDE.error);
       // only count against the perfect-clear bonus during real level play — boss
       // fights and festivals are interstitials, not the language level being cleared.
@@ -1095,7 +1105,7 @@ class GameScene extends Phaser.Scene {
       // the mistake still costs the perfect-clear bonus, the accuracy stat and
       // (under STRICT) the seconds, because forgiving all of that would make the
       // item a licence to type badly rather than insurance against one slip.
-      if (this.comboShield > 0) {
+      if (held) {
         this.comboShield--;
         this.floatText('PRISM HELD THE COMBO  ×' + this.combo +
           (this.comboShield > 0 ? '  (' + this.comboShield + ' left)' : '  (last one)'));
