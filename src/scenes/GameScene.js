@@ -276,8 +276,13 @@ class GameScene extends Phaser.Scene {
     const status = UI.chrome(this, 'life_of_software — Raiden IDE');
     // the price is no longer one number (it climbs per stage), so the bar states
     // the floor and says which way it moves; the button itself shows the live cost
-    status.left.setText('type + ENTER · TAB bag/shop · ESC pause · CTRL+SPACE hint (from ' +
-      HINT_COST + ' credits, dearer each stage)');
+    // Kept SHORTER than the pre-stage-pricing version, not just shorter than the
+    // one that broke: on a DAILY run the right-hand readout is at its longest
+    // ("DAILY CHALLENGE - <date> - N wpm - N% acc") and the two strings met in the
+    // middle. Measured collision, seen in play on itch. The live price is on the
+    // HINT button itself, so the strip only has to say which way it moves.
+    status.left.setText('type + ENTER · TAB bag/shop · ESC pause · CTRL+SPACE hint (' +
+      HINT_COST + '+ cr)');
     // keep the right status handle + its base label: update() appends a live
     // WPM readout to it once per second (a typing game should show your speed).
     this.statusRight = status.right;
@@ -327,6 +332,17 @@ class GameScene extends Phaser.Scene {
     this.bagBtn.on('pointerover', () => this.bagBtn.setColor(IDE.white));
     this.bagBtn.on('pointerout', () => this.bagBtn.setColor(IDE.keyword));
     this.bagBtn.on('pointerdown', () => this.toggleMenu('bag'));
+    // A third chip in the row that already holds BAG and SHOP. Pausing was
+    // keyboard-only, and Escape is exactly the key itch's fullscreen takes away —
+    // so in fullscreen there was no way to pause at all. It goes here rather than
+    // on the bottom status strip: that strip is 14px documentation at the canvas
+    // edge, and itch draws its OWN fullscreen button over the bottom-right corner.
+    this.pauseBtn = this.add.text(205, 92, '[ PAUSE ]', {
+      fontFamily: 'monospace', fontSize: '13px', color: IDE.keyword
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+    this.pauseBtn.on('pointerover', () => this.pauseBtn.setColor(IDE.white));
+    this.pauseBtn.on('pointerout', () => this.pauseBtn.setColor(IDE.keyword));
+    this.pauseBtn.on('pointerdown', () => this.togglePause());
     this.shopBtn = this.add.text(130, 92, '[ SHOP ]', {
       fontFamily: 'monospace', fontSize: '15px', color: IDE.keyword
     }).setInteractive({ useHandCursor: true }).setDepth(9);
@@ -477,7 +493,12 @@ class GameScene extends Phaser.Scene {
     // they are faster), but every one of them is now a thing you can click, with
     // its current state written on it.
     this.pauseBtnDefs = [
-      { label: () => 'RESUME  (ESC)', act: () => this.togglePause() },
+      // In itch's fullscreen the BROWSER owns Escape: it exits fullscreen and the
+      // key never reaches the game, so "RESUME (ESC)" was a promise the pause
+      // screen could not keep — press it once to pause, press it again and you
+      // leave fullscreen still paused. SPACE is the second way out, and it is on
+      // the label because an escape hatch nobody can see is not one.
+      { label: () => 'RESUME  (ESC / SPACE)', act: () => this.togglePause() },
       { label: () => 'SOUND: ' + (Sfx.muted ? 'OFF' : 'ON') + '  (M)',
         act: () => { Sfx.setMuted(!Sfx.muted); Sfx.blip(); } },
       { label: () => 'ASSIST: ' + (Assist.on ? 'ON' : 'OFF') + '  (A)',
@@ -990,7 +1011,8 @@ class GameScene extends Phaser.Scene {
       // from the pause screen you can bail out to the main menu (to try the
       // daily, start fresh, etc.) — otherwise a run only ends by dying. The
       // furthest section reached is already checkpointed on each clear.
-      if (e.key === 'q' || e.key === 'Q') this.quitToMenu();
+      if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') this.togglePause();
+      else if (e.key === 'q' || e.key === 'Q') this.quitToMenu();
       // M mutes/unmutes without leaving the keyboard (the gear is mouse-only).
       // Safe here: letters are word-input only when NOT paused. unlock() first so
       // the very first toggle still has an audio context to (un)mute.

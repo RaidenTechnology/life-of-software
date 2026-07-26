@@ -3041,3 +3041,35 @@ Smoke: three levels played through with drafts and code-review cards, then a bos
 and a stage card, console clean; after the card the row settles at 5 for EASY.
 
 `index.html` at `?v=40`.
+
+## The status strip collided, and Escape was a promise fullscreen breaks - 20260726
+
+Both found by watching the itch DRAFT being played, not in local testing.
+
+**1. My own regression.** Making the hint price stage-dependent meant rewriting the
+status strip to "CTRL+SPACE hint (from 20 credits, dearer each stage)" — seven
+characters longer than the line it replaced. On a DAILY run the right-hand readout
+is at its longest ("DAILY CHALLENGE - <date> - N wpm - N% acc") and the two strings
+met in the middle of the bar: seen on screen as
+`...dearer e[A]BA[I]LY[t]CHA[g]LLENGE`. It never showed locally because an ordinary
+run has a short right-hand string. The strip now reads `hint (20+ cr)` — shorter
+than even the pre-pricing version — and the live price stays on the HINT button
+where it always was. Measured on a daily run with a forced worst-case readout
+("188 wpm - 100% acc"): 113px of clear air between the two strings.
+
+**2. Escape cannot resume in fullscreen, and the pause screen was promising it
+could.** In itch's fullscreen the browser owns Escape: press it once and the game
+pauses, press it again and you leave fullscreen still paused, because the key never
+reaches the game. The board said "RESUME (ESC)". SPACE (and ENTER) now resume too,
+and the label says "RESUME (ESC / SPACE)" — an escape hatch nobody can see is not
+one. Verified: SPACE resumes, ESC still works outside fullscreen.
+
+**3. A [ PAUSE ] chip, from the user's "make these buttons" idea.** Taken narrowly
+and put where the buttons already are — the row that holds BAG and SHOP — because
+pausing was keyboard-only and Escape is exactly the key fullscreen takes away, so in
+fullscreen there was no way to pause at all. It sits at x205..270 against SHOP ending
+at 195. The bottom status strip was deliberately NOT turned into buttons: it is 14px
+documentation at the canvas edge, it duplicates BAG/SHOP which are already buttons
+up top, and itch draws its own fullscreen button over the bottom-right corner.
+
+`index.html` at `?v=41`; the zip must be re-uploaded.
