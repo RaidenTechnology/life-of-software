@@ -1,99 +1,106 @@
-# LIFE OF SOFTWARE — Raiden Technology
+# LIFE OF SOFTWARE
 
-**GMTK 2026 jam game.** Ortada bir yazı paneli, tepede acımasız bir geri sayım.
-Süre bitmeden aktif dilin kalıplarını yaz (`import`, `async`, `let`, `fn`...) —
-her doğru kelime **süre + puan + kredi** kazandırır. Hedef puana ulaşınca sıradaki
-dile geçersin: **25 dillik bir merdiven**, en kolaydan en zora —
-**HTML → CSS → Python → JavaScript → … → Rust → Haskell → Assembly**.
-Tüm diller bitince **STAGE** yükselir (hedefler artar) ve merdiven baştan başlar.
-Kredilerle (max 100) panelin sağ üstündeki **İPUCU** butonundan ipucu satın alınır.
+**GMTK Game Jam 2026 entry — theme: *Count Down*.**
+Play it: **[raidentechnology.itch.io/lifeofsoftware](https://raidentechnology.itch.io/lifeofsoftware)**
 
-Ama geri sayan tek şey saat değil: **kalıplar da eskiyor.** Birkaç saniyede bir,
-henüz yazmadığın bir kalıp uyarıya düşer ve kısa süre sonra **deprecate** olur —
-o seviye boyunca bir daha yazılamaz. Uyarı ekrandayken yazarsan çift öder.
-Oyunun çekirdeği bu: bir geri sayımla yarışırken ikincisi cevapları yiyor.
+You have one clock and twenty-five languages. Type the patterns of the language
+in front of you — `import`, `async`, `fn`, `=>`, `mov` — and every correct one
+buys back seconds, score and credits. Run out of clock and the run is over.
 
-Diğer sistemler: **dile özel kurallar** (VERBOSE / TERSE / STRICT COMPILER /
-MOVES FAST / LEGACY SYSTEM), boss'larda **exploit chain** (sırayla üç kalıp =
-3 kat hasar), her seviye sonunda **3 kart arasından kalıcı bir boon**, ganimet +
-çanta + günlük dükkân, festivaller ve günlük mücadele.
+**But the clock is not the only countdown.** While you type, the language itself
+is going obsolete. Every few seconds a pattern you have not written yet is put on
+notice — *deprecated since 3.11, removed in 4.0* — and moments later it is gone
+for the rest of the level. Write it before the notice dies and it pays **double**.
 
-**Öğreten kısım (v2):** oyun başlamadan önce iki şey soruyor — ne kadar yazılım
-bildiğin (az / orta / bu benim işim; cevap sadece *ipleri* değiştirir: açılış
-saati, ASSIST varsayılanı, ipucu fiyatı — puanı asla) ve kalıpların ne anlama
-geldiğinin anlatılmasını isteyip istemediğin. Evet dersen her dil bölümünü
-geçtiğinde bir **CODE REVIEW** kartı geliyor: *senin yazdığın* kalıplar, yazdığın
-sırayla, her birinin bir cümlelik anlamı ve gerçek bir örneğiyle. Böylece HASKELL'i
-`>>=`'in ne olduğunu hiç öğrenmeden geçmiyorsun. Sözlük 1276 kalıbın 913'ünü
-açıklıyor; merdivenin başı (HTML, CSS, PYTHON) %100.
+That is the game: racing one countdown while a second one eats the answers.
 
-**Kalıcı kayıt:** 25 dilden hangilerini *hayatın boyunca* geçtiğin, toplam kaç
-kalıp yazdığın ve saati ne kadar oyaladığın tarayıcıda saklanıyor. Menüdeki dil
-yolu bunu gösteriyor — geçtiğin diller tam renkli, geçmediklerin sönük. Kredilerin
-ve çantan da koşular arasında duruyor.
+## What is in it
 
-**Dili bilmiyorsan:** ASSIST açık gelir — gerçekten sıkıştığında (saat bitmek
-üzere ya da bir süredir hiçbir kalıp tutmadıysa) **40 saniyede en fazla bir kez**
-kısa bir kalıp önerir. Hayatta kalmaya yeter, puana yetmez.
+- **25 languages**, easiest to hardest: HTML → CSS → Python → JavaScript → … →
+  Rust → Haskell → Assembly. Clear them all and the STAGE rises and the ladder
+  starts again, harder.
+- **Language rules.** JAVA and C# pay more for long patterns; BASH and ASSEMBLY
+  pay more for short ones; RUST and HASKELL charge 3 seconds for a mistake;
+  JAVASCRIPT deprecates twice as fast; PERL drains the clock faster.
+- **Bosses with an exploit chain.** Three patterns, in order, for triple damage —
+  break the order and the boss heals.
+- **A boon every level.** Three cards, pick one, it lasts the run.
+- **Loot with real decisions.** 10 item types across 5 rarities, a bag you can
+  pay to enlarge, and a daily shop.
+- **Festivals** between languages, as their own stop on the road.
+- **A daily challenge** on a fixed seed.
 
-Built on our generic pre-jam skeleton (allowed by jam rules: "pre-existing generic code").
+## It teaches the languages it makes you type
 
-## Tema: Count Down
+Most typing games hand you words. This one hands you `impl`, `nonlocal`, `>>=`
+and `%>%` — and if it stopped there you could clear HASKELL at speed and learn
+nothing about Haskell.
 
-itch.io duyurusu (22 Temmuz 2026, 20:04): *"The GMTK Game Jam for 2026 starts right now.
-You've got 96 hours to make a game that fits the theme. And this year's theme is... **Count Down**."*
+So it asks, before the run: *how much software do you know?* (the answer moves
+the ropes — opening clock, assist, hint price — and **never the score**) and
+*do you want the patterns explained?*
 
-> How you interpret this theme is entirely up to you. It could be a countdown to zero.
-> Numbers going down. Time going backwards. A depressed person with a historical title
-> of nobility. Up to you!
+Say yes and every time a language falls you get a **CODE REVIEW** card: the
+patterns *you* typed, in the order you typed them, each with a one-line meaning
+and a real example. **All 1276 of the game's patterns carry one**; **937** of
+them open a second, deeper panel.
 
-Jam bitiş: 26 Temmuz 2026, ~20:00 (96 saat). Konsept fikirleri için [NOTES.md](NOTES.md).
+Progress persists: which of the 25 languages you have *ever* cleared, how many
+patterns you have typed in your life, how long you have held the clock off zero.
+
+## Run locally
+
+No build step — plain `<script>` tags. Any static server will do:
+
+```bash
+python -m http.server 8766
+# then open http://localhost:8766
+```
 
 ## Structure
 
 ```
-index.html            entry point (plain script tags, no build step)
-lib/phaser.min.js     Phaser 3 (local copy — works offline / on itch.io)
-src/main.js           game config (960x540, FIT scale, arcade physics)
-src/sfx.js            WebAudio synth — zero asset files, zero AI
-src/data/languages.js dil merdiveni: kelime listeleri, hedef puanlar, süre çarpanları
-src/data/glossary.js  kalıp sözlüğü: anlam + örnek (paylaşılan katman + dile özel)
-src/scenes/           Boot → Menu → Prologue → Game → End
-assets/               jam art goes here (hand-made only — AI art = disqualification)
+index.html              entry point (plain script tags, no bundler)
+lib/phaser.min.js       Phaser 3, local copy — works offline and on itch.io
+src/main.js             game config (960×540, FIT scale, arcade physics)
+src/sfx.js              WebAudio synthesis — every sound generated at runtime
+src/data/languages.js   the ladder: word lists, target scores, clock multipliers
+src/data/glossary.js    pattern dictionary — meaning + example (1276 entries)
+src/data/glossary_detail.js   deeper panels (937 entries)
+src/scenes/             Boot → Menu → Prologue → Game → End
 ```
 
-## Run locally
+**There are no audio files in the build.** Every sound is synthesised at runtime
+from WebAudio primitives — including the per-language music profiles, the
+deprecation stings and the boss bed.
 
-Any static server, e.g.:
+⚠️ **Versioning trap:** every gameplay change must bump `?v=` in `index.html`.
+itch.io serves updated builds from the same URL, so without the bump the browser
+replays cached JavaScript. This bit us more than once.
 
-```
-python -m http.server 8765
-```
+## The theme
 
-Kodu değiştirdikten sonra tarayıcı eski dosyayı önbellekten servis edebilir —
-`index.html` içindeki `?v=` numarasını artır (itch'e yeni build yüklerken de
-şart: itch aynı URL'den servis eder).
+itch.io announcement, 22 July 2026: *"You've got 96 hours to make a game that
+fits the theme. And this year's theme is… **Count Down**."*
 
-## Package for itch.io
+Concept notes and the road not taken are in [NOTES.md](NOTES.md).
 
-```
-powershell -File build.ps1
-```
+Built on a generic pre-jam skeleton, which the jam rules explicitly allow
+("pre-existing generic code").
 
-Produces `dist/raiden-gmtk2026.zip` — upload to itch.io, mark **"This file will
-be played in the browser"**, viewport 960×540.
+## AI disclosure
 
-## Swapping in your own art (Blender renders etc.)
+Design, direction and the game's concept are the author's. Parts of the code
+were written with AI assistance (Claude) — notably the audio layer, the language
+data pass and the ending/prologue scenes. **No AI-generated art or audio assets
+are in the build**; all sound is procedurally synthesised code, which the jam
+rules permit. The same disclosure is on the itch.io page.
 
-The hero and monster sprites are code-drawn placeholders. To replace them,
-export transparent PNGs (~40×48) and load them in `BootScene.preload` with
-the same keys — `hero0`..`hero5`, `en_ork`, `en_skeleton`, `en_elf`,
-`en_vampire`, `en_goblin`, `en_demon`. `Battle.makeTextures` skips any key
-that is already loaded. Hand-made art only (jam rule: no AI art).
+## License
 
-## Jam constraints checklist
+MIT — see [LICENSE](LICENSE). The *LIFE OF SOFTWARE* name and the Raiden
+Technology brand are not covered by it.
 
-- [x] Playable in browser, keyboard + mouse
-- [x] No AI-generated art or audio (sfx = our own WebAudio synth)
-- [x] Theme integrated mechanically (countdown timer IS the core mechanic)
-- [ ] Name + cover image + screenshots on itch.io page
+---
+
+Built by [Raiden Technology](https://github.com/RaidenTechnology).
