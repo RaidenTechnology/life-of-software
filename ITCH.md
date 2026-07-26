@@ -52,7 +52,16 @@ Record at 960×540 so the pixels stay square.
 
 ---
 
-## Page body
+## Page body / "Details"
+
+⚠ **The final paste-ready text lives in `ITCH-DETAILS.md`** — it carries today's
+additions (per-language music, the epitaphs, the festival stop on the road, the
+changelog-dressed notice, the End screen's verdict) and the RE-COUNTED teaching
+numbers. The draft below is kept for reference only; one line in it is now wrong:
+coverage is not "913 of 1276", it is **1276 of 1276 with a meaning and an example,
+937 of them with a deeper panel** (counted out of the shipping build).
+
+## Page body (earlier draft — superseded by ITCH-DETAILS.md)
 
 ### LIFE OF SOFTWARE
 
