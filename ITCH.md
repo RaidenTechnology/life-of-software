@@ -200,16 +200,26 @@ game to the jam — it then gets a jam badge on its own page and appears in the 
 entry list (4,314 entries at the time of checking), which is where the jury browses
 from. Skip it and the game exists but is invisible to the jam.
 
-**⚠ Nothing can be changed after the close.** The page: "You will not be able to
-submit or change your game after this point - no exceptions!" — and the game stays
-LOCKED through the five-day voting period. Whatever build is up at the deadline is
-the build that gets rated, so the fresh-tab playtest of the itch draft is the last
-chance to catch anything.
+**Updates ARE allowed until the jam closes — the lock is at the close, not at the
+submit.** The page: "You can update your game at any point before the jam ends by
+simply uploading new files to your project. You don't need to resubmit - just edit!"
+After the close, nothing: "You will not be able to submit or change your game after
+this point - no exceptions", and the files stay locked through the voting period
+(the itch PAGE — screenshots, description — can still be edited during voting).
+So: submit early, keep fixing until the close if anything turns up.
 
-**⚠ One-hour ambiguity in the deadline.** The page now reads "the jam closes at 6PM
-BST" (= 20:00 Istanbul), while the reading taken off the same page on 25 Jul said
-17:00 BST (= 19:00 Istanbul). Do not gamble on resolving it: treat **19:00 Istanbul**
-as the personal cutoff. An extra hour, if it exists, is a gift.
+**Deadline settled: 20:00 Istanbul.** Read off the jam page's own countdown at 17:29
+on 26 Jul — "Submissions open from July 22nd 2026 at 8:00 PM to July 26th 2026 at
+8:00 PM", rendered in Europe/Istanbul (browser timezone verified), with 2h30m left
+on the clock. The 25 Jul note claiming 17:00 BST / 19:00 Istanbul was an hour early.
+
+**Step 7 asks how the game fits the theme** ("You will be given a chance to explain
+how your game fits the theme when you submit"). The prepared answer is the two-
+countdowns paragraph: the clock you buy back seconds against, and the deprecation
+notice eating the answers to it, with the 25 epitaphs as the career-long countdown.
+
+**The page's own pre-flight list** also asks: tested on a second computer (do at
+least a second BROWSER), and third-party assets credited (Phaser 3, MIT).
 
 Order: publish → play one level in a fresh/incognito tab → jam page → Submit your
 project → confirm the jam badge shows on the game page → then go and rate others.
