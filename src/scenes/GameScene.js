@@ -1982,7 +1982,7 @@ class GameScene extends Phaser.Scene {
       this.transitioning = false;
       this.refreshLangHud();
     };
-    const road = () => {
+    const road = (festival) => {
       // the festival ran with the field live, so take the transition back before
       // the overlay goes up, and re-arm the guard the festival stood down.
       this.transitioning = true;
@@ -1993,7 +1993,7 @@ class GameScene extends Phaser.Scene {
         } else {
           resume();
         }
-      }, perfect, perfectScore);
+      }, perfect, perfectScore, festival || null);
     };
 
     if (this.rand() < FESTIVAL_CHANCE) {
@@ -2004,7 +2004,10 @@ class GameScene extends Phaser.Scene {
       // reach the run in the meantime.
       this.clearTransitionGuard();
       this.transitioning = false;
-      this.startFestival(this.rand() < 0.5 ? 'sw' : 'growth', road);
+      // one rand() call at the same point in the sequence as before, so a daily
+      // seed still plays the same festival it always did
+      const kind = this.rand() < 0.5 ? 'sw' : 'growth';
+      this.startFestival(kind, () => road(kind));
       return;
     }
     road();
@@ -2378,9 +2381,15 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  showPath(fromIdx, done, perfect, perfectScore) {
+  showPath(fromIdx, done, perfect, perfectScore, festival) {
     const cx = this.scale.width / 2, cy = 250;
-    const spacing = 230;
+    // A festival is a place you went, so it gets a stop on the road between the
+    // language that fell and the one coming — HTML -> FESTIVAL -> CSS — instead
+    // of being a banner that happened and left no trace. The strip opens up from
+    // 230 to 290 only on those transitions: the stop needs a gap it can sit in
+    // (290 - 170 = 120 wide) and the language nodes must not get closer to it
+    // than they are to each other. 170 + 2*290 = 750, still inside 960.
+    const spacing = festival ? 290 : 230;
 
     const overlay = this.add.container(0, 0).setDepth(20).setAlpha(0);
     overlay.add(this.add.rectangle(cx, this.scale.height / 2,
@@ -2421,11 +2430,29 @@ class GameScene extends Phaser.Scene {
       return node;
     };
 
+    // Smaller than a language node on purpose: it reads as somewhere you passed
+    // through, not as one of the 25. No badge either — those belong to languages.
+    const mkFest = (kind) => {
+      const node = this.add.container(spacing / 2, 0);
+      const box = this.add.rectangle(0, 0, 96, 54, IDE.panel).setStrokeStyle(2, 0xdcdcaa);
+      node.add(box);
+      node.add(this.add.text(0, -12, kind === 'growth' ? 'GROWTH' : 'SOFTWARE', {
+        fontFamily: 'monospace', fontSize: '10px', color: IDE.dim
+      }).setOrigin(0.5));
+      node.add(this.add.text(0, 6, 'FESTIVAL', {
+        fontFamily: 'monospace', fontSize: '11px', color: '#dcdcaa', fontStyle: 'bold'
+      }).setOrigin(0.5));
+      node.box = box;
+      strip.add(node);
+      return node;
+    };
+
     const prev = fromIdx > 0 ? mkNode(fromIdx - 1, -spacing, 0.55) : null;
     if (prev) prev.box.setStrokeStyle(2, IDE.greenHex);
     const cur = mkNode(fromIdx, 0, 1);
     cur.box.setStrokeStyle(3, 0xffffff);
     const next = mkNode(fromIdx + 1, spacing, 0.45);
+    const fest = festival ? mkFest(festival) : null;
 
     // Echo the HUD's descending "N to boss" counter here, so the "Count Down"
     // theme is felt at every level-clear transition — not only in the corner HUD.
@@ -2486,11 +2513,27 @@ class GameScene extends Phaser.Scene {
       Sfx.pickup();
     });
 
+    // ...and the stop ticks 400ms behind the language, so the eye reads them in
+    // the order they were played rather than lighting up together.
+    if (fest) {
+      this.time.delayedCall(1400, () => {
+        fest.box.setStrokeStyle(2, IDE.greenHex);
+        fest.add(this.add.text(34, -18, '✓', {
+          fontFamily: 'monospace', fontSize: '14px', color: IDE.comment, fontStyle: 'bold'
+        }).setOrigin(0.5));
+        Sfx.blip();
+      });
+    }
+
     this.time.delayedCall(2200, () => {
       const incoming = fromIdx + 2 < LANGUAGES.length
         ? mkNode(fromIdx + 2, spacing * 2, 0) : null;
       const slide = { x: '-=' + spacing, duration: 1000, ease: 'Cubic.easeInOut' };
       this.tweens.add({ targets: [cur, next], ...slide });
+      if (fest) {
+        this.tweens.add({ targets: fest, ...slide });
+        this.tweens.add({ targets: fest, alpha: 0.5, duration: 1000 });
+      }
       if (prev) this.tweens.add({ targets: prev, ...slide, alpha: 0 });
       if (incoming) this.tweens.add({ targets: incoming, ...slide, alpha: 0.45 });
       this.tweens.add({ targets: cur, alpha: 0.55, duration: 1000 });

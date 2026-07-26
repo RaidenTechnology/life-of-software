@@ -2884,3 +2884,33 @@ Deliverables in `media/`: `life-of-software.gif` (720x405, 1.78MB, 13.8s),
 take, so the page and the GIF tell one story.
 
 `index.html` at `?v=33`.
+
+## The festival is a stop on the road now - 20260726
+
+It was already its own SECTION mechanically (level cleared -> festival -> road ->
+boon), but the road it interrupted never mentioned it: you went somewhere, came
+back, and the map showed HTML -> CSS as if nothing had happened. Now it reads
+HTML ✓ -> FESTIVAL ✓ -> CSS, with the stop deliberately smaller than a language
+node (96x54 against 170x64) and no badge, because it is somewhere you passed
+through rather than one of the 25.
+
+`showPath` takes the festival kind as a fifth argument and widens the strip from
+230 to 290 only on those transitions — the stop needs a gap it can live in
+(290 - 170 = 120) and the languages must not crowd it. Measured after the slide:
+HTML 105..275, FESTIVAL 287..383, CSS 395..565, PYTHON 685..855 — 12px gaps, no
+overlap, 750px of 960 used. The stop ticks green 400ms behind the language so the
+eye reads them in the order they were played, and it slides and dims with the
+rest of the road behind you.
+
+`afterUlti` now hands the kind through (`road(kind)`), so the stop says which
+festival it was: SOFTWARE or GROWTH. The `rand()` call that picks the kind stays
+in exactly the same position in the sequence, so a daily seed still plays the
+festival it always did.
+
+Verified both paths in the browser: with the roll forced, a natural level clear
+ran the festival and 'sw' arrived at the road, which drew the stop; with the roll
+forced to fail, the fifth argument is null, spacing measures 230 and there is no
+stop — the plain transition is byte-for-byte the old one. `media/ss6-festival-road.png`
+added for the page.
+
+`index.html` at `?v=36`.
