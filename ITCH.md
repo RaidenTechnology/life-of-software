@@ -191,3 +191,25 @@ or audio.**
 
 Note: the itch embed takes keyboard focus on the first click. Harmless here — the
 menu's [ NEW GAME ] is mouse-clickable and that click hands over focus.
+
+## Submitting — read before you upload (checked off the jam page, 26 Jul 16:00)
+
+**Publishing is not submitting.** The jam page's own instruction: "Come back to the
+GMTK Game Jam page and click 'Submit your project'". Only that action attaches the
+game to the jam — it then gets a jam badge on its own page and appears in the jam's
+entry list (4,314 entries at the time of checking), which is where the jury browses
+from. Skip it and the game exists but is invisible to the jam.
+
+**⚠ Nothing can be changed after the close.** The page: "You will not be able to
+submit or change your game after this point - no exceptions!" — and the game stays
+LOCKED through the five-day voting period. Whatever build is up at the deadline is
+the build that gets rated, so the fresh-tab playtest of the itch draft is the last
+chance to catch anything.
+
+**⚠ One-hour ambiguity in the deadline.** The page now reads "the jam closes at 6PM
+BST" (= 20:00 Istanbul), while the reading taken off the same page on 25 Jul said
+17:00 BST (= 19:00 Istanbul). Do not gamble on resolving it: treat **19:00 Istanbul**
+as the personal cutoff. An extra hour, if it exists, is a gift.
+
+Order: publish → play one level in a fresh/incognito tab → jam page → Submit your
+project → confirm the jam badge shows on the game page → then go and rate others.
