@@ -12,7 +12,13 @@ const RARITIES = [
   // rarest slot could never be bought by anyone, ever, and the BUY button just
   // sat greyed out forever. 95 is the most a full purse can pay and still be a
   // purchase, which is exactly the feeling the top rarity is supposed to have.
-  { key: 'unique',   name: 'UNIQUE',   color: '#ff9800', tint: 0xff9800, weight: 3,  salvage: 50,   price: 95 }
+  // UNIQUE is turquoise, house rule: the rarity ladder is always
+  // common white, uncommon light green, rare dark blue, epic dark purple,
+  // legendary gold, mythic pink, unique turquoise — top to bottom, unique highest.
+  // It was orange here, which is also the colour of an S grade, the beaten
+  // personal best and the x3 combo tier, so the rarest item in the game shared
+  // its colour with three unrelated things.
+  { key: 'unique',   name: 'UNIQUE',   color: '#40e0d0', tint: 0x40e0d0, weight: 3,  salvage: 50,   price: 95 }
 ];
 
 // How hard the CORE gem slows the countdown. 0.5 = half speed. A separate

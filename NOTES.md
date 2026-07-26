@@ -2949,3 +2949,23 @@ PRISM had a refusal for stacking a weaker shield, but nothing stopped it being
 eaten by a miss that cost nothing.
 
 `index.html` at `?v=37`.
+
+## UNIQUE is turquoise - 20260726
+
+House rule, now recorded outside this repo as well: the rarity ladder is always
+common white, uncommon light green, rare dark blue, epic dark purple, legendary
+gold, mythic pink, unique turquoise — and unique is the TOP of that ladder
+(unique > mythic > legendary > epic > rare > uncommon > common). A project with
+fewer tiers skips rungs rather than reordering them; this game has five and no
+legendary/mythic, so its top rung is unique and it is turquoise.
+
+UNIQUE was `#ff9800` here, which is also the colour of an S grade (EndScene), a
+beaten personal best and the x3 combo tier — the rarest item in the game shared
+its colour with three unrelated things. Now `#40e0d0`, verified in the bag with
+one item of every rarity side by side: grey / green / blue / purple / turquoise,
+and the turquoise does not read as the rare blue. Single source of truth, so the
+loot line, the salvage line, the bag frame and the battle drop tint all followed
+it (`RARITIES[r].color` / `.tint`); the other `#ff9800` uses in the repo are the
+flame triangles and the three unrelated readouts, all untouched.
+
+`index.html` at `?v=38`.
