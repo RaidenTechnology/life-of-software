@@ -176,8 +176,8 @@ or audio.**
 | Field | Value | Why |
 |---|---|---|
 | Kind of project | HTML + "played in the browser" | — |
-| Genre | **Action** | Single-select. Real-time, timed, speed-based. "Educational" on itch skews to children's learning titles and reads as "not a game"; the teaching side is discoverable through TAGS, which is where itch traffic actually comes from. |
-| Tags | `typing` `roguelite` `pixel-art` `programming` `educational` `countdown` `singleplayer` `phaser` | — |
+| Genre | **Educational** | Changed from Action after checking the actual numbers instead of trusting a hunch. Both are among itch's 18 genre options. Action holds **236,126** games — a jam entry can never surface there; the educational pond is **34,176**, seven times smaller, and its listings include adult programming-learning titles ("Learn Godot's GDScript From Zero") alongside mainstream indie games, so this does not read as school software and lands next to its actual audience. The teaching layer is real enough to earn the label: all 1276 patterns carry a meaning and an example, 937 open a deeper panel, and a CODE REVIEW card fires after every language. Genre is editable after publishing and has no effect on jam rating (judges arrive from the jam list, not itch browse), so this is reversible. |
+| Tags | `typing` `roguelite` `pixel-art` `programming` `countdown` `singleplayer` `action` `phaser` | The counterweight to the genre: "Educational" reads as "not fun" to part of the audience, and these tags stop anyone mistaking it for a worksheet. |
 | Viewport | **960 × 540** | the canvas is exactly this; anything else resamples it |
 | Fullscreen button | **ON** | there is no game-side fullscreen code in this project (unlike STAR BREAKER), and none is needed: Phaser FIT + CENTER_BOTH plus `image-rendering: pixelated` scale cleanly from the iframe's own fullscreen |
 | Enable scrollbars | **OFF** | `html,body{overflow:hidden}` — a scrollbar can only shift the canvas and break click alignment |
